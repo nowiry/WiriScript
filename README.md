@@ -10,8 +10,14 @@ WiriScript is one of the top lua scripts for Stand and the first BIG script ever
 - Carpet Ride and
 - UFO
 
-Download and enjoy.
+Download and enjoy. 
 
+**Fan Club** 
+<br />
+[Join us][fanclub] in our fan club to recieve support, suggest new features and get access to WiriScript's translations. 
+<br />
+
+[<img src="https://friconix.com/png/fi-cnsuxx-discord-alt.png" width="50" height="50" align="center"/>][fanclub]
 ## Installation
 
 - [Download] the required files (WiriScript.lua, resources and lib)
@@ -70,3 +76,4 @@ Download and enjoy.
 - Improved World > Jumping Cars [On/Off] 
 ```
 [Download]: https://github.com/nowiry/WiriScript/archive/refs/heads/main.zip
+[fanclub]: https://cutt.ly/wiriscript-fanclub
