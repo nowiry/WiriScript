@@ -54,7 +54,7 @@ Download and enjoy.
 - Added Vehicle > Vehicle Effect [On/Off] & Select Vehicle Effect >
 - Added World > Angry Planes [On/Off]
 - Added WiriScript > Show Credits
-- Added a translation system
+- Added a translation system (more information about how to use translations and how to translate WiriScript available in WiriScript Fan Club)
 
 - Removed World > Snow On Terrain (already in Stand)
 - Removed Weapon > Current Weapon Editor (almost unsed and most of its features are already in Stand)
