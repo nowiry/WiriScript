@@ -11,3 +11,9 @@ WiriScript is one of the top lua scripts for Stand and the first BIG script ever
 - UFO
 
 Download and enjoy.
+
+## Installation
+
+- Download the required files (WiriScript.lua, resources and lib)
+- Drag and drop those files into `Stand Folder > Lua Scripts`
+- In Stand, go to `Stand > Lua Scripts` and run `WiriScript`
