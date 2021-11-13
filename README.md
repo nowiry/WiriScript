@@ -71,7 +71,6 @@ Download and enjoy.
 - Migrated profiles to individual .json files
 - All settings can be saved using Settings > Save Settings
 
-- Fixed Minitanks fighting each other (again)
 - Improved Player > Trolling & Griefing > Kill as the Orbital Cannon with the appearance of the real orbital cannon
 - Improved Weapon > Magnet Gun [On/Off]
 - Improved World > Jumping Cars [On/Off] 
