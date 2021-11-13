@@ -4847,7 +4847,7 @@ menu.toggle(vehicle_options, menuname('Vehicle', 'UFO'), {'ufo'}, '', function(t
 		CAM.DO_SCREEN_FADE_OUT(600)
 		wait(800)
 		local vehicleHash = joaat('hydra')
-		local objHash = joaat('imp_prop_ship_01a')
+		local objHash = 0xB467C540
 		local pos = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID())
 		pos.z = pos.z + 200
 		
