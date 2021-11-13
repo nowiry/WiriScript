@@ -16,8 +16,9 @@ Download and enjoy.
 <br />
 [Join us][fanclub] in our fan club to recieve support, suggest new features and get access to WiriScript's translations. 
 <br />
-
+<br />
 [<img src="https://friconix.com/png/fi-cnsuxx-discord-alt.png" width="50" height="50" align="center"/>][fanclub]
+
 ## Installation
 
 - [Download] the required files (WiriScript.lua, resources and lib)
