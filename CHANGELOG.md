@@ -11,15 +11,13 @@
 
 - PTFX Gun now takes surface orientation into account
 - Moved Combustion Man to Self
-- Added Weapon > Set Bullet Type > Throwables
-```
-> Flare
-> Granade
-> Granade Launcher
-> Molotov
-> Snow Ball
-> Tear Gas
- ```
+- Added Weapon > Set Bullet Type > Throwables >
+  * Flare
+  * Granade
+  * Granade Launcher
+  * Molotov
+  * Snow Ball
+  * Tear Gas
 - Added Weapon > Teleport Gun [On/Off]
 - Added Weapon > Instant Lock-On [On/Off]
 - Added Weapon > Ammo Speed Mult [100 to 2500] (changes the speed of non-instant hit bullets (rockets, fireworks, granades, etc.))
