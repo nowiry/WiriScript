@@ -61,6 +61,7 @@ UI.new = function()
     local function UI_update()
         cursor_pos = {x = PAD.GET_DISABLED_CONTROL_NORMAL(2, 239), y = PAD.GET_DISABLED_CONTROL_NORMAL(2, 240)}
         directx.draw_texture(cursor_texture, 0.004, 0.004, 0.5, 0, cursor_pos.x, cursor_pos.y, 0, text_colour)
+        PLAYER.DISABLE_PLAYER_FIRING(players.user(), true)
         return cursor_mode
     end
 
@@ -241,9 +242,9 @@ UI.new = function()
     --enable or disable the cursor
     self.toggle_cursor_mode = function(state)
         cursor_mode = state or not cursor_mode
-        PAD._SET_CURSOR_LOCATION(0.5, 0.5)
+        --PAD._SET_CURSOR_LOCATION(0.5, 0.5)
         util.create_tick_handler(UI_update)
-        if cursor_mode then
+        --[[if cursor_mode then
             menu.trigger_commands("disablelookud on")
             menu.trigger_commands("disablelooklr on")
             menu.trigger_commands("disableattack on")
@@ -253,7 +254,7 @@ UI.new = function()
             menu.trigger_commands("disablelooklr off")
             menu.trigger_commands("disableattack off")
             menu.trigger_commands("disableattack2 off")
-        end
+        end]]
     end
     --start a new window
     self.begin = function(unique_title, x, y)
