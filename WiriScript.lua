@@ -6192,7 +6192,6 @@ menu.toggle(world_options, menuname('World', 'Angry Planes'), {}, '', function(t
 		entities.delete(plane.pilot)
 	end
 end)
-menuname('WiriScript - Stats', 'Times Runned')
 
 script = menu.list(menu.my_root(), 'WiriScript', {}, '')
 
@@ -6201,7 +6200,7 @@ menu.divider(script, 'WiriScript')
 local load = false
 local shown = {}
 
-menuname('WiriScript - Stats', 'Times Runned')
+menuname('WiriScript - Stats', 'Times Ran')
 menuname('WiriScript - Stats', 'Users')
 menuname('WiriScript - Stats', 'Current Version')
 
@@ -6219,11 +6218,11 @@ menu.divider(scriptStats, menuname('WiriScript', 'Stats'))
 
 util.create_tick_handler(function()
 	if load then
-		local runned = myPastes.version['paste_hits']
+		local ran = myPastes.version['paste_hits']
 		local date = os.date('%B %d, %Y (a %A) at %X', myPastes.version['paste_date'])
 		local users = pastebin.get_raw(myPastes.users['paste_key'])
 
-		menu.action(scriptStats, menuname('WiriScript - Stats', 'Times Ran')..': '..runned, {}, 'Since: '..date, function()end)
+		menu.action(scriptStats, menuname('WiriScript - Stats', 'Times Ran')..': '..ran, {}, 'Since: '..date, function()end)
 		
 		menu.action(scriptStats, menuname('WiriScript - Stats', 'Users')..': '..users, {}, '', function()end)
 	
