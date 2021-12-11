@@ -6223,7 +6223,7 @@ util.create_tick_handler(function()
 		local date = os.date('%B %d, %Y (a %A) at %X', myPastes.version['paste_date'])
 		local users = pastebin.get_raw(myPastes.users['paste_key'])
 
-		menu.action(scriptStats, menuname('WiriScript - Stats', 'Times Runned')..': '..runned, {}, 'Since: '..date, function()end)
+		menu.action(scriptStats, menuname('WiriScript - Stats', 'Times Ran')..': '..runned, {}, 'Since: '..date, function()end)
 		
 		menu.action(scriptStats, menuname('WiriScript - Stats', 'Users')..': '..users, {}, '', function()end)
 	
