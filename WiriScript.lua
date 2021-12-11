@@ -1,4 +1,4 @@
--------------------------------------------------------------------WiriScript v10---------------------------------------------------------------------------------------
+-------------------------------------------------------------------WiriScript v11---------------------------------------------------------------------------------------
 --[[ Thanks to
 		
 		DeF3c,
@@ -33,7 +33,7 @@ local languages = filesystem.list_files(scriptdir..'\\WiriScript\\Language')
 local owned = false
 local cage_type = 1
 local spoofname, spoofrid = true, true
-local version = 10
+local version = 11
 local spawned_attackers = {}
 local explosive_bandito_sent = false
 local minitank_weapon
@@ -599,166 +599,6 @@ function table.find(t, value)
 	return false
 end
 
-
-
---------------------------------------------------------------------------------------------------------
-
-
-pastebin = {}
-myPastes = {}
-
-function get_param(l)
-	local t = {}
-	for k, l in pairs_by_keys(l, function(a, b) return a < b end) do
-		table.insert(t, table.concat(l, '='))
-	end
-	return table.concat(t, '&')
-end
-
-
--- creates a new paste in pastebin
-function pastebin.post(name, txt, private, expire_date)
-	local url, done
-	local params = {
-		{'api_dev_key', 'qQudj_m0CxpxIOOsUvNyTXd-fjuv9Dvo'},
-		{'api_option', 'paste'},
-		{'api_paste_private', private or 1},
-		{'api_paste_name', name},
-		{'api_user_key','ee65f3c4070ab0806f720d511d544e60'},
-		{'api_paste_expire_date', expire_date or 'N'},
-		--{'api_paste_format', 'lua'},
-		{'api_paste_code', txt}
-	}
-	async_http.init('pastebin.com', '/api/api_post.php', function(output)
-		url = output
-		done = true
-	end, function()
-		util.log('[WiriScript] Failed to connect to Pastebin.')
-		done = true
-	end)
-	async_http.set_post('application/x-www-form-urlencoded', get_param(params))
-	async_http.dispatch()
-	while not done do
-		wait()
-	end
-	return url
-end
-
-
--- returns my pastes list in pastebin
-
-function pastebin.pastes_list()
-	local pastes = {}
-	local done
-	local params = {
-		{'api_dev_key', 'qQudj_m0CxpxIOOsUvNyTXd-fjuv9Dvo'},
-		{'api_user_key','ee65f3c4070ab0806f720d511d544e60'}, --don't copy/paste!!
-		{'api_results_limit',10},
-		{'api_option', 'list'}
-	}
-	async_http.init('pastebin.com', '/api/api_post.php', function(output)
-		local cPaste = {}
-		local cElement = ''
-		parser = slaxml:parser{
-			startElement = function(name,nsURI,nsPrefix)
-				if name ~= 'paste' then
-					cElement = name
-				end
-			end,
-			closeElement = function(name,nsURI)                
-				if name == 'paste' then
-					if cPaste['paste_title'] then
-						local tittle = cPaste['paste_title']
-						pastes[ tittle ] = cPaste
-						cPaste = {}
-					end
-				end
-			end,
-			text = function(text,cdata)                
-				cPaste[ cElement ] = tostring(text) 
-			end,
-		}
-		parser:parse(output, {stripWhitespace=true})
-		done = true
-
-	end, function()
-		util.log('[WiriScript] Failed to connect to Pastebin.')
-		done = true
-	end)
-	async_http.set_post('application/x-www-form-urlencoded', get_param(params))
-	async_http.dispatch()
-	while not done do
-		wait()
-	end
-	return pastes
-end
-
-
-
--- deletes a paste from my pastebin given paste key (this is open code.. damn it)
-function pastebin.delete(key)
-	local done, deleted
-	local params = {
-		{'api_dev_key', 'qQudj_m0CxpxIOOsUvNyTXd-fjuv9Dvo'},
-		{'api_user_key','ee65f3c4070ab0806f720d511d544e60'},
-		{'api_paste_key', key},
-		{'api_option', 'delete'}
-	}
-	async_http.init('pastebin.com', '/api/api_post.php', function() 
-		done = true
-		deleted = true
-	end, function()
-		util.log('[WiriScript] Failed to connect to Pastebin.')
-		deleted = false
-		done = true
-	end)
-	async_http.set_post('application/x-www-form-urlencoded', get_param(params))
-	async_http.dispatch()
-	while not done do
-		wait()
-	end
-	return deleted
-end
-
-
-function pastebin.get_raw(key)
-	local raw, done
-	async_http.init('pastebin.com', '/raw/'..key, function(output)
-		raw = output
-		done = true
-	end, function()
-		util.log('[WiriScript] Failed to connect to Pastebin.')
-		done = true
-	end)
-	async_http.dispatch()
-	while not done do
-		wait()
-	end
-	return raw
-end
-
-
-if not general_config.activation_key_hash or menu.get_activation_key_hash() ~= general_config.activation_key_hash then
-	notification.normal('Loading...')
-	if menu.get_activation_key_hash() ~= 0 then
-		myPastes = pastebin.pastes_list()
-		local paste = myPastes.users
-		if paste then
-			local key = paste.paste_key
-			local users = pastebin.get_raw(key)
-			users = users + 1
-			pastebin.delete(key)
-			pastebin.post('users', users)
-		else
-			pastebin.post('users', 1)
-		end
-		general_config.activation_key_hash = menu.get_activation_key_hash()
-		ini.save(config_file, configlist)
-	end
-end
-
-
-
 --------------------------------------------------------------------------------------------------------
 
 
@@ -1127,13 +967,8 @@ function INSTRUCTIONAL.DRAW(buttons, colour)
 
 		INSTRUCTIONAL.currentsettup = buttons
 	end
-
-	
-
-	
-
 	GRAPHICS.DRAW_SCALEFORM_MOVIE_FULLSCREEN(INSTRUCTIONAL.scaleform, 255, 255, 255, 255, 0)
-	
+
 end
 
 
@@ -6197,45 +6032,7 @@ script = menu.list(menu.my_root(), 'WiriScript', {}, '')
 
 menu.divider(script, 'WiriScript')
 
-local load = false
-local shown = {}
-
-menuname('WiriScript - Stats', 'Times Ran')
-menuname('WiriScript - Stats', 'Users')
-menuname('WiriScript - Stats', 'Current Version')
-
-local scriptStats = menu.list(script, menuname('WiriScript', 'Stats'), {}, '', function()
-	myPastes = pastebin.pastes_list()
-	load = true
-end, function()
-	for k, action in pairs(shown) do
-		menu.delete(action)
-	end
-	shown = {}
-end)
-
-menu.divider(scriptStats, menuname('WiriScript', 'Stats'))
-
-util.create_tick_handler(function()
-	if load then
-		local ran = myPastes.version['paste_hits']
-		local date = os.date('%B %d, %Y (a %A) at %X', myPastes.version['paste_date'])
-		local users = pastebin.get_raw(myPastes.users['paste_key'])
-
-		menu.action(scriptStats, menuname('WiriScript - Stats', 'Times Ran')..': '..ran, {}, 'Since: '..date, function()end)
-		
-		menu.action(scriptStats, menuname('WiriScript - Stats', 'Users')..': '..users, {}, '', function()end)
-	
-		menu.action(scriptStats, menuname('WiriScript - Stats', 'Current Version')..': '..cversion, {}, '', function()end)
-		
-		load = false
-	end
-	return true
-end)
-
-
 menu.hyperlink(menu.my_root(), 'Join WiriScript FanClub', 'https://cutt.ly/wiriscript-fanclub', 'Join us in our fan club, created by komt.')
-
 
 if outdated_translation then
 	notification.normal(('"%s"'):format(general_config.language:gsub("^%l", string.upper))..' is outdated')
