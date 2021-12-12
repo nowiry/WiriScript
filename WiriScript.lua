@@ -23,7 +23,6 @@ sharing your own versions with Stand's community. --]]
 
 util.require_no_lag('natives-1627063482')
 require 'lua_imGUI V2-1'
-slaxml = require 'slaxml'
 UI = UI.new()
 
 local audible = true
