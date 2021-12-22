@@ -1,4 +1,4 @@
--------------------------------------------------------------------WiriScript v11---------------------------------------------------------------------------------------
+-------------------------------------------------------------------WiriScript v12---------------------------------------------------------------------------------------
 --[[ Thanks to
 		
 		DeF3c,
@@ -31,7 +31,7 @@ local scriptdir = filesystem.scripts_dir()
 local languages = filesystem.list_files(scriptdir..'\\WiriScript\\Language')
 local owned = false
 local spoofname, spoofrid = true, true
-local version = 11
+local version = 12
 local spawned_attackers = {}
 local explosive_bandito_sent = false
 local minitank_weapon
