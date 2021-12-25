@@ -4,7 +4,6 @@ WiriScript is one of the top lua scripts for Stand and the first BIG script ever
 - RC Bandito, 
 - Attackers & Enemy Vehicles, 
 - Force & Forcefield, 
-- Piggy Back, 
 - Vehicle Weapons,
 - Combustion Man,
 - Carpet Ride and
