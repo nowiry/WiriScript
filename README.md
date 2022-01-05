@@ -21,13 +21,13 @@ Download and enjoy.
 ## Installation
 
 ### From Repository (recommended)
-- Go to `Stand  > Lua Scripts > Repository > WiriScript`, this will install the script and keep it up to date
+- In your menu go to `Stand  > Lua Scripts > Repository > WiriScript`, this will install the script and keep it up to date
 - Run WiriScript as usual
 
 ### Manual
 
 - [Download] the required files (WiriScript.lua, resources and lib)
-- Drag and drop those files into `Stand Folder > Lua Scripts`
+- Drag those files into `Stand Folder > Lua Scripts`
 - In Stand, go to `Stand > Lua Scripts` and run `WiriScript`
 
 [Download]: https://github.com/nowiry/WiriScript/archive/refs/heads/main.zip
