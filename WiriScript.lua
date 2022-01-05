@@ -1,4 +1,4 @@
--------------------------------------------------------------------WiriScript v13---------------------------------------------------------------------------------------
+-------------------------------------------------------------------WiriScript v14---------------------------------------------------------------------------------------
 --[[ Thanks to
 		
 		DeF3c,
@@ -32,7 +32,7 @@ local scriptdir = filesystem.scripts_dir()
 local languages = filesystem.list_files(scriptdir..'\\WiriScript\\Language')
 local owned = false
 local spoofname, spoofrid = true, true
-local version = 13
+local version = 14
 local spawned_attackers = {}
 local explosive_bandito_sent = false
 local minitank_weapon
@@ -174,7 +174,6 @@ local ini = {
 	end
 }
 
-
 local loaded_config = ini.load(config_file)
 
 if loaded_config then
@@ -195,7 +194,7 @@ function game_notification(message)
 	while not GRAPHICS.HAS_STREAMED_TEXTURE_DICT_LOADED('DIA_ZOMBIE1') do
 		wait()
 	end
-	if not string.match(message, '?$') then message = message .. '.' end
+	if not string.match(message, '[%.?]$') then message = message .. '.' end
 	util.BEGIN_TEXT_COMMAND_THEFEED_POST(message or 'nil')
 	local tittle = 'WiriScript'
 	local subtitle = '~c~Notification'
@@ -206,7 +205,7 @@ end
 
 function stand_notification(message)
 	message = '[WiriScript] ' .. message:gsub('[~]%w[~]', '')
-	if not string.match(message, '[%.?]$') then text = text .. '.' end
+	if not string.match(message, '[%.?]$') then message = message .. '.' end
 	util.toast(message, TOAST_ABOVE_MAP)
 end
 
@@ -2895,6 +2894,7 @@ GenerateFeatures = function(pid)
 	menu.action(tpvehicle, menuname('Vehicle - Teleport', 'TP to Me'), {}, '', function()
 		local pos = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID(), false)
 		local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
+		if vehicle == 0 then return end
 		REQUEST_CONTROL_LOOP(vehicle)
 		ENTITY.SET_ENTITY_COORDS(vehicle, pos.x, pos.y, pos.z, false, false, false)
 	end)
@@ -2902,6 +2902,7 @@ GenerateFeatures = function(pid)
 	menu.action(tpvehicle, menuname('Vehicle - Teleport', 'TP to Ocean'), {}, '', function()
 		local pos = {x = -4809.93, y = -2521.67, z = 250}
 		local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
+		if vehicle == 0 then return end
 		REQUEST_CONTROL_LOOP(vehicle)
 		ENTITY.SET_ENTITY_COORDS(vehicle, pos.x, pos.y, pos.z, false, false, false)
 	end)
@@ -2909,6 +2910,7 @@ GenerateFeatures = function(pid)
 	menu.action(tpvehicle, menuname('Vehicle - Teleport', 'TP to Prision'), {}, '', function()
 		local pos = {x = 1680.11, y = 2512.89, z = 45.56}
 		local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
+		if vehicle == 0 then return end
 		REQUEST_CONTROL_LOOP(vehicle)
 		ENTITY.SET_ENTITY_COORDS(vehicle, pos.x, pos.y, pos.z, false, false, false)
 	end)
@@ -2916,6 +2918,7 @@ GenerateFeatures = function(pid)
 	menu.action(tpvehicle, menuname('Vehicle - Teleport', 'TP to Fort Zancudo'), {}, '', function()
 		local pos = {x = -2219.0583, y = 3213.0232, z = 32.8102}
 		local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
+		if vehicle == 0 then return end
 		REQUEST_CONTROL_LOOP(vehicle)
 		ENTITY.SET_ENTITY_COORDS(vehicle, pos.x, pos.y, pos.z, false, false, false)
 	end)
@@ -2926,6 +2929,7 @@ GenerateFeatures = function(pid)
 		if blip ~= 0 then
 			local pos = HUD.GET_BLIP_COORDS(blip)
 			local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
+			if vehicle == 0 then return end
 			REQUEST_CONTROL_LOOP(vehicle)
 			ENTITY.SET_ENTITY_COORDS(vehicle, pos.x, pos.y, pos.z, false, false, false)
 		else
@@ -2944,7 +2948,7 @@ GenerateFeatures = function(pid)
 
 	menu.action(acrobatics, menuname('Vehicle - Acrobatics', 'Ollie'), {}, '', function()
 		local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
-		if VEHICLE.IS_VEHICLE_ON_ALL_WHEELS(vehicle) then
+		if vehicle ~= 0 and VEHICLE.IS_VEHICLE_ON_ALL_WHEELS(vehicle) then
 			REQUEST_CONTROL_LOOP(vehicle)
 			ENTITY.APPLY_FORCE_TO_ENTITY(vehicle, 1, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 1, false, true, true, true, true)
 		end
@@ -2960,7 +2964,7 @@ GenerateFeatures = function(pid)
 
 	menu.action(acrobatics, menuname('Vehicle - Acrobatics', 'Double Kick Flip'), {}, '', function()
 		local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
-		if VEHICLE.IS_VEHICLE_ON_ALL_WHEELS(vehicle) then
+		if vehicle ~= 0 and VEHICLE.IS_VEHICLE_ON_ALL_WHEELS(vehicle) then
 			REQUEST_CONTROL_LOOP(vehicle)
 			ENTITY.APPLY_FORCE_TO_ENTITY(vehicle, 1, 0.0, 0.0, 21.43, 20.0, 0.0, 0.0, 1, false, true, true, true, true)
 		end
@@ -2968,7 +2972,7 @@ GenerateFeatures = function(pid)
 
 	menu.action(acrobatics, menuname('Vehicle - Acrobatics', 'Heel Flip'), {}, '', function()
 		local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
-		if VEHICLE.IS_VEHICLE_ON_ALL_WHEELS(vehicle) then
+		if vehicle ~= 0 and VEHICLE.IS_VEHICLE_ON_ALL_WHEELS(vehicle) then
 			REQUEST_CONTROL_LOOP(vehicle)
 			ENTITY.APPLY_FORCE_TO_ENTITY(vehicle, 1, 0.0, 0.0, 10.71, -5.0, 0.0, 0.0, 1, false, true, true, true, true)
 		end
@@ -2980,6 +2984,7 @@ GenerateFeatures = function(pid)
 	
 	menu.action(vehicleOpt, menuname('Vehicle', 'Kill Engine'), {}, '', function()
 		local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
+		if vehicle == 0 then return end
 		REQUEST_CONTROL_LOOP(vehicle)
 		VEHICLE.SET_VEHICLE_ENGINE_HEALTH(vehicle, -4000)
 	end)
@@ -2990,6 +2995,7 @@ GenerateFeatures = function(pid)
 	
 	menu.action(vehicleOpt, menuname('Vehicle', 'Clean'), {}, '', function()
 		local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
+		if vehicle == 0 then return end
 		REQUEST_CONTROL_LOOP(vehicle)
 		VEHICLE.SET_VEHICLE_DIRT_LEVEL(vehicle, 0.0)
 	end)
@@ -3001,6 +3007,7 @@ GenerateFeatures = function(pid)
 
 	menu.action(vehicleOpt, menuname('Vehicle', 'Repair'), {}, '', function()
 		local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
+		if vehicle == 0 then return end
 		REQUEST_CONTROL_LOOP(vehicle)
 		VEHICLE.SET_VEHICLE_FIXED(vehicle)
 		VEHICLE.SET_VEHICLE_DEFORMATION_FIXED(vehicle)
@@ -3023,6 +3030,7 @@ GenerateFeatures = function(pid)
 
 	menu.action(vehicleOpt, menuname('Vehicle', 'Upgrade'), {}, '', function()
 		local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
+		if vehicle == 0 then return end
 		REQUEST_CONTROL_LOOP(vehicle)
 		VEHICLE.SET_VEHICLE_MOD_KIT(vehicle, 0)
 		for i = 0, 50 do
@@ -3036,6 +3044,7 @@ GenerateFeatures = function(pid)
 	
 	menu.action(vehicleOpt, menuname('Vehicle', 'Burst Tires'), {}, '', function()
 		local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
+		if vehicle == 0 then return end
 		REQUEST_CONTROL_LOOP(vehicle)
 		VEHICLE.SET_VEHICLE_TYRES_CAN_BURST(vehicle, true)
 		for wheelId = 0, 7 do
@@ -3049,8 +3058,10 @@ GenerateFeatures = function(pid)
 	
 	menu.action(vehicleOpt, menuname('Vehicle', 'Catapult'), {}, '', function()
 		local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
-		REQUEST_CONTROL_LOOP(vehicle)
-		ENTITY.APPLY_FORCE_TO_ENTITY(vehicle, 1, 0.0, 0.0, 9999, 0.0, 0.0, 0.0, 1, false, true, true, true, true)
+		if vehicle ~= 0 and VEHICLE.IS_VEHICLE_ON_ALL_WHEELS(vehicle) then
+			REQUEST_CONTROL_LOOP(vehicle)
+			ENTITY.APPLY_FORCE_TO_ENTITY(vehicle, 1, 0.0, 0.0, 9999, 0.0, 0.0, 0.0, 1, false, true, true, true, true)
+		end	
 	end)
 
 	-------------------------------------
@@ -3059,6 +3070,7 @@ GenerateFeatures = function(pid)
 	
 	menu.action(vehicleOpt, menuname('Vehicle', 'Boost Forward'), {}, '', function()
 		local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
+		if vehicle == 0 then return end
 		REQUEST_CONTROL_LOOP(vehicle)
 		local unitv = ENTITY.GET_ENTITY_FORWARD_VECTOR(vehicle)
 		local force = vect.mult(unitv, 30)
@@ -3073,6 +3085,7 @@ GenerateFeatures = function(pid)
 	
 	menu.toggle(vehicleOpt, menuname('Vehicle', 'God Mode'), {}, '', function(toggle)
 		local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
+		if vehicle == 0 then return end
 		REQUEST_CONTROL_LOOP(vehicle)
 		ENTITY.SET_ENTITY_INVINCIBLE(vehicle, toggle)
 		ENTITY.SET_ENTITY_PROOFS(vehicle, toggle, toggle, toggle, toggle, toggle, toggle, 1, toggle)
@@ -3104,6 +3117,7 @@ GenerateFeatures = function(pid)
 
 	menu.toggle(vehicleOpt, menuname('Vehicle', 'Invisible'), {}, '', function(toggle)
 		local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
+		if vehicle == 0 then return end
 		REQUEST_CONTROL_LOOP(vehicle)
 		ENTITY.SET_ENTITY_VISIBLE(vehicle, not toggle, false)
 	end)
@@ -3114,6 +3128,7 @@ GenerateFeatures = function(pid)
 
 	menu.toggle(vehicleOpt, menuname('Vehicle', 'Freeze'), {}, '', function(toggle)
 		local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
+		if vehicle == 0 then return end
 		REQUEST_CONTROL_LOOP(vehicle)
 		ENTITY.FREEZE_ENTITY_POSITION(vehicle, toggle)
 	end)
@@ -3124,6 +3139,7 @@ GenerateFeatures = function(pid)
 
 	menu.toggle(vehicleOpt, menuname('Vehicle', 'Child Lock'), {}, '', function(toggle)
 		local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
+		if vehicle == 0 then return end
 		REQUEST_CONTROL_LOOP(vehicle)
 		if toggle then
 			VEHICLE.SET_VEHICLE_DOORS_LOCKED(vehicle, 4)
@@ -3856,7 +3872,7 @@ local ammo_ptrs = --belongs to ammo type 4
 	['Grenade Launcher']= {['hash'] = 0xA284510B},
 	--['RPG'] 			= {['hash']	= 0xB1CA77B1},
 	--['Sticky Bomb'] 	= {['hash'] = 0x2C3731D9},
-	['Granade'] 		= {['hash'] = 0x93E220BD},
+	['Grenade'] 		= {['hash'] = 0x93E220BD},
 	['Molotov'] 		= {['hash'] = 0x24B17070},
 	['Tear Gas'] 		= {['hash'] = 0xFDBC8A50},
 	['Snow Ball'] 		= {['hash'] = 0x787F0BB},
@@ -3873,7 +3889,7 @@ local from_memory = false
 local default_bullet = {}
 
 
-function GET_CURRENT_WEAPON_AMMO_TYPE() --returns 4 if OBJECT (Rocket, granade, etc.), and 2 if INSTANT HIT
+function GET_CURRENT_WEAPON_AMMO_TYPE() --returns 4 if OBJECT (Rocket, grenade, etc.), and 2 if INSTANT HIT
 	local offsets = {
 		0x08,
 		0x10D8,
@@ -4325,7 +4341,7 @@ function SET_AMMO_SPEED_MULT(mult)
 end
 
 
-menu.click_slider(weapon_options, menuname('Weapon', 'Bullet Speed Mult'), {'ammospeedmult'},  'Allows you to change the speed of non-instant hit bullets (rockets, fireworks, granades, etc.)', 100, 2500, 100, 50, function(mult)
+menu.click_slider(weapon_options, menuname('Weapon', 'Bullet Speed Mult'), {'ammospeedmult'},  'Allows you to change the speed of non-instant hit bullets (rockets, fireworks, grenades, etc.)', 100, 2500, 100, 50, function(mult)
 	speed_mult = mult / 100
 	if speed_mult == 1 then
 		for addr,  value in pairs(default_speed) do
@@ -4403,7 +4419,6 @@ menu.toggle(weapon_options, menuname('Weapon', 'Magnet Entities'), {}, '', funct
 				entities = {}
 			end
 		end
-
 		return magnetent
 	end)
 end)
@@ -5032,9 +5047,11 @@ local heli
 local object
 local zoom = 0.0
 local lastzoom
-local ifov = alloc(); memory.write_float(ifov, 110)
+local ifov = alloc()
+memory.write_float(ifov, 110)
 local counting
-local charge = alloc(); memory.write_float(charge, 1.0)
+local charge = alloc()
+memory.write_float(charge, 1.0)
 local countdown = 3
 local camaddr
 
@@ -6219,7 +6236,7 @@ while true do
 		handling.vehicle_model = GET_USER_VEHICLE_MODEL()
 
 		if PAD.IS_CONTROL_JUST_PRESSED(2, 323) then
-			UI.toggle_cursor_mode() 
+			UI.toggle_cursor_mode()
 			handling.cursor_mode = not handling.cursor_mode
 		end
 
