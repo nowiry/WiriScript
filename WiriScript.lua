@@ -1,16 +1,15 @@
--------------------------------------------------------------------WiriScript v14---------------------------------------------------------------------------------------
+-------------------------------------------------------------------WiriScript v15---------------------------------------------------------------------------------------
 --[[ Thanks to
 		
 		DeF3c,
 		Hollywood Collins,
 		Murten,
-		MrPainKiller for the name suggestion,	
 		Koda,
 		ICYPhoenix,
 		jayphen,
 		Fwishky,
 		Polygon
-		komt, <3
+		komt,
 		Ren, 
 		Sainan,
 		NONECKED
@@ -21,7 +20,7 @@ This is an open code for you to use and share. Feel free to add, modify or remov
 sharing your own versions with Stand's community. --]]
 -------------------------------------------------------------------by: nowiry------------------------------------------------------------------------------------------
 
-require 'natives-1640181023'
+util.require_natives(1640181023)
 require 'lua_imGUI V2-1'
 json = require 'pretty.json'
 UI = UI.new()
@@ -29,10 +28,12 @@ UI = UI.new()
 local audible = true
 local delay = 300
 local scriptdir = filesystem.scripts_dir()
-local languages = filesystem.list_files(scriptdir..'\\WiriScript\\Language')
+local wiridir = scriptdir .. "\\WiriScript"
+local languagedir = wiridir .. "\\language"
 local owned = false
 local spoofname, spoofrid = true, true
-local version = 14
+local version = 15
+local ini = {}
 local spawned_attackers = {}
 local explosive_bandito_sent = false
 local minitank_weapon
@@ -65,7 +66,8 @@ config = {
 		displayhealth = true,
 		language = 'english',
 		disablelockon = false,
-		disablepreview = false
+		disablepreview = false,
+		bustedfeatures = false
 	},
 	onfocuscolour = {
 		r = 164,
@@ -131,50 +133,48 @@ end
 
 local config_file = (scriptdir..'\\WiriScript\\config.ini')
 
-local ini = {
-	['save'] = function(file, t)
-		file = io.open(file, 'w')
-		local contents = ''
-		for section, s in pairs_by_keys(t) do
-			contents = contents..('[%s]\n'):format(section)
-			for key, value in pairs(s) do
-				if string.len(key) == 1 then key = string.upper(key) end
-				contents = contents..('%s = %s\n'):format(key, tostring(value))
-			end
-			contents = contents..'\n'
-		end
-		file:write(contents)
-		file:close()
-	end,
-	
-	['load'] = function(file)
-		if not filesystem.exists(file) then
-			return
-		end
 
-		local t = {}
-		local section
-
-		for line in io.lines(file) do
-			local strg = line:match('^%[([^%]]+)%]$')
-			if strg then
-				section = strg
-				t[section] = t[section] or {}
-			end
-			local key, value = line:match('^([%w_]+)%s*=%s*(.+)$')
-			if key and value ~= nil then
-				if string.len(key) == 1 then key = string.lower(key) end
-				if value == 'true' then value = true end
-				if value == 'false' then value = false end
-				if tonumber(value) then value = tonumber(value) end
-				t[section][key] = value
-			end
+function ini.save(file, t)
+	file = io.open(file, 'w')
+	local contents = ''
+	for section, s in pairs_by_keys(t) do
+		contents = contents..('[%s]\n'):format(section)
+		for key, value in pairs(s) do
+			if string.len(key) == 1 then key = string.upper(key) end
+			contents = contents..('%s = %s\n'):format(key, tostring(value))
 		end
-		return t
+		contents = contents..'\n'
 	end
-}
+	file:write(contents)
+	file:close()
+end
+
+
+function ini.load(file)
+	if not filesystem.exists(file) then return end
+	local t = {}
+	local section
+	for line in io.lines(file) do
+		local strg = line:match('^%[([^%]]+)%]$')
+		if strg then
+			section = strg
+			t[section] = t[section] or {}
+		end
+		local key, value = line:match('^([%w_]+)%s*=%s*(.+)$')
+		if key and value ~= nil then
+			if string.len(key) == 1 then key = string.lower(key) end
+			if value == 'true' then value = true end
+			if value == 'false' then value = false end
+			if tonumber(value) then value = tonumber(value) end
+			t[section][key] = value
+		end
+	end
+	return t
+end
+
 
 local loaded_config = ini.load(config_file)
+
 
 if loaded_config then
 	for s, table in pairs(loaded_config) do
@@ -254,7 +254,6 @@ function menuname(section, name)
 	if general_config.language ~= 'english' then
 		menunames[ section ] = menunames[ section ] or {}
 		if not menunames[ section ][ name ] and menunames[ section ][ name ] ~= '' then
-			outdated_translation = true
 			menunames[ section ][ name ] = ''
 			return name
 		end
@@ -269,14 +268,17 @@ end
 
 
 if general_config.language ~= 'english' then
-	local file = scriptdir..'\\WiriScript\\Language\\'..general_config.language..'.json'
-	
+	local file = languagedir .. '\\' .. general_config.language .. '.json'
 	if not filesystem.exists(file) then
 		notification.red('Translation file not found')
 	else
-		file = io.open(file, "r")
-		local loaded = json.parse(file:read("a"), false)
-		menunames = loaded
+		file = io.open(file, 'r')
+		local content = file:read('a')
+        file:close()
+		if string.len(content) > 0 then 
+			local loaded = json.parse(content, false)
+			menunames = loaded
+        end
 	end
 end
 
@@ -285,8 +287,8 @@ async_http.init('pastebin.com', '/raw/EhH1C6Dh', function(output)
 	local cversion = tonumber(output)
 	if cversion then 
 		if cversion > version then	
-    	    notification.red('WiriScript v'..output..' is available')
-			menu.hyperlink(menu.my_root(), 'Get WiriScript v'..output, 'https://cutt.ly/get-wiriscript', '')
+    	    notification.red('WiriScript v' .. output .. ' is available')
+			menu.hyperlink(menu.my_root(), 'Get WiriScript v' .. output, 'https://cutt.ly/get-wiriscript', '')
     	end
 	end
 end, function()
@@ -470,13 +472,6 @@ function atan2(y, x)
 end
 
 
-function toggle_command(command, bool)
-	local state
-	if bool then state = ' on' else state = ' off' end
-	menu.trigger_commands(command .. state)
-end
-
-
 function GET_ROTATION_FROM_DIRECTION(v)
 	local mag = vect.mag(v)
 	local rotation = {
@@ -654,7 +649,6 @@ function GET_NEARBY_PEDS(pid, radius) --returns a list of nearby peds given play
 	local peds = {}
 	local p = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pid)
 	local pos = ENTITY.GET_ENTITY_COORDS(p)
-	
 	for k, ped in pairs(entities.get_all_peds_as_handles()) do
 		if ped ~= p then
 			local ped_pos = ENTITY.GET_ENTITY_COORDS(ped)
@@ -670,7 +664,6 @@ function GET_NEARBY_VEHICLES(pid, radius) --returns a list of nearby vehicles gi
 	local p = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pid)
 	local pos = ENTITY.GET_ENTITY_COORDS(p)
 	local v = PED.GET_VEHICLE_PED_IS_IN(p, false)
-
 	for k, vehicle in pairs(entities.get_all_vehicles_as_handles()) do 
 		local veh_pos = ENTITY.GET_ENTITY_COORDS(vehicle)
 		if vehicle ~= v and vect.dist(pos, veh_pos) <= radius then table.insert(vehicles, vehicle) end
@@ -708,17 +701,14 @@ function DELETE_NEARBY_VEHICLES(pos, model, radius)
 end
 
 
-function DELETE_NEARBY_PEDS(pos, model, radius)
+function DELETE_PEDS(model)
 	local hash = joaat(model)
 	local peds = entities.get_all_peds_as_handles()
 	for k, ped in pairs(peds) do
-		if ENTITY.DOES_ENTITY_EXIST(ped) and ENTITY.GET_ENTITY_MODEL(ped) == hash then
-			local ppos = ENTITY.GET_ENTITY_COORDS(ped, false)
-			if not PED.IS_PED_A_PLAYER(ped) and vect.dist(pos, ppos) < radius then
-				REQUEST_CONTROL_LOOP(ped)
-				ENTITY.SET_ENTITY_AS_MISSION_ENTITY(ped, true, true)
-				entities.delete_by_handle(ped)
-			end
+		if ENTITY.GET_ENTITY_MODEL(ped) == hash and not PED.IS_PED_A_PLAYER(ped) then
+			REQUEST_CONTROL_LOOP(ped)
+			ENTITY.SET_ENTITY_AS_MISSION_ENTITY(ped, true, true)
+			entities.delete_by_handle(ped)
 		end
 	end
 end
@@ -1017,13 +1007,12 @@ function DRAW_STRING(s, x, y, scale, font)
 	HUD.BEGIN_TEXT_COMMAND_DISPLAY_TEXT('STRING')
 	HUD.SET_TEXT_FONT(font or 0)
 	HUD.SET_TEXT_SCALE(scale, scale)
-	--HUD.SET_TEXT_DROP_SHADOW()
+	HUD.SET_TEXT_DROP_SHADOW()
 	HUD.SET_TEXT_WRAP(0.0, 1.0)
 	HUD.SET_TEXT_DROPSHADOW(1, 0, 0, 0, 0)
 	HUD.SET_TEXT_OUTLINE()
 	HUD.SET_TEXT_EDGE(1, 0, 0, 0, 0)
 	HUD.SET_TEXT_OUTLINE()
-	
 	HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(s)
 	HUD.END_TEXT_COMMAND_DISPLAY_TEXT(x, y)
 end
@@ -1053,7 +1042,7 @@ end
 
 
 function DISPLAY_ONSCREEN_KEYBOARD(windowName, maxInput, defaultText)
-	MISC.DISPLAY_ONSCREEN_KEYBOARD(0, "BS_WB_VAL", "", defaultText, "", "", "", maxInput);
+	MISC.DISPLAY_ONSCREEN_KEYBOARD(0, windowName, "", defaultText, "", "", "", maxInput);
 	while MISC.UPDATE_ONSCREEN_KEYBOARD() == 0 do
 		wait()
 	end
@@ -1260,7 +1249,7 @@ menu.divider(language_settings, 'Language')
 
 
 menu.action(language_settings, 'Create New Translation', {}, 'Creates a file you can use to make a new WiriScript translation', function()
-	local file = scriptdir .. '\\WiriScript\\new translation.json'
+	local file = wiridir .. 'new translation.json'
 	local content = json.stringify(features, nil, 4)
 	file = io.open(file, 'w')
 	file:write(content)
@@ -1280,7 +1269,7 @@ if general_config.language ~= 'english' then
 				end
 			end
 		end
-		local file = scriptdir..'\\WiriScript\\'..general_config.language..' (update).json'
+		local file = wiridir .. general_config.language .. ' (update).json'
 		local content = json.stringify(menunames, nil, 4)
 		file = io.open(file, 'w')
 		file:write(content)
@@ -1304,11 +1293,11 @@ if general_config.language ~= 'english' then
 end
 
 
-for k, path in pairs_by_keys(languages) do
+for i, path in ipairs(filesystem.list_files(languagedir)) do
 	local filename, ext = string.match(path, '^.+\\(.+)%.(.+)$')
 	if ext == 'json' and general_config.language ~= filename then
 		local actionId
-		actionId = menu.action(language_settings, filename:gsub("^%l", string.upper), {}, '', function()
+		actionId = menu.action(language_settings, firstUpper(filename), {}, '', function()
 			general_config.language = filename
 			ini.save(config_file, config)
             menu.show_warning(actionId, CLICK_MENU, 'Would you like to restart the script now?', function()
@@ -1328,11 +1317,11 @@ local healthtxt = menu.list(settings, menuname('Settings', 'Health Text Position
 local _x, _y =  directx.get_client_size()
 
 menu.slider(healthtxt, 'X', {'healthx'}, '', 0, _x, round(_x * config.healthtxtpos['x']) , 1, function(x)
-	config.healthtxtpos['x'] = x / _x
+	config.healthtxtpos['x'] = round(x/_x, 4)
 end)
 
 menu.slider(healthtxt, 'Y', {'healthy'}, '', 0, _y, round(_y * config.healthtxtpos['y']), 1, function(y)
-	config.healthtxtpos['y'] = y / _y
+	config.healthtxtpos['y'] = round(y/_y, 4)
 end)
 
 
@@ -1427,6 +1416,15 @@ menu.colour(handling_editor_settings, menuname('Settings - Handling Editor', 'Bu
 	config.buttonscolour = colour.mult(new, 255)
 end)
 
+-------------------------------------
+
+menu.toggle(settings, menuname('Settings', 'Busted Features'), {}, 'Allows you to use some previously removed features', function(toggle)
+	general_config.bustedfeatures = toggle
+	if general_config.bustedfeatures then
+		util.show_corner_help('Busted features were previously removed because they are now limited/not working as expected, keep that in mind when you use them. Please restart WiriScript to commit changes.')
+		ini.save(config_file, config)
+	end
+end, general_config.bustedfeatures)
 
 -------------------------------------
 --SPOOFING PROFILE
@@ -1441,25 +1439,24 @@ function add_profile(table)
 	local name = table.name
 	local rid = table.rid
 
-	local profile_actions = menu.list(profiles_root, name, {'profile'..name}, '')
+	local profile_actions = menu.list(profiles_root, name, {'profile' .. name}, '')
 
 	menu.divider(profile_actions, name)
 
 	menu.action(profile_actions, menuname('Spoofing Profile - Profile', 'Enable Spoofing Profile'), {'enable'..name}, '', function()
 		usingprofile = true 
 		if spoofname then
-			menu.trigger_commands('spoofedname '..name)
+			menu.trigger_commands('spoofedname ' .. name)
 			menu.trigger_commands('spoofname on')
 		end
 		if spoofrid then
-			menu.trigger_commands('spoofedrid '..rid)
+			menu.trigger_commands('spoofedrid ' .. rid)
 			menu.trigger_commands('spoofrid hard')
 		end
-		notification.normal('Spoofing profile enabled. You\'ll need to change sessions for others to see the difference')
 	end)
 
 	menu.action(profile_actions, menuname('Spoofing Profile - Profile', 'Delete'), {}, '', function()
-		os.remove(scriptdir..'\\WiriScript\\Profiles\\' .. name .. '.json')
+		os.remove(wiridir .. '\\profiles\\' .. name .. '.json')
 		for k, profile in ipairs(profiles_list) do
 			if profile == table then 
 				restore_profile = menu.action(recycle_bin, name, {}, 'Click to restore', function()
@@ -1492,10 +1489,10 @@ function save_profile(profile)
 		end
 	end
 	table.insert(profiles_list, profile)
-	local file = io.open(scriptdir..'\\WiriScript\\Profiles\\' .. profile.name .. '.json', 'w')
+	local file = io.open(wiridir .. '\\Profiles\\' .. profile.name .. '.json', 'w')
 	local content = json.stringify(profile, nil, 4)
 	file:write(content)
-	file :close()
+	file:close()
 	add_profile(profile)
 	return true
 end
@@ -1503,9 +1500,7 @@ end
 
 menu.action(profiles_root, menuname('Spoofing Profile', 'Disable Spoofing Profile'), {'disableprofile'}, '', function()
 	if usingprofile then 
-		menu.trigger_commands('spoofname off')
-		menu.trigger_commands('spoofrid off')
-		notification.normal('Spoofing profile disabled. You will need to change sessions for others to see the change')
+		menu.trigger_commands('spoofname off; spoofrid off')
 		usingprofile = false
 	else
 		notification.red('You are not using any spoofing profile')
@@ -1513,8 +1508,8 @@ menu.action(profiles_root, menuname('Spoofing Profile', 'Disable Spoofing Profil
 end)
 
 
-if filesystem.exists(scriptdir..'\\WiriScript\\Profiles.data') then
-	local profiles_data = (scriptdir..'\\WiriScript\\Profiles.data')
+if filesystem.exists(wiridir .. '\\profiles.data') then
+	local profiles_data = (wiridir .. '\\profiles.data')
 	for line in io.lines(profiles_data) do
 		local profile = json.parse(line)	
 		save_profile(profile)
@@ -1560,12 +1555,22 @@ recycle_bin = menu.list(profiles_root, menuname('Spoofing Profile', 'Recycle Bin
 menu.divider(profiles_root, menuname('Spoofing Profile', 'Spoofing Profile') )
 
 
-for i, file in ipairs(filesystem.list_files(scriptdir..'\\WiriScript\\Profiles')) do
-	file = io.open(file, 'r')
-	local profile = json.parse(file:read("a"), false)
-	file:close()
-	table.insert(profiles_list, profile)
-	add_profile(profile)
+for i, path in ipairs(filesystem.list_files(wiridir .. '\\profiles')) do
+	local filename, ext = string.match(path, '^.+\\(.+)%.(.+)$')
+	if ext == "json" then
+		local file = io.open(path, 'r')
+		local content = file:read('a')
+		file:close()
+		if string.len(content) > 0 then
+			local profile = json.parse(content, false)
+			if profile.name and profile.rid ~= nil then
+				table.insert(profiles_list, profile)
+				add_profile(profile)
+			end
+		end
+	else
+		os.remove(path)
+	end
 end
 
 
@@ -1828,6 +1833,7 @@ GenerateFeatures = function(pid)
 			attacker.random_weapon = false
 			attacker.weapon = weapon
 			menu.set_menu_name(ped_weapon_list, menuname('Trolling - Attacker Options', 'Set Weapon')..': '..k, {}, '')	
+			menu.trigger_command(attacker_options, '')
 		end)
 	end
 	
@@ -1835,6 +1841,7 @@ GenerateFeatures = function(pid)
 	menu.action(ped_weapon_list, 'Random Weapon', {}, '', function()
 		attacker.random_weapon = true
 		menu.set_menu_name(ped_weapon_list, menuname('Trolling - Attacker Options', 'Set Weapon')..': Random', {}, '')	
+		menu.trigger_command(attacker_options, '')
 	end)
 
 
@@ -1843,6 +1850,7 @@ GenerateFeatures = function(pid)
 			attacker.random_weapon = false
 			attacker.weapon = weapon
 			menu.set_menu_name(ped_weapon_list, menuname('Trolling - Attacker Options', 'Set Weapon')..': '..k)
+			menu.trigger_command(attacker_options, '')
 		end)
 	end
 
@@ -1854,6 +1862,7 @@ GenerateFeatures = function(pid)
 	menu.action(ped_list, 'Random Model', {}, '', function()
 		attacker.random_model = true
 		menu.set_menu_name(ped_list, menuname('Trolling - Attacker Options', 'Set Model')..': Random')
+		menu.trigger_command(attacker_options, '')
 	end)
 
 
@@ -1862,6 +1871,7 @@ GenerateFeatures = function(pid)
 			attacker.random_model = false
 			attacker.model = model
 			menu.set_menu_name(ped_list, menuname('Trolling - Attacker Options', 'Set Model')..': '..k)
+			menu.trigger_command(attacker_options, '')
 		end)
 	end
 
@@ -1993,7 +2003,7 @@ GenerateFeatures = function(pid)
 		local p = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pid)
 		local pos = ENTITY.GET_ENTITY_COORDS(p, false)
 		for k, model in pairs(spawned_attackers) do
-			DELETE_NEARBY_PEDS(pos, model, 1000.0)
+			DELETE_PEDS(model)
 			spawned_attackers[k] = nil
 		end
 	end)
@@ -2011,13 +2021,13 @@ GenerateFeatures = function(pid)
 		local player_ped = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pid)
 		local pos = ENTITY.GET_ENTITY_COORDS(player_ped) 
 		if PED.IS_PED_IN_ANY_VEHICLE(player_ped, false) then
-			menu.trigger_commands('freeze'..PLAYER.GET_PLAYER_NAME(pid)..' on')
+			menu.trigger_commands('freeze' .. PLAYER.GET_PLAYER_NAME(pid) .. ' on')
 			wait(500)
 			if PED.IS_PED_IN_ANY_VEHICLE(player_ped, false) then
-				menu.trigger_commands('freeze'..PLAYER.GET_PLAYER_NAME(pid)..' off')
+				menu.trigger_commands('freeze' .. PLAYER.GET_PLAYER_NAME(pid) .. ' off')
 				return false
 			end
-			menu.trigger_commands('freeze'..PLAYER.GET_PLAYER_NAME(pid)..' off')
+			menu.trigger_commands('freeze' .. PLAYER.GET_PLAYER_NAME(pid) .. ' off')
 		end
 		return true
 	end
@@ -2112,6 +2122,36 @@ GenerateFeatures = function(pid)
 		ENTITY.SET_ENTITY_ROTATION(obj, rot.x, 90.0, rot.z, 1, true)
 		STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(hash)
 	end)
+
+	-------------------------------------
+	--RAPE
+	-------------------------------------
+
+	if general_config.bustedfeatures then
+		menu.toggle(trolling_list, menuname('Trolling - Rape', 'Rape'), {}, 'Busted feature.', function(on)
+			rape = on
+			if pid == players.user() then return end		
+			if rape then
+				piggyback = false
+				local p = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pid)
+				local pos = ENTITY.GET_ENTITY_COORDS(p, false)
+				STREAMING.REQUEST_ANIM_DICT('rcmpaparazzo_2')
+				while not STREAMING.HAS_ANIM_DICT_LOADED('rcmpaparazzo_2') do
+					wait()
+				end
+				TASK.TASK_PLAY_ANIM(PLAYER.PLAYER_PED_ID(), 'rcmpaparazzo_2', 'shag_loop_a', 8, -8, -1, 1, 0, false, false, false)
+				ENTITY.ATTACH_ENTITY_TO_ENTITY(PLAYER.PLAYER_PED_ID(), p, 0, 0, -0.3, 0, 0, 0, 0, false, true, false, false, 0, true)
+				while rape do
+					wait()
+					if not NETWORK.NETWORK_IS_PLAYER_CONNECTED(pid) then
+						rape = false
+					end
+				end
+				TASK.CLEAR_PED_TASKS_IMMEDIATELY(PLAYER.PLAYER_PED_ID())
+				ENTITY.DETACH_ENTITY(PLAYER.PLAYER_PED_ID(), true, false)
+			end
+		end)
+	end
 
 	-------------------------------------
 	--ENEMY VEHICLES
@@ -2212,6 +2252,7 @@ GenerateFeatures = function(pid)
 	menu.action(menu_minitank_weapon, 'Random Weapon', {}, '', function()
 		random_minitank_weapon = true
 		menu.set_menu_name(menu_minitank_weapon, menuname('Trolling - Enemy Vehicles', 'Minitank Weapon')..': Random')
+		menu.trigger_command(enemy_vehicles, '')
 	end)
 
 
@@ -2220,6 +2261,7 @@ GenerateFeatures = function(pid)
 			minitank_weapon = weapon
 			random_minitank_weapon = false
 			menu.set_menu_name(menu_minitank_weapon, menuname('Trolling - Enemy Vehicles', 'Minitank Weapon')..': '..k)
+			menu.trigger_command(enemy_vehicles, '')
 		end)
 	end
 
@@ -2315,6 +2357,7 @@ GenerateFeatures = function(pid)
 			util.create_thread(function()
 				local param0, param1
 				while not ENTITY.IS_ENTITY_DEAD(pilot) do
+					wait()
 					local player_ped = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pid)
 					local a, b = ENTITY.GET_ENTITY_COORDS(player_ped), ENTITY.GET_ENTITY_COORDS(heli)
 					if MISC.GET_DISTANCE_BETWEEN_COORDS(a.x, a.y, a.z, b.x, b.y, b.z, true) > 90 then
@@ -2323,7 +2366,6 @@ GenerateFeatures = function(pid)
 						param0 = 1
 					end
 					param1 = give_task_to_pilot(param0, param1)
-					wait()
 				end
 			end)
 			STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(heli_hash)
@@ -2347,6 +2389,7 @@ GenerateFeatures = function(pid)
 		menu.action(menu_gunner_weapon_list, k, {}, '', function()
 			gunner_weapon = weapon
 			menu.set_menu_name(menu_gunner_weapon_list, 'Gunner\'s Weapon: '..k)
+			menu.trigger_command(enemy_vehicles, '')
 		end)
 	end
 
@@ -2360,18 +2403,25 @@ GenerateFeatures = function(pid)
 	-------------------------------------
 
 	local function REQUEST_WEAPON_ASSET(hash)
-		if WEAPON.HAS_WEAPON_ASSET_LOADED(hash) then
-			return
-		end
 		WEAPON.REQUEST_WEAPON_ASSET(hash, 31, 0)
 		while not WEAPON.HAS_WEAPON_ASSET_LOADED(hash) do
 			wait()
 		end
+		WEAPON.GIVE_WEAPON_TO_PED(PLAYER.PLAYER_PED_ID(), hash, 120, 1, 1)
+		WEAPON.SET_CURRENT_PED_WEAPON(PLAYER.PLAYER_PED_ID(), hash, 1)
 	end
 
 	local damage = menu.list(trolling_list, menuname('Trolling', 'Damage'), {}, 'Choose the weapon and shoot \'em no matter where you are.')
 
 	menu.divider(damage, menuname('Trolling', 'Damage'))
+	
+	menu.action(damage, menuname('Trolling - Damage', 'Heavy Sniper'), {}, '', function()
+		local hash = joaat('weapon_heavysniper')
+		local a = CAM.GET_GAMEPLAY_CAM_COORD()
+		local b = ENTITY.GET_ENTITY_COORDS(PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pid), false)
+		REQUEST_WEAPON_ASSET(hash)
+		MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(a.x, a.y, a.z, b.x , b.y, b.z, 200, 0, hash, PLAYER.PLAYER_PED_ID(), true, false, 2500.0)
+	end)
 
 	menu.action(damage, menuname('Trolling - Damage', 'Firework'), {}, '', function()
 		local pos = ENTITY.GET_ENTITY_COORDS(PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pid))
@@ -2408,7 +2458,6 @@ GenerateFeatures = function(pid)
 	menu.action(trolling_list, menuname('Trolling', 'Hostile Peds'), {'hostilepeds'}, 'All on foot peds will combat player.', function()
 		local player_ped = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pid)
 		local pos = ENTITY.GET_ENTITY_COORDS(player_ped)
-		
 		for k, ped in pairs(GET_NEARBY_PEDS(pid, 90)) do
 			if not PED.IS_PED_IN_ANY_VEHICLE(ped, false) then
 				REQUEST_CONTROL_LOOP(ped)
@@ -2421,12 +2470,11 @@ GenerateFeatures = function(pid)
 				WEAPON.SET_PED_DROPS_WEAPONS_WHEN_DEAD(ped, false)
 				set_relationship.hostile(ped)
 			end
-		
 		end
 	end)
 
 	-------------------------------------
-	--HOSTILE TRAFFIC0x938
+	--HOSTILE TRAFFIC
 	-------------------------------------
 
 	menu.action(trolling_list, menuname('Trolling', 'Hostile Traffic'), {'hostiletraffic'}, '', function()
@@ -2554,11 +2602,11 @@ GenerateFeatures = function(pid)
 			VEHICLE.ADD_VEHICLE_PHONE_EXPLOSIVE_DEVICE(bandito)
 			util.create_thread(function()
 				while not ENTITY.IS_ENTITY_DEAD(bandito) do
+					wait()
 					local a, b = ENTITY.GET_ENTITY_COORDS(p), ENTITY.GET_ENTITY_COORDS(bandito)
 					if MISC.GET_DISTANCE_BETWEEN_COORDS(a.x, a.y, a.z, b.x, b.y, b.z, false) < 3 then
 						VEHICLE.DETONATE_VEHICLE_PHONE_EXPLOSIVE_DEVICE() --NEW
 					end
-					wait()
 				end
 				explosive_bandito_sent = false
 			end)
@@ -2653,9 +2701,9 @@ GenerateFeatures = function(pid)
 			if not ENTITY.DOES_ENTITY_EXIST(jet) then
 				local tick = 0
 				while not ENTITY.DOES_ENTITY_EXIST(jet) and tick <= 10 do
+					wait()
 					jet = entities.create_vehicle(jet_hash, pos, CAM.GET_GAMEPLAY_CAM_ROT(0).z)
 					tick = tick + 1
-					wait()
 				end
 				entities.delete_by_handle(pilot)
 			end
@@ -2716,6 +2764,37 @@ GenerateFeatures = function(pid)
 		VEHICLE.SET_VEHICLE_FORWARD_SPEED(veh, 100)
 	end)
 
+
+	-------------------------------------
+	--PIGGY BACK
+	-------------------------------------
+
+	if general_config.bustedfeatures then
+		menu.toggle(trolling_list, menuname('Trolling', 'Piggy Back'), {}, 'Busted feature.', function(on)
+			if pid == players.user() then return end
+			piggyback = on
+
+			if piggyback then
+				rape = false
+				local p = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pid)
+				local tick = 0
+				STREAMING.REQUEST_ANIM_DICT('rcmjosh2')
+				while not STREAMING.HAS_ANIM_DICT_LOADED('rcmjosh2') do
+					wait()
+				end
+				ENTITY.ATTACH_ENTITY_TO_ENTITY(PLAYER.PLAYER_PED_ID(), p, PED.GET_PED_BONE_INDEX(p, 0xDD1C), 0, -0.2, 0.65, 0, 0, 180, false, true, false, false, 0, true)
+				TASK.TASK_PLAY_ANIM(PLAYER.PLAYER_PED_ID(), 'rcmjosh2', 'josh_sitting_loop', 8, -8, -1, 1, 0, false, false, false)
+				while piggyback do
+					wait()
+					if not NETWORK.NETWORK_IS_PLAYER_CONNECTED(pid) then
+						piggyback = false
+					end
+				end
+				TASK.CLEAR_PED_TASKS_IMMEDIATELY(PLAYER.PLAYER_PED_ID())
+				ENTITY.DETACH_ENTITY(PLAYER.PLAYER_PED_ID(), true, false)
+			end
+		end)
+	end
 	-------------------------------------
 	--RAIN ROCKETS
 	-------------------------------------
@@ -2774,6 +2853,10 @@ GenerateFeatures = function(pid)
 			end)
 		end
 	end)
+
+
+	--Vector3 coords = ENTITY::GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(PLAYER::PLAYER_PED_ID(), 0.0f, 0.0f, 0.0f);
+	--FIRE::ADD_EXPLOSION(coords.x, coords.y, coords.z, 7, FLT_MAX, FALSE, TRUE, 0.0f);
 
 	-------------------------------------
 	--KAMIKASE
@@ -3080,6 +3163,21 @@ GenerateFeatures = function(pid)
 	end)
 
 	-------------------------------------
+	--LICENSE PLATE
+	-------------------------------------
+
+	menu.text_input(vehicleOpt, menuname('Vehicle', 'Set License Plate'), {'setplatetxt'}, 'MAX 8 characters', function(strg)
+		local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
+		if vehicle == 0 or strg == '' then return end
+		REQUEST_CONTROL_LOOP(vehicle)
+		while #strg > 8 do -- reduces the length of string till it's 8 characters long
+			wait()
+			strg = string.gsub(strg, '.$', '')
+		end
+		VEHICLE.SET_VEHICLE_NUMBER_PLATE_TEXT(vehicle, strg)
+	end)
+
+	-------------------------------------
 	--GOD MODE
 	-------------------------------------
 	
@@ -3087,28 +3185,30 @@ GenerateFeatures = function(pid)
 		local vehicle = GET_VEHICLE_PLAYER_IS_IN(pid)
 		if vehicle == 0 then return end
 		REQUEST_CONTROL_LOOP(vehicle)
-		ENTITY.SET_ENTITY_INVINCIBLE(vehicle, toggle)
-		ENTITY.SET_ENTITY_PROOFS(vehicle, toggle, toggle, toggle, toggle, toggle, toggle, 1, toggle)
-		VEHICLE.SET_VEHICLE_ENVEFF_SCALE(vehicle, 0.0)
-		VEHICLE.SET_DISABLE_VEHICLE_PETROL_TANK_DAMAGE(vehicle, toggle)
-		VEHICLE.SET_DISABLE_VEHICLE_PETROL_TANK_FIRES(vehicle, toggle)
-		VEHICLE.SET_VEHICLE_BODY_HEALTH(vehicle, 1000.0)
-		VEHICLE.SET_VEHICLE_CAN_BE_VISIBLY_DAMAGED(vehicle, not toggle)
-		VEHICLE.SET_VEHICLE_CAN_BREAK(vehicle, not toggle)
-		VEHICLE.SET_VEHICLE_ENGINE_HEALTH(vehicle, 1000.0)
-		VEHICLE.SET_VEHICLE_ENGINE_CAN_DEGRADE(vehicle, not toggle)
-		VEHICLE.SET_VEHICLE_EXPLODES_ON_HIGH_EXPLOSION_DAMAGE(vehicle, not toggle)
-		VEHICLE.SET_VEHICLE_PETROL_TANK_HEALTH(vehicle, 1000.0)
-		VEHICLE.SET_VEHICLE_TYRES_CAN_BURST(vehicle, not toggle)
-		VEHICLE.SET_VEHICLE_WHEELS_CAN_BREAK(vehicle, not toggle)
-		VEHICLE.SET_VEHICLE_FIXED(vehicle)
-		VEHICLE.SET_VEHICLE_DEFORMATION_FIXED(vehicle)
-		VEHICLE.SET_VEHICLE_DIRT_LEVEL(vehicle, 0.0)
-		if VEHICLE._IS_VEHICLE_DAMAGED(vehicle) then
-			for i = 0, 10 do
-				VEHICLE.SET_VEHICLE_TYRE_FIXED(vehicle, i)
+		if toggle then
+			VEHICLE.SET_VEHICLE_ENVEFF_SCALE(vehicle, 0.0)
+			VEHICLE.SET_VEHICLE_BODY_HEALTH(vehicle, 1000.0)
+			VEHICLE.SET_VEHICLE_ENGINE_HEALTH(vehicle, 1000.0)
+			VEHICLE.SET_VEHICLE_FIXED(vehicle)
+			VEHICLE.SET_VEHICLE_DEFORMATION_FIXED(vehicle)
+			VEHICLE.SET_VEHICLE_PETROL_TANK_HEALTH(vehicle, 1000.0)
+			VEHICLE.SET_VEHICLE_DIRT_LEVEL(vehicle, 0.0)
+			if VEHICLE._IS_VEHICLE_DAMAGED(vehicle) then
+				for i = 0, 10 do
+					VEHICLE.SET_VEHICLE_TYRE_FIXED(vehicle, i)
+				end
 			end
 		end
+		ENTITY.SET_ENTITY_INVINCIBLE(vehicle, toggle)
+		ENTITY.SET_ENTITY_PROOFS(vehicle, toggle, toggle, toggle, toggle, toggle, toggle, 1, toggle)
+		VEHICLE.SET_DISABLE_VEHICLE_PETROL_TANK_DAMAGE(vehicle, toggle)
+		VEHICLE.SET_DISABLE_VEHICLE_PETROL_TANK_FIRES(vehicle, toggle)
+		VEHICLE.SET_VEHICLE_CAN_BE_VISIBLY_DAMAGED(vehicle, not toggle)
+		VEHICLE.SET_VEHICLE_CAN_BREAK(vehicle, not toggle)
+		VEHICLE.SET_VEHICLE_ENGINE_CAN_DEGRADE(vehicle, not toggle)
+		VEHICLE.SET_VEHICLE_EXPLODES_ON_HIGH_EXPLOSION_DAMAGE(vehicle, not toggle)
+		VEHICLE.SET_VEHICLE_TYRES_CAN_BURST(vehicle, not toggle)
+		VEHICLE.SET_VEHICLE_WHEELS_CAN_BREAK(vehicle, not toggle)
 	end)
 
 	-------------------------------------
@@ -3197,7 +3297,7 @@ menu.toggle(self_options, menuname('Self', 'Mod Health'), {'modhealth'}, 'Change
 	else
 		local user = PLAYER.PLAYER_PED_ID()
 		PED.SET_PED_MAX_HEALTH(user, defaulthealth)
-		menu.trigger_commands('moddedhealth '.. defaulthealth) -- just if you want the slider to go to default value when mod health is off
+		menu.trigger_commands('moddedhealth ' .. defaulthealth) -- just if you want the slider to go to default value when mod health is off
 		if ENTITY.GET_ENTITY_HEALTH(user) > defaulthealth then 
 			ENTITY.SET_ENTITY_HEALTH(user, defaulthealth)
 		end
@@ -3282,8 +3382,6 @@ end)
 --FORCE
 -------------------------------------
 
-local forceCommandIds = {}
-local object
 menu.toggle(self_options, menuname('Self', 'Force'), {'jedimode'}, 'Use Force in nearby vehicles.', function(toggle)
 	force = toggle	
 	if force then
@@ -3323,6 +3421,7 @@ menu.toggle(self_options, menuname('Self', 'Force'), {'jedimode'}, 'Use Force in
 		end)
 	end
 	while force do
+		wait()
 		local entities = GET_NEARBY_VEHICLES(players.user(), 50)
 		if PAD.IS_CONTROL_PRESSED(0, 118) then
 			for k, entity in pairs(entities) do
@@ -3336,7 +3435,6 @@ menu.toggle(self_options, menuname('Self', 'Force'), {'jedimode'}, 'Use Force in
 				ENTITY.APPLY_FORCE_TO_ENTITY(entity, 1, 0, 0, -70, 0, 0, 0, 0, false, false, true)
 			end
 		end
-		wait()
 	end
 end)
 
@@ -3344,10 +3442,9 @@ end)
 --CARPET RIDE
 -------------------------------------
 
-
+local object
 menu.toggle(self_options, menuname('Self', 'Carpet Ride'), {'carpetride'}, '', function(toggle)
 	carpetride = toggle
-	
 	local hspeed = 0.2
 	local vspeed = 0.2
 	local user_ped = PLAYER.PLAYER_PED_ID()
@@ -3360,7 +3457,7 @@ menu.toggle(self_options, menuname('Self', 'Carpet Ride'), {'carpetride'}, '', f
 		while not STREAMING.HAS_ANIM_DICT_LOADED('rcmcollect_paperleadinout@') and not STREAMING.HAS_MODEL_LOADED(object_hash) do
 			wait()
 		end
-		TASK.CLEAR_PED_TASKS_IMMEDIATELY(PLAYER.PLAYER_PED_ID())
+		TASK.CLEAR_PED_TASKS_IMMEDIATELY(user_ped)
 		object = OBJECT.CREATE_OBJECT(object_hash, pos.x, pos.y, pos.z, true, true, true)
 		ENTITY.ATTACH_ENTITY_TO_ENTITY(user_ped, object, 0, 0, -0.2, 1.0, 0, 0, 0, false, true, false, false, 0, true)
 		ENTITY.SET_ENTITY_COMPLETELY_DISABLE_COLLISION(object, false, false)
@@ -3371,6 +3468,7 @@ menu.toggle(self_options, menuname('Self', 'Carpet Ride'), {'carpetride'}, '', f
 		local height = ENTITY.GET_ENTITY_COORDS(object, false).z
 		
 		while carpetride do
+			wait()
 			HUD.DISPLAY_SNIPER_SCOPE_THIS_FRAME()
 			local obj_pos = ENTITY.GET_ENTITY_COORDS(object)
 			local camrot = CAM.GET_GAMEPLAY_CAM_ROT(0)
@@ -3400,7 +3498,6 @@ menu.toggle(self_options, menuname('Self', 'Carpet Ride'), {'carpetride'}, '', f
 			else
 				hspeed, vspeed = 0.2, 0.2
 			end
-			wait()
 		end
 	else
 		TASK.CLEAR_PED_TASKS_IMMEDIATELY(user_ped)
@@ -3430,19 +3527,16 @@ end)
 --UNDEAD OFFRADAR
 -------------------------------------
 
-
 menu.toggle(self_options, menuname('Self', 'Undead Offradar'), {'undeadoffradar'}, '', function(toggle)
 	undead = toggle
 	local user = PLAYER.PLAYER_PED_ID()
 	local defaulthealth = ENTITY.GET_ENTITY_MAX_HEALTH(user)
-	if undead then
-		ENTITY.SET_ENTITY_MAX_HEALTH(user, 0)
-	end
+	if undead then ENTITY.SET_ENTITY_MAX_HEALTH(user, 0) end
 	while undead do
+		wait()
 		if ENTITY.GET_ENTITY_MAX_HEALTH(user) ~= 0 then
 			ENTITY.SET_ENTITY_MAX_HEALTH(user, 0)
 		end
-		wait()
 	end
 	ENTITY.SET_ENTITY_MAX_HEALTH(user, defaulthealth)
 end)
@@ -3476,10 +3570,8 @@ menu.toggle(trails_options, menuname('Self - Trails', 'Toggle Trails'), {'toggle
 	while not STREAMING.HAS_NAMED_PTFX_ASSET_LOADED(effect.asset) do
 		wait()
 	end
-	
-	util.create_tick_handler(function()	
+	create_tick_handler(function()	
 		local vehicle = PED.GET_VEHICLE_PED_IS_IN(PLAYER.PLAYER_PED_ID(), false)
-		
 		if vehicle == 0 then
 			for k, boneId in pairs(bones) do
 				GRAPHICS.USE_PARTICLE_FX_ASSET(effect.asset)
@@ -3531,7 +3623,6 @@ menu.toggle(trails_options, menuname('Self - Trails', 'Toggle Trails'), {'toggle
 					1.2, 
 					false, false, false
 				)
-
 				GRAPHICS.SET_PARTICLE_FX_LOOPED_COLOUR(
 					fx, 
 					trails_colour.r, 
@@ -3577,39 +3668,39 @@ menu.toggle(self_options, menuname('Self', 'Combustion Man'), {'combustionman'},
 	shootlazer = toggle
 
 	if shootlazer then
-		menu.trigger_commands('disablevehmousecontroloverride on; disablevehflymousecontroloverride on; disablevehsubmousecontroloverride on')
-		util.show_corner_help('Press ~INPUT_ATTACK~ to shoot using Combustion Man.')
-	else
-		menu.trigger_commands('disablevehmousecontroloverride off; disablevehflymousecontroloverride off; disablevehsubmousecontroloverride off')
-	end
+		util.show_corner_help("Press ~INPUT_ATTACK~ to shoot using Combustion Man.")
+		create_tick_handler(function()
+			PAD.DISABLE_CONTROL_ACTION(2, 106, true) -- INPUT_VEH_MOUSE_CONTROL_OVERRIDE
+			PAD.DISABLE_CONTROL_ACTION(2, 122, true) -- INPUT_VEH_FLY_MOUSE_CONTROL_OVERRIDE
+			PAD.DISABLE_CONTROL_ACTION(2, 135, true) -- INPUT_VEH_SUB_MOUSE_CONTROL_OVERRIDE
 
-	create_tick_handler(function()
-		local a = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID())
-		local b = GET_OFFSET_FROM_CAM(80)
-		local hash = joaat('VEHICLE_WEAPON_PLAYER_LAZER')
-		HUD.DISPLAY_SNIPER_SCOPE_THIS_FRAME()
-		if not WEAPON.HAS_WEAPON_ASSET_LOADED(hash) then
-			WEAPON.REQUEST_WEAPON_ASSET(hash, 31, 26)
-			while not WEAPON.HAS_WEAPON_ASSET_LOADED(hash) do
-				wait()
+			local a = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID())
+			local b = GET_OFFSET_FROM_CAM(80)
+			local hash = joaat("VEHICLE_WEAPON_PLAYER_LAZER")
+			HUD.DISPLAY_SNIPER_SCOPE_THIS_FRAME()
+			if not WEAPON.HAS_WEAPON_ASSET_LOADED(hash) then
+				WEAPON.REQUEST_WEAPON_ASSET(hash, 31, 26)
+				while not WEAPON.HAS_WEAPON_ASSET_LOADED(hash) do
+					wait()
+				end
 			end
-		end
-		if PAD.IS_DISABLED_CONTROL_PRESSED(2, 24) then
-			MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
-				a.x, a.y, a.z,
-				b.x, b.y, b.z,
-				200,
-				true,
-				hash,
-				PLAYER.PLAYER_PED_ID(),
-				true, true, -1.0
-			)
-		end
-		if not PED.IS_PED_IN_ANY_VEHICLE(PLAYER.PLAYER_PED_ID(), true) then
-			PLAYER.DISABLE_PLAYER_FIRING(PLAYER.PLAYER_PED_ID(), true)
-		end
-		return shootlazer
-	end)
+			if PAD.IS_DISABLED_CONTROL_PRESSED(2, 24) then
+				MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
+					a.x, a.y, a.z,
+					b.x, b.y, b.z,
+					200,
+					true,
+					hash,
+					PLAYER.PLAYER_PED_ID(),
+					true, true, -1.0
+				)
+			end
+			if not PED.IS_PED_IN_ANY_VEHICLE(PLAYER.PLAYER_PED_ID(), true) then
+				PLAYER.DISABLE_PLAYER_FIRING(PLAYER.PLAYER_PED_ID(), true)
+			end
+			return shootlazer
+		end)
+	end
 end)
 
 -------------------------------------
@@ -3739,16 +3830,14 @@ local toggle_shooting_effect = menu.toggle(weapon_options, menuname('Weapon', 'S
 	end
 end)
 
-
 local select_effect = menu.list(weapon_options, menuname('Weapon', 'Set Shooting Effect'), {}, '')
-
 
 for k, table in pairs_by_keys(effects_list) do
 	menu.action(select_effect, k, {k}, '', function()
 		shooting_effect = table
 		menu.set_menu_name(toggle_shooting_effect, menuname('Weapon', 'Shooting Effect')..': '..k)
-		menu.trigger_commands('shootingeffect on')
-		menu.trigger_commands('weaponoptions')
+		if not cartoon then menu.trigger_command(toggle_shooting_effect, 'on') end
+		menu.trigger_command(weapon_options, '')
 	end)
 end
 
@@ -3757,21 +3846,21 @@ end
 --MAGNET GUN
 -------------------------------------
 
-local magnetgun_root = menu.list(weapon_options, menuname('Weapon', 'Magnet Gun'), {'magnetgun'})
+local magnetgun_root = menu.list(weapon_options, menuname('Weapon', 'Magnet Gun'), {}, '')
 
 menu.divider(magnetgun_root, menuname('Weapon', 'Magnet Gun'))
 
-menu.toggle(magnetgun_root, menuname('Magnet Gun', 'Chaos Mode'), {'chaosmagnetgun'}, '', function(toggle)
-	force_magnetgun = toggle
-	if force_magnetgun and velocity_magnetgun then
-		menu.trigger_commands('smoothmagnetgun off')
+smooth_mode = menu.toggle(magnetgun_root, menuname('Magnet Gun', 'Magnet Gun'), {'magnetgun'}, '', function(toggle)
+	velocity_magnetgun = toggle
+	if velocity_magnetgun and force_magnetgun then
+		menu.trigger_command(chaos_mode, 'off')
 	end
 end)
 
-menu.toggle(magnetgun_root, menuname('Magnet Gun', 'Smooth Magnet Gun'), {'smoothmagnetgun'}, '', function(toggle)
-	velocity_magnetgun = toggle
-	if velocity_magnetgun and force_magnetgun then
-		menu.trigger_commands('chaosmagnetgun off')
+chaos_mode = menu.toggle(magnetgun_root, menuname('Magnet Gun', 'Chaos Mode'), {'chaosmmode'}, '', function(toggle)
+	force_magnetgun = toggle
+	if force_magnetgun and velocity_magnetgun then
+		menu.trigger_command(smooth_mode, 'off')
 	end
 end)
 
@@ -3783,7 +3872,6 @@ local sphere_colour = {
 	['g'] = 0,
 	['b'] = 255
 }
-local state = 0
 util.create_tick_handler(function()
 	if not force_magnetgun and not velocity_magnetgun then
 		return true
@@ -3890,12 +3978,7 @@ local default_bullet = {}
 
 
 function GET_CURRENT_WEAPON_AMMO_TYPE() --returns 4 if OBJECT (Rocket, grenade, etc.), and 2 if INSTANT HIT
-	local offsets = {
-		0x08,
-		0x10D8,
-		0x20,
-		0x54
-	}
+	local offsets = {0x08, 0x10D8, 0x20, 0x54}
 	local addr = address_from_pointer_chain(worldPtr, offsets)
 	if addr ~= 0 then
 		return memory.read_byte(addr), addr
@@ -3906,12 +3989,7 @@ end
 
 
 function GET_CURRENT_WEAPON_AMMO_PTR()
-	local offsets = {
-		0x08,
-		0x10D8,
-		0x20,
-		0x60
-	}
+	local offsets = {0x08, 0x10D8, 0x20, 0x60}
 	local addr = address_from_pointer_chain(worldPtr, offsets)
 	local value
 	if addr ~= 0 then
@@ -3933,7 +4011,6 @@ end
 
 local toggle_bullet_type = menu.toggle(weapon_options, menuname('Weapon', 'Bullet Changer')..': RPG Rocket', {'bulletchanger'}, '', function(toggle)
 	bulletchanger = toggle
-
 	while bulletchanger do
 		wait()
 		if not from_memory then
@@ -3990,8 +4067,8 @@ for k, v in pairs_by_keys(rockets_list) do
 	menu.action(bullet_type, k, {}, '', function()
 		bullet = joaat(v)
 		menu.set_menu_name(toggle_bullet_type, menuname('Weapon', 'Bullet Changer')..': '..k)
-		menu.trigger_commands('bulletchanger on')
-		menu.trigger_commands('weaponoptions')
+		if not bulletchanger then menu.trigger_command(toggle_bullet_type, 'on') end
+		menu.trigger_command(weapon_options, '')
 		from_memory = false
 	end)
 end
@@ -4012,17 +4089,15 @@ for k, data in pairs_by_keys(ammo_ptrs) do
 
 		bullet = data.ammoptr
     	menu.set_menu_name(toggle_bullet_type, menuname('Weapon', 'Bullet Changer')..': '..k)
-		menu.trigger_commands('bulletchanger on')
-		menu.trigger_commands('weaponoptions')
+		if not bulletchanger then menu.trigger_command(toggle_bullet_type, 'on') end
+		menu.trigger_command(weapon_options, '')
 		from_memory = true
   	end)
 end
 
-
 -------------------------------------
 --PTFX GUN
 -------------------------------------
-
 
 local ptfx_gun = menu.list(weapon_options, menuname('Weapon', 'Particle Weapon'), {'ptfxgun'}, '')
 
@@ -4089,7 +4164,6 @@ local impact_colour =
 	['b'] = 128 / 255
 }
 
-
 local toggle_impact_effect = menu.toggle(ptfx_gun,  menuname('Weapon', 'Particle Weapon')..': Clown Explosion', {'impacteffect'}, '', function(toggle)
 	ptfxgun = toggle
 	while ptfxgun do
@@ -4100,9 +4174,7 @@ local toggle_impact_effect = menu.toggle(ptfx_gun,  menuname('Weapon', 'Particle
 				wait()
 			end
 		end
-
 		local hit, coords, normal_surface, entity = RAYCAST_GAMEPLAY_CAM(1000.0)
-		
 		if hit == 1 then
 			if PED.IS_PED_SHOOTING(PLAYER.PLAYER_PED_ID()) then
 				local rot = GET_ROTATION_FROM_DIRECTION(normal_surface)
@@ -4133,18 +4205,16 @@ local list_impact_effect = menu.list(ptfx_gun,  menuname('Weapon - Particle Weap
 
 for k, table in pairs_by_keys(impact_effects) do
 	local helptext
-	
 	if impact_effects[k]['colour'] then
 		helptext = 'Colour can be changed.'
 	else
 		helptext = ''
 	end
-	
 	menu.action(list_impact_effect, k, {}, helptext, function()
 		impact_effect = impact_effects[k]
 		menu.set_menu_name(toggle_impact_effect, menuname('Weapon', 'Particle Weapon')..': '..k)
-		menu.trigger_commands('impacteffect on')
-		menu.trigger_commands('ptfxgun')
+		if not ptfxgun then menu.trigger_command(toggle_impact_effect, 'on') end
+		menu.trigger_command(ptfx_gun, '')
 	end)
 end
 
@@ -4186,8 +4256,6 @@ local toggle_vehicle_gun = menu.toggle(vehicle_gun, menuname('Weapon', 'Vehicle 
 		{'increase offset', 241},
 		{'decrease offset', 242}
 	}
-
-
 	
 	while vehiclegun do
 		wait()
@@ -4261,9 +4329,9 @@ local set_vehicle = menu.list(vehicle_gun, menuname('Weapon - Vehicle Gun', 'Set
 for k, vehicle in pairs_by_keys(vehicle_gun_list) do
 	menu.action(set_vehicle, k, {}, '', function()
 		vehicle_for_gun = vehicle_gun_list[k]
-		menu.set_menu_name(toggle_vehicle_gun, 'Vehicle Gun: '..k)
-		menu.trigger_commands('togglevehiclegun on')
-		menu.trigger_commands('vehiclegun')
+		menu.set_menu_name(toggle_vehicle_gun, 'Vehicle Gun: ' .. k)
+		if not vehiclegun then menu.trigger_command(toggle_vehicle_gun, 'on') end
+		menu.trigger_command(vehicle_gun, '')
 	end)
 end
 
@@ -4273,12 +4341,12 @@ menu.text_input(vehicle_gun, menuname('Weapon - Vehicle Gun', 'Custom Vehicle'),
 	local name = HUD._GET_LABEL_TEXT(VEHICLE.GET_DISPLAY_NAME_FROM_VEHICLE_MODEL(modelHash))
 	if STREAMING.IS_MODEL_A_VEHICLE(modelHash) then
 		vehicle_for_gun = vehicle
-		menu.set_menu_name(toggle_vehicle_gun, 'Vehicle Gun: '..name)
+		menu.set_menu_name(toggle_vehicle_gun, 'Vehicle Gun: ' .. name)
 	else
 		return notification.red('The model is not a vehicle')
 	end
-	menu.trigger_commands('togglevehiclegun on')
-end, '')
+	if not vehiclegun then menu.trigger_command(toggle_vehicle_gun, 'on') end
+end)
 
 
 menu.toggle(vehicle_gun, menuname('Weapon - Vehicle Gun', 'Set Into Vehicle'), {}, '', function(toggle)
@@ -4288,7 +4356,6 @@ end)
 -------------------------------------
 --TELEPORT GUN
 -------------------------------------
-
 
 menu.toggle(weapon_options, menuname('Weapon', 'Teleport Gun'), {'tpgun'}, '', function(toggle)
 	telegun = toggle
@@ -4320,15 +4387,8 @@ local default_speed = {}
 local speed_mult = 1
 
 function SET_AMMO_SPEED_MULT(mult)
-	local offsets = {
-		0x08,
-		0x10D8,
-		0x20,
-		0x60,
-		0x58
-	}
+	local offsets = {0x08, 0x10D8, 0x20, 0x60, 0x58}
 	local addr = address_from_pointer_chain(worldPtr, offsets)
-	
 	if addr ~= 0 then
 		local value = memory.read_float(addr)
 		if not does_key_exists(default_speed, addr) and value ~= nil then
@@ -4484,7 +4544,7 @@ menu.toggle(weapon_options, menuname('Weapon', 'Valkyire Rocket'), {}, '', funct
 					draw_rect(0.5 - 0.05, 0.5, 0.050, 0.002)
 					draw_rect(0.5, 0.5 + 0.05, 0.002, 0.050)
 					draw_rect(0.5, 0.5 - 0.05, 0.002, 0.050)
-					GRAPHICS.SET_TIMECYCLE_MODIFIER('CAMERA_secuirity')
+					GRAPHICS.SET_TIMECYCLE_MODIFIER("CAMERA_secuirity")
 
 					GRAPHICS.DRAW_RECT(0.25, 0.5, 0.03, 0.5, 255, 255, 255, 255)
 
@@ -4508,13 +4568,13 @@ menu.toggle(weapon_options, menuname('Weapon', 'Valkyire Rocket'), {}, '', funct
 						STREAMING.CLEAR_FOCUS()
 						CAM.RENDER_SCRIPT_CAMS(false, false, 3000, true, false, 0)
 						CAM.DESTROY_CAM(cam, 1)
-						GRAPHICS.SET_TIMECYCLE_MODIFIER('DEFAULT')
+						GRAPHICS.SET_TIMECYCLE_MODIFIER("DEFAULT")
 						init = false
 					end
 				end
 			end
 		end
-		GRAPHICS.SET_TIMECYCLE_MODIFIER('DEFAULT')
+		GRAPHICS.SET_TIMECYCLE_MODIFIER("DEFAULT")
 		STREAMING.CLEAR_FOCUS()
 		CAM.RENDER_SCRIPT_CAMS(false, false, 3000, true, false, 0)
 		CAM.DESTROY_CAM(cam, 1)
@@ -4543,7 +4603,7 @@ local vehicle_weapon = menu.list(vehicle_options, menuname('Vehicle', 'Vehicle W
 menu.divider(vehicle_weapon, menuname('Vehicle', 'Vehicle Weapons'))
 
 
-menu.toggle(vehicle_options, menuname('Vehicle', 'Airstrike Aircraft'), {'airstrikeplanes'}, 'Use any plane or helicopter to make airstrikes.', function(toggle)
+local airstrikeplanes =  menu.toggle(vehicle_options, menuname('Vehicle', 'Airstrike Aircraft'), {'airstrikeplanes'}, 'Use any plane or helicopter to make airstrikes.', function(toggle)
 	airstrike_plane = toggle
 	local control = control_config.airstrikeaircraft
 	if airstrike_plane then
@@ -4662,8 +4722,8 @@ end
 
 menu.toggle(vehicle_weapon, menuname('Vehicle - Vehicle Weapons', 'Vehicle Lasers'), {'vehiclelasers'},'', function(toggle)
 	vehicle_laser = toggle
-	if vehicle_laser then
-		menu.trigger_commands('airstrikeplanes off')
+	if vehicle_laser and airstrike_plane then
+		menu.trigger_command(airstrikeplanes, 'off')
 	end
 	local user_ped = PLAYER.PLAYER_PED_ID()
 	util.create_thread(function()
@@ -4725,8 +4785,8 @@ for k, weapon in pairs_by_keys(veh_weapons_list) do
 	menu.action(vehicle_weapon_list, k, {k}, '', function()
 		selected_veh_weapon = weapon
 		menu.set_menu_name(toggle_veh_weapons, menuname('Vehicle - Vehicle Weapons', 'Set Vehicle Weapon')..': '..k)
-		menu.trigger_commands('togglevehweapons on')
-		menu.trigger_commands('vehicleweapon')
+		if not veh_rocket then menu.trigger_command(toggle_veh_weapons, 'on') end
+		menu.trigger_command(vehicle_weapon, '')
 	end)
 end
 
@@ -4901,26 +4961,30 @@ function handling:load()
 		return
 	end
 	
-	local file = scriptdir ..'\\WiriScript\\handling\\' .. self.vehicle_name .. '.json'
+	local file = wiridir ..'\\handling\\' .. self.vehicle_name .. '.json'
 
 	if not filesystem.exists(file) then 
 		return notification.red('File not found')
 	end
 	
 	file = io.open(file, 'r')
-	local parsed = json.parse(file:read('a'), false)
-	local sethandling = function(offsets, s)
-		for _, a in ipairs(offsets) do
-			local addr = address_from_pointer_chain(worldPtr, {0x08, 0xD30, 0x938, a[2]})
-			if addr ~= 0 then
-				memory.write_float(addr, parsed[s][a[1]])
+	local content = file:read('a')
+	file:close()
+	if string.len(content) > 0 then
+		local parsed = json.parse(content, false)
+		local sethandling = function(offsets, s)
+			for _, a in ipairs(offsets) do
+				local addr = address_from_pointer_chain(worldPtr, {0x08, 0xD30, 0x938, a[2]})
+				if addr ~= 0 then
+					memory.write_float(addr, parsed[s][a[1]])
+				end
 			end
 		end
+		sethandling(self.offsets[1], 'handling')
+		if parsed.flying ~= nil then sethandling(self.offsets[2], 'flying') end
+		if parsed.boat ~= nil then sethandling(self.offsets[3], 'boat') end
+		notification.normal(firstUpper(self.vehicle_name) .. ' handling data loaded')
 	end
-	
-	sethandling(self.offsets[1], 'handling')
-	if parsed.flying ~= nil then sethandling(self.offsets[2], 'flying') end
-	if parsed.boat ~= nil then sethandling(self.offsets[3], 'boat') end
 end
 
 
@@ -4930,7 +4994,7 @@ function handling:save()
 	end
 	local table = {}
 	local model = GET_USER_VEHICLE_MODEL()
-	local file = scriptdir ..'\\WiriScript\\handling\\' .. self.vehicle_name .. '.json'
+	local file = wiridir ..'\\handling\\' .. self.vehicle_name .. '.json'
 	local gethandling = function(offsets)
 		local s = {}
 		for _, a in ipairs(offsets) do
@@ -4942,20 +5006,17 @@ function handling:save()
 		end
 		return s
 	end
-
 	table.handling = gethandling(self.offsets[1])
-	
 	if IS_THIS_MODEL_AN_AIRCRAFT(model) then
 		table.flying = gethandling(self.offsets[2])
 	end
-
 	if VEHICLE.IS_THIS_MODEL_A_BOAT(model) then
 		table.boat = gethandling(self.offsets[3])
 	end
-
 	file = io.open(file, 'w')
 	file:write(json.stringify(table, nil, 4))
 	file:close()
+	notification.normal(firstUpper(self.vehicle_name) .. ' handling data saved')
 end
 
 
@@ -4969,17 +5030,14 @@ function handling:create_actions(offsets, s)
 			local addr = address_from_pointer_chain(worldPtr, {0x08, 0xD30, 0x938, a[2]})
 			if addr == 0 then return end
 			local value = round(memory.read_float(addr), 4)
-			local nvalue = DISPLAY_ONSCREEN_KEYBOARD(a[1], 7, value)
-			
+			local nvalue = DISPLAY_ONSCREEN_KEYBOARD("BS_WB_VAL", 7, value)
 			if nvalue == '' then return end
-			
 			if tonumber(nvalue) == nil then
 				return notification.red('Invalid input')
 			elseif tonumber(nvalue) ~= value then
 				memory.write_float(addr, tonumber(nvalue))
 			end 
 		end)
-		
 		menu.on_tick_in_viewport(action, function()
 			self.inviewport[s] = self.inviewport[s] or {} -- create an empty array if it doesn't exist
 			if not table.find(self.inviewport[s], a[1]) then
@@ -5089,10 +5147,9 @@ menu.toggle(vehicle_options, menuname('Vehicle', 'UFO'), {'ufo'}, 'Drive an UFO,
 	end
 		
 	if ufo_toggle then
-		menu.trigger_commands('disablevehexit on; becomeorbitalcannon on; disablevehcincam on; disablevehselectnextweapon on; disablevehradiowheel on')
+		menu.trigger_commands('becomeorbitalcannon on; otr on')
 		CAM.DO_SCREEN_FADE_OUT(500)
 		wait(600)
-		menu.trigger_commands('otr on')
 		local vehicleHash = joaat('hydra')
 		local objHash = joaat('imp_prop_ship_01a')
 		local pos = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID())
@@ -5122,20 +5179,24 @@ menu.toggle(vehicle_options, menuname('Vehicle', 'UFO'), {'ufo'}, 'Drive an UFO,
 		object = entities.create_object(objHash, pos)
 		ENTITY.ATTACH_ENTITY_TO_ENTITY(object, veh, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, false, true, true, false, 0, true)
 		
-		cam = CAM.CREATE_CAM('DEFAULT_SCRIPTED_CAMERA', false)
+		cam = CAM.CREATE_CAM("DEFAULT_SCRIPTED_CAMERA", false)
 		CAM._ATTACH_CAM_TO_VEHICLE_BONE(cam, veh, 0, true, -90.0, 0.0, 0.0, 0.0, 0.0, -4.0, true)
 		CAM.SET_CAM_FOV(cam, memory.read_float(ifov))
 		
 		CAM.SET_CAM_ACTIVE(cam, true)
 		GRAPHICS.SET_SCRIPT_GFX_DRAW_ORDER(1)
-		AUDIO.REQUEST_SCRIPT_AUDIO_BANK('DLC_CHRISTMAS2017/XM_ION_CANNON', false, -1)
+		AUDIO.REQUEST_SCRIPT_AUDIO_BANK("DLC_CHRISTMAS2017/XM_ION_CANNON", false, -1)
 		wait(600)
 		CAM.DO_SCREEN_FADE_IN(500)
 
-		util.create_tick_handler(function()
+		create_tick_handler(function()
 			VEHICLE.DISABLE_VEHICLE_WEAPON(true, -123497569, veh, PLAYER.PLAYER_PED_ID())
 			VEHICLE.DISABLE_VEHICLE_WEAPON(true, -494786007, veh, PLAYER.PLAYER_PED_ID())
-		
+			
+			PAD.DISABLE_CONTROL_ACTION(2, 75, true) -- INPUT_VEH_EXIT
+			PAD.DISABLE_CONTROL_ACTION(2, 80, true) -- INPUT_VEH_CIN_CAM
+			PAD.DISABLE_CONTROL_ACTION(2, 99, true) -- INPUT_VEH_SELECT_NEXT_WEAPON
+
 			local pos = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(veh, 0.0, 0.0, -10.0)
 			
 			if not cannon then 
@@ -5208,6 +5269,7 @@ menu.toggle(vehicle_options, menuname('Vehicle', 'UFO'), {'ufo'}, 'Drive an UFO,
 				wait()
 			end
 
+			PAD.DISABLE_CONTROL_ACTION(2, 85, true) -- INPUT_VEH_RADIO_WHEEL
 			CAM.RENDER_SCRIPT_CAMS(true, false, 3000, true, false, 0)
 			
 			GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, 'SET_STATE')
@@ -5233,7 +5295,7 @@ menu.toggle(vehicle_options, menuname('Vehicle', 'UFO'), {'ufo'}, 'Drive an UFO,
 			end
 			
 			if zoom ~= lastzoom then
-				GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, 'SET_ZOOM_LEVEL')
+				GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_ZOOM_LEVEL")
 				GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(zoom)
 				GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
 				lastzoom = zoom
@@ -5260,7 +5322,7 @@ menu.toggle(vehicle_options, menuname('Vehicle', 'UFO'), {'ufo'}, 'Drive an UFO,
 							countdown = countdown - 1	
 							startTime = os.time()
 						end
-						GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, 'SET_COUNTDOWN')
+						GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_COUNTDOWN")
 						GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_INT(countdown)
 						GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
 					else
@@ -5290,8 +5352,8 @@ menu.toggle(vehicle_options, menuname('Vehicle', 'UFO'), {'ufo'}, 'Drive an UFO,
 							1.0, 
 							false, false, false, true
 						)
-						AUDIO.PLAY_SOUND_FROM_COORD(-1, 'DLC_XM_Explosions_Orbital_Cannon', pos.x, pos.y, pos.z, 0, true, 0, false)
-						CAM.SHAKE_CAM(cam, 'GAMEPLAY_EXPLOSION_SHAKE', 1.5)
+						AUDIO.PLAY_SOUND_FROM_COORD(-1, "DLC_XM_Explosions_Orbital_Cannon", pos.x, pos.y, pos.z, 0, true, 0, false)
+						CAM.SHAKE_CAM(cam, "GAMEPLAY_EXPLOSION_SHAKE", 1.5)
 						STREAMING.CLEAR_FOCUS()
 					end
 				else
@@ -5319,7 +5381,7 @@ menu.toggle(vehicle_options, menuname('Vehicle', 'UFO'), {'ufo'}, 'Drive an UFO,
 	local pos = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID())
 	local ptr1 = alloc()
 	STOP_SOUND(sId)
-	AUDIO.RELEASE_NAMED_SCRIPT_AUDIO_BANK('DLC_CHRISTMAS2017/XM_ION_CANNON')
+	AUDIO.RELEASE_NAMED_SCRIPT_AUDIO_BANK("DLC_CHRISTMAS2017/XM_ION_CANNON")
 	PATHFIND.GET_CLOSEST_VEHICLE_NODE(pos.x, pos.y, pos.z, ptr1, 1, 100, 2.5)
 	pos = memory.read_vector3(ptr1)
 	memory.write_float(camaddr, -1.57)
@@ -5329,10 +5391,9 @@ menu.toggle(vehicle_options, menuname('Vehicle', 'UFO'), {'ufo'}, 'Drive an UFO,
 	CAM.SET_CAM_ACTIVE(cam, false)
 	CAM.RENDER_SCRIPT_CAMS(false, false, 3000, true, false, 0)
 	CAM.DESTROY_CAM(cam, false)
-	menu.trigger_commands('otr off')
 	wait(600)
 	CAM.DO_SCREEN_FADE_IN(500)
-	menu.trigger_commands('disablevehexit off; becomeorbitalcannon off; disablevehcincam off;  disablevehselectnextweapon off; disablevehradiowheel off')
+	menu.trigger_commands('becomeorbitalcannon off; otr off')
 end)
 
 
@@ -5421,7 +5482,7 @@ local vehicle_ptfx = menu.toggle(vehicle_options, menuname('Vehicle', 'Vehicle E
 				0.0, --offsetZ
 				0.0, --rotX
 				0.0, --rotY
-				0.0, --rotZ, 
+				0.0, --rotZ
 				ENTITY.GET_ENTITY_BONE_INDEX_BY_NAME(vehicle, bone),
 				effect.scale, --scale
 				false, false, false
@@ -5440,9 +5501,8 @@ for k, v in pairs_by_keys(effects) do
 	menu.action(select_effect, k, {}, '', function()
 		effect = v
 		menu.set_menu_name(vehicle_ptfx, 'Vehicle Effect: '..k)
-		if not particleveh then
-			menu.trigger_commands('vehicleptfx on')
-		end
+		if not particleveh then menu.trigger_command(vehicle_ptfx,  'on') end
+		menu.trigger_command(vehicle_options,  '')
 	end)
 end
 
@@ -5635,8 +5695,8 @@ menu.divider(bodyguards_options, menuname('Bodyguard Menu', 'Bodyguard Menu'))
 local bodyguard = {
 	godmode = false,
 	ignoreplayers = false,
-	random_model = true, 	--random model
-	random_weapon = true,	--random weapon
+	random_model = true, 	--	random model
+	random_weapon = true,	--	random weapon
 	spawned = {},
 	backup_godmode = false
 }
@@ -5647,8 +5707,7 @@ menu.action(bodyguards_options, menuname('Bodyguard Menu', 'Spawn Bodyguard (7 M
 	local size_ptr =  alloc(32); local any_ptr = alloc(32)
 	local groupId = PED.GET_PED_GROUP_INDEX(user_ped); PED.GET_GROUP_SIZE(groupId, any_ptr, size_ptr); local groupSize = memory.read_int(size_ptr); memory.free(size_ptr); memory.free(any_ptr)
 	if groupSize == 7 then
-		notification.red('You reached the max number of bodyguards')
-		return
+		return notification.red('You reached the max number of bodyguards')
 	end
 	pos.x = pos.x + math.random(-3, 3)
 	pos.y = pos.y + math.random(-3, 3)
@@ -5694,7 +5753,7 @@ menu.divider(bodyguards_model_list, 'Bodyguard Model List')
 menu.action(bodyguards_model_list, 'Random Model', {}, '', function()
 	bodyguard.random_model = true
 	menu.set_menu_name(bodyguards_model_list, menuname('Bodyguard Menu', 'Set Model')..': Random')
-	menu.trigger_commands('bodyguardmenu')
+	menu.trigger_command(bodyguards_options, '')
 end)
 
 
@@ -5703,7 +5762,7 @@ for k, model in pairs_by_keys(peds) do
 		bodyguard.model = model
 		bodyguard.random_model = false
 		menu.set_menu_name(bodyguards_model_list, menuname('Bodyguard Menu', 'Set Model')..': '..k)
-		menu.trigger_commands('bodyguardmenu')
+		menu.trigger_command(bodyguards_options, '')
 	end)
 end
 
@@ -5752,7 +5811,6 @@ local bodyguards_weapon_list = menu.list(bodyguards_options, menuname('Bodyguard
 
 menu.divider(bodyguards_weapon_list, 'Bodyguard Weapon List')
 
-
 local bodyguards_melee_list = menu.list(bodyguards_weapon_list, 'Melee')
 
 
@@ -5761,7 +5819,7 @@ for k, weapon in pairs_by_keys(melee_weapons) do
 		bodyguard.weapon = weapon
 		bodyguard.random_weapon = false
 		menu.set_menu_name(bodyguards_weapon_list, menuname('Bodyguard Menu', 'Set Weapon')..': '..k)
-		menu.trigger_commands('bodyguardmenu')
+		menu.trigger_command(bodyguards_options, '')
 	end)
 end
 
@@ -5769,7 +5827,7 @@ end
 menu.action(bodyguards_weapon_list,'Random Weapon', {}, '', function()
 	bodyguard.random_weapon = true
 	menu.set_menu_name(bodyguards_weapon_list, menuname('Bodyguard Menu', 'Set Weapon')..': Random')
-	menu.trigger_commands('bodyguardmenu')
+	menu.trigger_command(bodyguards_options, '')
 end)
 
 
@@ -5778,7 +5836,7 @@ for k, weapon in pairs_by_keys(weapons) do
 		bodyguard.weapon = weapon
 		bodyguard.random_weapon = false
 		menu.set_menu_name(bodyguards_weapon_list, menuname('Bodyguard Menu', 'Set Weapon')..': '..k)
-		menu.trigger_commands('bodyguardmenu')
+		menu.trigger_command(bodyguards_options, '')
 	end)
 end
 
@@ -5797,11 +5855,10 @@ menu.action(bodyguards_options, menuname('Bodyguard Menu', 'Delete Bodyguards'),
 	local p = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pid)
 	local pos = ENTITY.GET_ENTITY_COORDS(p, false)
 	for i, model in ipairs(bodyguard.spawned) do
-		DELETE_NEARBY_PEDS(pos, model, 1000.0)
+		DELETE_PEDS(model)
 		bodyguard.spawned[i] = nil
 	end
 end)
-
 
 -------------------------------------
 --BACKUP HELICOPTER
@@ -6026,12 +6083,10 @@ menu.toggle(world_options, menuname('World', 'Angry Planes'), {}, '', function(t
 			)
 			local jet_hash = joaat(random(planes))
 			local ped_hash = joaat('s_m_y_blackops_01')
-
 			STREAMING.REQUEST_MODEL(jet_hash); STREAMING.REQUEST_MODEL(ped_hash)
 			while not STREAMING.HAS_MODEL_LOADED(jet_hash) and not STREAMING.HAS_MODEL_LOADED(ped_hash) do
 				wait()
 			end
-			
 			local jet = entities.create_vehicle(jet_hash, pos, math.deg(theta))
 			if jet ~= 0 then
 				local pilot = entities.create_ped(5, ped_hash, pos, math.deg(theta))
@@ -6047,7 +6102,6 @@ menu.toggle(world_options, menuname('World', 'Angry Planes'), {}, '', function(t
 			end
 		end
 	end
-
 	for k, plane in pairs(spawned) do
 		entities.delete_by_handle(plane.plane)
 		entities.delete_by_handle(plane.pilot)
@@ -6077,7 +6131,6 @@ menu.action(script, menuname('WiriScript', 'Show Credits'), {}, '', function()
 		'QuickNET',
 		'komt',
 		'Ren',
-		'MrPainKiller',
 		'ICYPhoenix',
 		'Koda',
 		'jayphen',
@@ -6087,11 +6140,13 @@ menu.action(script, menuname('WiriScript', 'Show Credits'), {}, '', function()
 		'NONECKED',
 		{'wiriscript', 'HUD_COLOUR_TREVOR'}
 	}
-	local buttons = {{'skip', 194}}
+	local buttons = {
+		{'skip', 194}
+	}
 	AUDIO.SET_MOBILE_RADIO_ENABLED_DURING_GAMEPLAY(true)
 	AUDIO.SET_MOBILE_PHONE_RADIO_STATE(true)
-	AUDIO.SET_RADIO_TO_STATION_NAME('RADIO_01_CLASS_ROCK')
-	AUDIO.SET_CUSTOM_RADIO_TRACK_LIST('RADIO_01_CLASS_ROCK', 'END_CREDITS_SAVE_MICHAEL_TREVOR', true)
+	AUDIO.SET_RADIO_TO_STATION_NAME("RADIO_01_CLASS_ROCK")
+	AUDIO.SET_CUSTOM_RADIO_TRACK_LIST("RADIO_01_CLASS_ROCK", "END_CREDITS_SAVE_MICHAEL_TREVOR", true)
 
 	create_tick_handler(function()
 		local scaleform = GRAPHICS.REQUEST_SCALEFORM_MOVIE('OPENING_CREDITS')
@@ -6130,13 +6185,13 @@ menu.action(script, menuname('WiriScript', 'Show Credits'), {}, '', function()
 		end
 
 		if ctime() - stime >= 3000 and state == 2 then
-			AUDIO.START_AUDIO_SCENE('CAR_MOD_RADIO_MUTE_SCENE')
+			AUDIO.START_AUDIO_SCENE("CAR_MOD_RADIO_MUTE_SCENE")
 			wait(5000)
 			AUDIO.SET_MOBILE_RADIO_ENABLED_DURING_GAMEPLAY(false)
 			AUDIO.SET_MOBILE_PHONE_RADIO_STATE(false)
 			AUDIO.CLEAR_CUSTOM_RADIO_TRACK_LIST("RADIO_01_CLASS_ROCK")
 			AUDIO.SKIP_RADIO_FORWARD()
-			AUDIO.STOP_AUDIO_SCENE('CAR_MOD_RADIO_MUTE_SCENE')
+			AUDIO.STOP_AUDIO_SCENE("CAR_MOD_RADIO_MUTE_SCENE")
 			return false
 		end
 
@@ -6153,13 +6208,7 @@ menu.action(script, menuname('WiriScript', 'Show Credits'), {}, '', function()
 	end)
 end)
 
-
 menu.hyperlink(menu.my_root(), 'Join WiriScript FanClub', 'https://cutt.ly/wiriscript-fanclub', 'Join us in our fan club, created by komt.')
-
-if outdated_translation then
-	notification.normal(('"%s"'):format(general_config.language:gsub("^%l", string.upper))..' is outdated')
-end
-
 
 for pid = 0,30 do 
 	if players.exists(pid) then
@@ -6182,10 +6231,6 @@ util.on_stop(function()
 		SET_BULLET_TO_DEFAULT()
 	end
 
-	if shootlazer then
-		menu.trigger_commands('disablevehmousecontroloverride off; disablevehflymousecontroloverride off; disablevehsubmousecontroloverride off')
-	end
-	
 	if speed_mult ~= 1.0 then
 		SET_AMMO_SPEED_MULT(1.0)
 	end
@@ -6210,7 +6255,6 @@ util.on_stop(function()
 				ENTITY.SET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID(), pos.x, pos.y, pos.z, false, false, false)
 				ENTITY.SET_ENTITY_VISIBLE(PLAYER.PLAYER_PED_ID(), true, 0)
 				CAM.RENDER_SCRIPT_CAMS(false, false, 3000, true, false, 0)
-				menu.trigger_commands('disablevehexit off; becomeorbitalcannon off; disablevehcincam off;  disablevehselectnextweapon off; disablevehradiowheel off')
 			end
 		end
 	end
@@ -6235,7 +6279,7 @@ while true do
 		handling.vehicle_name = GET_USER_VEHICLE_NAME()
 		handling.vehicle_model = GET_USER_VEHICLE_MODEL()
 
-		if PAD.IS_CONTROL_JUST_PRESSED(2, 323) then
+		if PAD.IS_CONTROL_JUST_PRESSED(2, 323) or PAD.IS_DISABLED_CONTROL_JUST_PRESSED(2, 323) then
 			UI.toggle_cursor_mode()
 			handling.cursor_mode = not handling.cursor_mode
 		end
@@ -6297,11 +6341,11 @@ while true do
 		UI.divider()
 		UI.start_horizontal()
 		   
-		if UI.button('Save Handling', buttonscolour, colour.div(buttonscolour, 5/4)) then
+		if UI.button('Save Handling', buttonscolour, colour.div(buttonscolour, 5/3)) then
 			handling:save()
 		end
 
-		if UI.button('Load Handling', buttonscolour, colour.div(buttonscolour, 5/4)) then
+		if UI.button('Load Handling', buttonscolour, colour.div(buttonscolour, 5/3)) then
 			handling:load()
 		end
 		
