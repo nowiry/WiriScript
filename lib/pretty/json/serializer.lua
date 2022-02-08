@@ -31,7 +31,7 @@ end
 
 local Serializer = {
     print_address = false,
-    max_depth = 300
+    max_depth = 700
 }
 
 setmetatable(Serializer, {
