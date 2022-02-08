@@ -5,7 +5,7 @@ THIS FILE IS PART OF WIRISCRIPT
 --------------------------------
 ]]
 
-require "natives-1640181023"
+util.require_natives(1640181023)
 require "wiriscript.functions"
 
 local self = {}
