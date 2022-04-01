@@ -5,46 +5,61 @@ THIS FILE IS PART OF WIRISCRIPT
 --------------------------------
 ]]
 
-util.require_natives(1640181023)
 require "wiriscript.functions"
 
 local self = {}
-local state = -1
+local MissileState = 
+{
+    nonExistent = -1,
+    beingCreated = 0,
+    onFlight = 1,
+    exploting = 2,
+    disconnecting = 3,
+    beingDestroyed = 4
+}
+local BoundsState =
+{
+    inBounds = 0,
+    gettingOut = 1,
+    outOfBounds = 2,
+}
+local state = MissileState.nonExistent
 local object
 local camera
 local blip
 local scaleform
-local start_pos
+local startPos
 local sTime
 local flash_rate = 0.0
-local audio_reference = "DLC_Arena_Piloted_Missile_Sounds"
 local ptfx_asset = "scr_xs_props"
 local m_object_hash = joaat("xs_prop_arena_airmissile_01a")
 local scaleform = GRAPHICS.REQUEST_SCALEFORM_MOVIE("SUBMARINE_MISSILES")
 local effects = {
     missile_trail = -1
 }
-local sId = {
-    startup = -1,
-    out_of_bounds = -1,
-    static_loop = -1,
-    disconnect = -1
+local sound =
+{
+    startUp     = Sound.new("HUD_Startup", "DLC_Arena_Piloted_Missile_Sounds"),
+    outOfBounds = Sound.new("Out_Of_Bounds_Alarm_Loop", "DLC_Arena_Piloted_Missile_Sounds"),
+    staticLoop  = Sound.new("HUD_Static_Loop", "DLC_Arena_Piloted_Missile_Sounds"),
+    disconnect  = Sound.new("HUD_Disconnect", "DLC_Arena_Piloted_Missile_Sounds")
 }
 
 
-self.set_state = function (bool)
-    if bool then
-        if state == -1 then
-            state = 0
-        end
-    elseif state ~= -1 then
-        state = 2
+self.exists = function ()
+    return state ~= MissileState.nonExistent
+end
+
+self.create = function ()
+    if not self.exists() then
+        state = MissileState.beingCreated
     end
 end
 
-
-self.get_state = function ()
-    return state
+self.destroy_missile = function ()
+    if self.exists() then
+        state = MissileState.exploting
+    end
 end
 
 
@@ -54,6 +69,7 @@ local function currect_heading(heading)
     end
     return (heading + 180.0)
 end
+
 
 local function currect_rot(value)
     if value > 180 then
@@ -68,18 +84,18 @@ end
 
 local function draw_intructional_buttons()
     if instructional:begin() then
-        add_control_group_instructional_button(20, "DRONE_SPACE")
-        add_control_group_instructional_button(21, "DRONE_POSITION")
+        instructional.add_control_group(20, "DRONE_SPACE")
+        instructional.add_control_group(21, "DRONE_POSITION")
 
         if not PAD._IS_USING_KEYBOARD(0) then
-            add_control_instructional_button(208, "DRONE_SPEEDU")
-            add_control_instructional_button(207, "DRONE_SLOWD")
+            instructional.add_control(208, "DRONE_SPEEDU")
+            instructional.add_control(207, "DRONE_SLOWD")
         else
-            add_control_instructional_button(209, "DRONE_SPEEDU")
-            add_control_instructional_button(210, "DRONE_SLOWD")
+            instructional.add_control(209, "DRONE_SPEEDU")
+            instructional.add_control(210, "DRONE_SLOWD")
         end
-
-        add_control_instructional_button(75, "MOVE_DRONE_RE")
+        
+        instructional.add_control(75, "MOVE_DRONE_RE")
         instructional:set_background_colour(0, 0, 0, 80)
         instructional:draw()
     end
@@ -95,7 +111,7 @@ local function get_script_axes()
 end
 
 
-local function set_entity_rotation()
+local function set_missile_rotation()
     local max = 40.0
     local mult = 1.0
     local axis_x = 0.0
@@ -227,53 +243,26 @@ local function set_entity_rotation()
 end
 
 
-local function out_of_bounds_state(pos)
-    local perc = 0.0
-    local limit = 3000.0
-    local distance = vect.dist(pos, start_pos)
+local lowerLimit = 2500.0^2
+local upperLimit = 3000.0^2
 
-    if distance >= (limit - 500) and distance < limit then
-        perc = (distance - (limit - 500)) / 500
-        
-        if AUDIO.HAS_SOUND_FINISHED(sId.out_of_bounds) then
-            sId.out_of_bounds = AUDIO.GET_SOUND_ID()
-            AUDIO.PLAY_SOUND_FRONTEND(sId.out_of_bounds, "Out_Of_Bounds_Alarm_Loop", audio_reference, true)
-        end
-
-        if flash_rate ~= round(perc, 1) then
-            flash_rate = round(perc, 1)
-            GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_WARNING_IS_VISIBLE")
-            GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_BOOL(true)
-            GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
-
-            GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_WARNING_FLASH_RATE")
-            GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(flash_rate)
-            GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
-        end
-        
-        return false
-    elseif distance >= limit then
-        return true
-    else
-        flash_rate = 0.0
-
-        if not AUDIO.HAS_SOUND_FINISHED(sId.out_of_bounds) then
-			AUDIO.STOP_SOUND(sId.out_of_bounds)
-			AUDIO.RELEASE_SOUND_ID(sId.out_of_bounds)
-			sId.out_of_bounds = -1
-        end
-
-        GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_WARNING_IS_VISIBLE")
-        GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_BOOL(false)
-        GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
+local get_bounds_state = function (pos)
+    local pos = ENTITY.GET_ENTITY_COORDS(object)
+    local distance = vect.dist2(pos, startPos)
+    if distance > upperLimit then
+        return BoundsState.outOfBounds
+    elseif distance >= lowerLimit and distance < upperLimit then
+        return BoundsState.gettingOut
     end
-    return false
+    return BoundsState.inBounds
 end
 
+-------------------------
+-- MAIN LOOP FUNCTION
+-------------------------
 
 self.main_loop = function ()
-    if state == 0 then
-
+    if state == MissileState.beingCreated then
         if PED.IS_PED_IN_ANY_VEHICLE(PLAYER.PLAYER_PED_ID(), false) then
             TASK.TASK_LEAVE_ANY_VEHICLE(PLAYER.PLAYER_PED_ID(), 0, 0)
         end
@@ -281,7 +270,7 @@ self.main_loop = function ()
         ENTITY.FREEZE_ENTITY_POSITION(PLAYER.PLAYER_PED_ID(), true)
         local coords = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID())
 
-        REQUEST_MODELS(m_object_hash)
+        requestModels(m_object_hash)
         NETWORK._RESERVE_NETWORK_LOCAL_OBJECTS(NETWORK.GET_NUM_RESERVED_MISSION_OBJECTS(false, 1) + 1)
         object = OBJECT.CREATE_OBJECT_NO_OFFSET(m_object_hash, coords.x, coords.y, coords.z, true, false, true)
         ENTITY.SET_ENTITY_HEADING(object, currect_heading(CAM.GET_GAMEPLAY_CAM_ROT(0).z))
@@ -319,17 +308,15 @@ self.main_loop = function ()
             AUDIO.START_AUDIO_SCENE("dlc_aw_arena_piloted_missile_scene")
         end
 
-        sId.startup = AUDIO.GET_SOUND_ID()
-        AUDIO.PLAY_SOUND_FRONTEND(sId.startup, "HUD_Startup", audio_reference, true)
-        
-        REQUEST_PTFX_ASSET(ptfx_asset)
+        sound.startUp:play()
+        requestPtfxAsset(ptfx_asset)
         GRAPHICS.USE_PARTICLE_FX_ASSET(ptfx_asset)
         effects.missile_trail = GRAPHICS.START_NETWORKED_PARTICLE_FX_LOOPED_ON_ENTITY(
             "scr_xs_guided_missile_trail", 
             object, 
             0.0, 0.0, 0.0, 
             0.0, 0.0, 0.0, 
-            1.0, 
+            1.0,
             false, false, false
         )
 
@@ -338,9 +325,9 @@ self.main_loop = function ()
         HUD.SET_BLIP_ROUTE(blip, 0)
         HUD.SET_BLIP_SPRITE(blip, 548)
 
-        start_pos = coords
-        state = 1
-    elseif state == 1 then
+        startPos = coords
+        state = MissileState.onFlight
+    elseif state == MissileState.onFlight then
         local force_mag
         local accelerating
         local decelerating
@@ -348,8 +335,9 @@ self.main_loop = function ()
         local velocity  = ENTITY.GET_ENTITY_VELOCITY(object)
         local rotation  = CAM.GET_CAM_ROT(camera, 2)
         local heading   = currect_heading( ENTITY.GET_ENTITY_HEADING(object) )
-        local direction = util.rot_to_dir(rotation)
+        local direction = toDirection(rotation)
 
+        disablePhone()
         HUD.SET_BLIP_DISPLAY(blip, 2)
         HUD.SET_BLIP_COORDS(blip, coords.x, coords.y, coords.z)
         HUD.LOCK_MINIMAP_POSITION(coords.x, coords.y)
@@ -357,11 +345,12 @@ self.main_loop = function ()
         HUD.SET_BLIP_PRIORITY(blip, 9)
         HUD.LOCK_MINIMAP_ANGLE(round(heading))
 
-        if ENTITY.HAS_ENTITY_COLLIDED_WITH_ANYTHING(object) or ENTITY.GET_LAST_MATERIAL_HIT_BY_ENTITY(object) ~= 0 or ENTITY.IS_ENTITY_IN_WATER(object) then
-            state = 2
-        end
-
         if NETWORK.NETWORK_HAS_CONTROL_OF_NETWORK_ID(NETWORK.OBJ_TO_NET(object))  then
+            if ENTITY.HAS_ENTITY_COLLIDED_WITH_ANYTHING(object) or ENTITY.GET_LAST_MATERIAL_HIT_BY_ENTITY(object) ~= 0 or
+            ENTITY.IS_ENTITY_IN_WATER(object) or PAD.IS_CONTROL_JUST_PRESSED(2, 75) then
+                self.destroy_missile()
+            end
+
             if not PAD._IS_USING_KEYBOARD(0) then
                 if PAD.GET_CONTROL_UNBOUND_NORMAL(2, 208) ~= 0 then
                     accelerating = true
@@ -388,9 +377,8 @@ self.main_loop = function ()
     
             local force = vect.mult(direction, force_mag)
             ENTITY.APPLY_FORCE_TO_ENTITY_CENTER_OF_MASS(object, 1, force.x, force.y, force.z, false, false, false, false)
-            set_entity_rotation()
+            set_missile_rotation()
             STREAMING.SET_FOCUS_POS_AND_VEL(coords.x, coords.y, coords.z, velocity.x, velocity.y, velocity.z)
-            --PED.SET_POP_CONTROL_SPHERE_THIS_FRAME(coords.x, coords.y, coords.z, 60.0, 100.0)
             if MISC.GET_FRAME_COUNT() % 120 == 0 then
                 PED.SET_SCENARIO_PEDS_SPAWN_IN_SPHERE_AREA(coords.x, coords.y, coords.z, 60.0, 30);
             end
@@ -400,33 +388,39 @@ self.main_loop = function ()
             GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(0)
             GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(rotation.z)
             GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
-    
-            if out_of_bounds_state(coords) or PAD.IS_CONTROL_JUST_PRESSED(2, 75) then
-                state = 2
-            end
+
+            local bounds_state = get_bounds_state()
+            if bounds_state == BoundsState.gettingOut then
+                sound.outOfBounds:play()
+
+                GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_WARNING_IS_VISIBLE")
+                GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_BOOL(true)
+                GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
             
+                GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_WARNING_FLASH_RATE")
+                GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(0.5)
+                GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
+            elseif bounds_state == BoundsState.inBounds then
+                sound.outOfBounds:stop()
+                GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_WARNING_IS_VISIBLE")
+                GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_BOOL(false)
+                GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
+            elseif bounds_state == BoundsState.outOfBounds then
+                self.destroy_missile()
+            end
+
             GRAPHICS.DRAW_SCALEFORM_MOVIE_FULLSCREEN(scaleform, 255, 255, 255, 0, 1)
             draw_intructional_buttons()
         else
             NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(object) 
         end
-    elseif state == 2 then
+    elseif state == MissileState.exploting then
         local coord = CAM.GET_CAM_COORD(camera)
         FIRE.ADD_EXPLOSION(coord.x, coord.y, coord.z, 81, 5.0, true, false, 1.0, false)
         PAD.SET_PAD_SHAKE(0, 300, 200)
         NETWORK.NETWORK_FADE_OUT_ENTITY(object, false, true)
-        
-        if not AUDIO.HAS_SOUND_FINISHED(sId.startup) then
-            AUDIO.STOP_SOUND(sId.startup)
-            AUDIO.RELEASE_SOUND_ID(sId.startup)
-            sId.startup = -1
-        end
-
-        if not AUDIO.HAS_SOUND_FINISHED(sId.out_of_bounds) then
-			AUDIO.STOP_SOUND(sId.out_of_bounds)
-			AUDIO.RELEASE_SOUND_ID(sId.out_of_bounds)
-            sId.out_of_bounds = -1
-        end
+        sound.startUp:stop()
+        sound.outOfBounds:stop()
 
         if GRAPHICS.DOES_PARTICLE_FX_LOOPED_EXIST(effects.missile_trail) then
             GRAPHICS.STOP_PARTICLE_FX_LOOPED(effects.missile_trail, false)
@@ -437,103 +431,69 @@ self.main_loop = function ()
             util.remove_blip(blip)
         end
 
-        state = 3
-    elseif state == 3 then
+        state = MissileState.disconnecting
+    elseif state == MissileState.disconnecting then
         if not sTime then
-            sId.static_loop = AUDIO.GET_SOUND_ID()
-            AUDIO.PLAY_SOUND_FRONTEND(sId.static_loop, "HUD_Static_Loop", audio_reference, true)
+            sound.staticLoop:play()
             GRAPHICS.SET_TIMECYCLE_MODIFIER("MissileOutOfRange")
-        
             sTime = cTime()
         elseif ( cTime() - sTime ) >= 1000 then
-            if not AUDIO.HAS_SOUND_FINISHED(sId.static_loop) then
-                AUDIO.STOP_SOUND(sId.static_loop)
-                AUDIO.RELEASE_SOUND_ID(sId.static_loop)
-                sId.static_loop = -1
-            end
-            
+            sound.staticLoop:stop()
             CAM.DESTROY_ALL_CAMS(true)
             CAM.DESTROY_CAM(camera, false)
-            CAM.RENDER_SCRIPT_CAMS(false, false, 3000, true, false, 0)
+            CAM.RENDER_SCRIPT_CAMS(false, false, 0, true, false, 0)
             STREAMING.CLEAR_FOCUS()
 
             sTime = nil
-            state = 4
+            state = MissileState.beingDestroyed
         end
-    elseif state == 4 then
+    elseif state == MissileState.beingDestroyed then
         if not sTime then
-            sId.disconnect = AUDIO.GET_SOUND_ID()
-            AUDIO.PLAY_SOUND_FRONTEND(sId.disconect, "HUD_Disconnect", audio_reference, true)
-            
+            sound.disconnect:play()
             sTime = cTime()
         elseif ( cTime() - sTime ) >= 500 then
-            if not AUDIO.HAS_SOUND_FINISHED(sId.disconect) then
-                AUDIO.STOP_SOUND(sId.disconect)
-                AUDIO.RELEASE_SOUND_ID(sId.disconect)
-                sId.disconect = -1
-            end
-
+            sound.disconnect:stop()
             if AUDIO.IS_AUDIO_SCENE_ACTIVE("dlc_aw_arena_piloted_missile_scene") then
                 AUDIO.STOP_AUDIO_SCENE("dlc_aw_arena_piloted_missile_scene")
             end
-
             GRAPHICS.SET_TIMECYCLE_MODIFIER("DEFAULT")
-            
             entities.delete_by_handle(object)
-
             HUD.UNLOCK_MINIMAP_ANGLE()
             HUD.UNLOCK_MINIMAP_POSITION()
             ENTITY.FREEZE_ENTITY_POSITION(PLAYER.PLAYER_PED_ID(), false)
             
             sTime = nil
-            state = -1
+            state = MissileState.nonExistent
         end
     end
 end
 
 
 self.on_stop = function ()
-    if state ~= -1 then
-        if not AUDIO.HAS_SOUND_FINISHED(sId.out_of_bounds) then
-			AUDIO.STOP_SOUND(sId.out_of_bounds)
-			AUDIO.RELEASE_SOUND_ID(sId.out_of_bounds)
+    if self.exists() then
+        for _, s in pairs(sound) do
+            s:stop()
         end
-
-        if not AUDIO.HAS_SOUND_FINISHED(sId.static_loop) then
-            AUDIO.STOP_SOUND(sId.static_loop)
-            AUDIO.RELEASE_SOUND_ID(sId.static_loop)
-        end
-
-        if not AUDIO.HAS_SOUND_FINISHED(sId.disconect) then
-            AUDIO.STOP_SOUND(sId.disconect)
-            AUDIO.RELEASE_SOUND_ID(sId.disconect)
-        end
-
         if GRAPHICS.DOES_PARTICLE_FX_LOOPED_EXIST(effects.missile_trail) then
             GRAPHICS.STOP_PARTICLE_FX_LOOPED(effects.missile_trail, false)
             STREAMING.REMOVE_NAMED_PTFX_ASSET(ptfx_asset)
         end
-
         if AUDIO.IS_AUDIO_SCENE_ACTIVE("dlc_aw_arena_piloted_missile_scene") then
             AUDIO.STOP_AUDIO_SCENE("dlc_aw_arena_piloted_missile_scene")
         end
-
         if HUD.DOES_BLIP_EXIST(blip) then
             util.remove_blip(blip)
         end
-
         CAM.DESTROY_ALL_CAMS(true)
         CAM.DESTROY_CAM(camera, false)
-        CAM.RENDER_SCRIPT_CAMS(false, false, 3000, true, false, 0)
+        CAM.RENDER_SCRIPT_CAMS(false, false, 0, true, false, 0)
         STREAMING.CLEAR_FOCUS()
         
         GRAPHICS.SET_TIMECYCLE_MODIFIER("DEFAULT")
-        
         entities.delete_by_handle(object)
-
         HUD.UNLOCK_MINIMAP_ANGLE()
         HUD.UNLOCK_MINIMAP_POSITION()
-        ENTITY.FREEZE_ENTITY_POSITION(PLAYER.PLAYER_PED_ID(), false)
+        ENTITY.FREEZE_ENTITY_POSITION(PLAYER.PLAYER_PED_ID(), false) 
     end
 end
 
