@@ -1,55 +1,58 @@
 --[[
 --------------------------------
 THIS FILE IS PART OF WIRISCRIPT
-        Nowiry#2663
+         Nowiry#2663
 --------------------------------
 ]]
 
-util.require_natives(1640181023)
 require "wiriscript.functions"
 
 local self = {}
-local state = -1
-local vehicle_hash = joaat("hydra")
-local object_hash = joaat("imp_prop_ship_01a")
+local UfoState = 
+{
+    nonExistent = -1,
+    beingCreated = 0,
+    onFlight = 1,
+    fadingOut = 2,
+    beingDestroyed = 3,
+    fadingIn = 4,
+}
+local state = UfoState.nonExistent
+local vehicleHash = joaat("hydra")
+local objHash = joaat("imp_prop_ship_01a")
 local jet
 local object
 local cam
 local fov = 110
 local zoom = 0.0
-local lastzoom
+local lastZoom
 local charge = 0.0
 local countdown = 3
 local counting
 local attracted = {}
 local sTime
-local cam_rot = vect.new(-89.0, 0.0, 0.0)
+local cameraRot = vect.new(-89.0, 0.0, 0.0)
 local cannon = false
-local sId = {
-    zoom_out = -1,
-    fire_charge = -1
-}
-local veh_cam_dist
 local scaleform = GRAPHICS.REQUEST_SCALEFORM_MOVIE("ORBITAL_CANNON_CAM")
-local effect = {asset = "scr_xm_orbital", name = "scr_xm_orbital_blast"}
-local sphere_colour = Colour.New(0, 255, 255)
+local sphereColour = Colour.new(0, 255, 255, 255)
+local sound = 
+{
+    zoomOut         = Sound.new("zoom_out_loop", "dlc_xm_orbital_cannon_sounds"),
+    fireLoop        = Sound.new("cannon_charge_fire_loop", "dlc_xm_orbital_cannon_sounds"),
+    backgroundLoop  = Sound.new("background_loop", "dlc_xm_orbital_cannon_sounds"),
+    panLoop         = Sound.new("pan_loop", "dlc_xm_orbital_cannon_sounds")
+}
 
-
-self.set_state = function (bool)
-    if bool then
-        if state == -1 then
-            state = 0
-        end
-    else
-        if state ~= -1 then
-            state = 2
-        end
-    end
+self.exists = function ()
+    return state ~= UfoState.nonExistent
 end
 
+self.create = function ()
+    state = UfoState.beingCreated
+end
 
-self.get_state = function ()
-    return state
+self.destroy = function ()
+    state = UfoState.beingDestroyed
 end
 
 
@@ -62,67 +65,86 @@ end
 
 
 local function draw_instructional_buttons()
-    if cannon then
-        if instructional:begin() then
-            add_control_instructional_button(75, "BB_LC_EXIT")
-            add_control_instructional_button(80, "Disable Cannon")
-
+    if instructional:begin() then
+        instructional.add_control(75, "BB_LC_EXIT")
+        if cannon then
+            instructional.add_control(80, "Disable Cannon")
+            
             if PAD._IS_USING_KEYBOARD(0) then
-                add_control_group_instructional_button(29, "ORB_CAN_ZOOM")
+                instructional.add_control_group(29, "ORB_CAN_ZOOM")
             end
 
-            add_control_group_instructional_button(21, "HUD_INPUT101")
-            add_control_instructional_button(69, "ORB_CAN_FIRE")
-            instructional:set_background_colour(0, 0, 0, 80)
-            instructional:draw()
-        end
-    else
-        if instructional:begin() then
-            add_control_instructional_button(75, "BB_LC_EXIT")
-            add_control_instructional_button(119, "Vertical flight")
-            add_control_instructional_button(80, "Cannon")
+            instructional.add_control_group(21, "HUD_INPUT101")
+            instructional.add_control(69, "ORB_CAN_FIRE")
+        else
+            instructional.add_control(119, "Vertical flight")
+            instructional.add_control(80, "Cannon")
 
             if #attracted > 0 then
-                add_control_instructional_button(22, "Release vehicles")
+                instructional.add_control(22, "Release vehicles")
             end
 
             if #attracted < 15 then
-                add_control_instructional_button(73, "Tractor beam")
+                instructional.add_control(73, "Tractor beam")
             end
-
-            instructional:set_background_colour(0, 0, 0, 80)
-            instructional:draw()
         end
+        instructional.add_control(69, "ORB_CAN_FIRE")
+        instructional:set_background_colour(0, 0, 0, 80)
+        instructional:draw()
     end
+end
+
+
+local --[[CPed*]] getVehicleDriver = function (--[[CAutomobile*]] vehicle)
+    return  memory.read_long(vehicle + 0x0C68)
+end
+
+local isPedPlayer = function (--[[CPed*]] ped)
+    return memory.read_long(ped + 0x10C8) ~= 0 
 end
 
 
 local tractor_beam = function ()
     local pos = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(jet, 0.0, 0.0, -10.0)
     if not cannon then
-        local colour = Colour.Rainbow(sphere_colour)
-        GRAPHICS._DRAW_SPHERE(pos.x, pos.y, pos.z, 1.0, colour.r, colour.g, colour.b, colour.a)
+        Colour.rainbow(sphereColour)
+        GRAPHICS._DRAW_SPHERE(pos.x, pos.y, pos.z, 1.0, sphereColour.r, sphereColour.g, sphereColour.b, 255)
     end
     
     if PAD.IS_CONTROL_JUST_PRESSED(2, 73) then
+        local groundZ = getGroundZ(pos)
+        local onGroundCoord = vect.new(pos.x, pos.y, groundZ)
         for _, vehicle in ipairs(entities.get_all_vehicles_as_handles()) do
-            local groundz = GET_GROUND_Z_FOR_3D_COORD(pos)
-            local on_ground_coord = vect.new(pos.x, pos.y, groundz)
-            local veh_pos = ENTITY.GET_ENTITY_COORDS(vehicle)
-            if vect.dist(on_ground_coord, veh_pos) < 80 and vehicle ~= jet and #attracted < 15 then
-                insert_once(attracted, vehicle)
-            end 
+            local vehiclePos = ENTITY.GET_ENTITY_COORDS(vehicle)
+            if #attracted < 15 and vect.dist2(onGroundCoord, vehiclePos) < 6000.0 and vehicle ~= jet then
+                if gConfig.ufo.targetplayer then  
+                    -- target vehicles with player drivers              
+                    local driver = getVehicleDriver(entities.handle_to_pointer(vehicle))
+                    if driver == NULL then
+                        goto continue
+                    end
+                    if isPedPlayer(driver) then
+                        insertOnce(attracted, vehicle)
+                    end
+                else 
+                    -- target all vehicles                    
+                    insertOnce(attracted, vehicle)
+                end                
+            end
+            ::continue::
         end
     end
-    
+
     for _, vehicle in ipairs(attracted) do
-        local veh_pos = ENTITY.GET_ENTITY_COORDS(vehicle)
-        if REQUEST_CONTROL(vehicle) then
-            local norm = vect.norm(vect.subtract(pos, veh_pos))
-            local x = vect.dist(pos, veh_pos)
+        local vehiclePos = ENTITY.GET_ENTITY_COORDS(vehicle)
+        if NETWORK.NETWORK_HAS_CONTROL_OF_ENTITY(vehicle) then
+            local norm = vect.norm(vect.subtract(pos, vehiclePos))
+            local x = vect.dist(pos, vehiclePos)
             local mult = 110 * (1 - 2^(-x))
             local vel = vect.mult(norm, mult)
             ENTITY.SET_ENTITY_VELOCITY(vehicle, vel.x, vel.y, vel.z)
+        else
+            NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(vehicle)
         end
     end
     
@@ -132,116 +154,124 @@ local tractor_beam = function ()
 end
 
 
-local draw_boxes_on_players = function ()
-    if config.general.disablelockon then
+local draw_sprite_on_players = function ()
+    if gConfig.ufo.disableboxes then
         return 
     end
     for _, player in pairs(players.list(false)) do
         if ENTITY.IS_ENTITY_ON_SCREEN(PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(player)) and not players.is_in_interior(player) then
-            local colour = Colour.New(0, 255, 255)
-            if IS_PLAYER_FRIEND(player) then colour = Colour.New(128, 255, 0) end
-            DRAW_LOCKON_SPRITE_ON_PLAYER(player, colour)
+            local hudColour = isPlayerFriend(player) and HudColour.friendly or HudColour.red
+            local playerPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(player)
+            drawLockonSprite(playerPed, hudColour)
         end
     end
 end
 
 
-local set_cannon_cam_zoom_level = function ()
-    local increasing
-    local decreasing 
-
-    if PAD._IS_USING_KEYBOARD(2) then
-        if PAD.IS_CONTROL_JUST_PRESSED(2, 241) then
-            increasing = true
-        end
-        if PAD.IS_CONTROL_JUST_PRESSED(2, 242) then
-            decreasing = true
-        end
+local set_cannon_cam_zoom = function ()
+    if not PAD._IS_USING_KEYBOARD(2) then
+        return
     end
-
-    if increasing then
+    if PAD.IS_CONTROL_JUST_PRESSED(2, 241) then
         if zoom < 1.0 then
             zoom = zoom + 0.25
         end
-    elseif decreasing then
+    end
+    if PAD.IS_CONTROL_JUST_PRESSED(2, 242) then
         if zoom > 0.0 then
             zoom = zoom - 0.25
         end
     end
 
-    local fov_limit = 25 + 85 * (1.0 - zoom)
-    fov = incr(fov, 0.5, fov_limit)
-
-    if zoom ~= lastzoom then
-        if AUDIO.HAS_SOUND_FINISHED(sId.zoom_out) then
-            sId.zoom_out = AUDIO.GET_SOUND_ID()
-            AUDIO.PLAY_SOUND_FRONTEND(sId.zoom_out, "zoom_out_loop", "dlc_xm_orbital_cannon_sounds", true)
-        end
-
+    local fovLimit = 25 + 85 * (1.0 - zoom)
+    fov = increment(fov, 1.0, fovLimit)		
+    if zoom ~= lastZoom then
+        sound.zoomOut:play()
+    
         GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_ZOOM_LEVEL")
         GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(zoom)
         GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
-        lastzoom = zoom
+        lastZoom = zoom
     end
 
-    if fov ~= fov_limit then
+    if fov ~= fovLimit then
         CAM.SET_CAM_FOV(cam, fov)
-    elseif not AUDIO.HAS_SOUND_FINISHED(sId.zoom_out) then
-        AUDIO.STOP_SOUND(sId.zoom_out)
-		AUDIO.RELEASE_SOUND_ID(sId.zoom_out)
-        sId.zoom_out = -1
+    else
+        sound.zoomOut:stop()
     end
 end
 
 
 local function set_cannon_cam_rot()
     local mult = 1.0
-    local axis_x = PAD.GET_CONTROL_UNBOUND_NORMAL(2, 220)
-    local axis_y = PAD.GET_CONTROL_UNBOUND_NORMAL(2, 221)
+    local axisX = PAD.GET_CONTROL_UNBOUND_NORMAL(2, 220)
+    local axisY = PAD.GET_CONTROL_UNBOUND_NORMAL(2, 221)
     local pitch
     local roll
     local heading
-    local frame_time = 30 * MISC.GET_FRAME_TIME()
+    local frameTime = 30 * MISC.GET_FRAME_TIME()
+    local maxRotX = -25.0
+    local minRotX = -89.0
 
     if PAD._IS_USING_KEYBOARD(0) then
 		mult = 3.0
-		axis_x = axis_x * mult
-		axis_y = axis_y * mult
+		axisX = axisX * mult
+		axisY = axisY * mult
 	end
     
     if PAD.IS_LOOK_INVERTED() then
-        axis_y = - axis_y
+        axisY = -axisY
     end
 
-    if axis_x ~= 0 or axis_y ~= 0 then
-        heading  = -(axis_x * 0.05) * frame_time * 25
-        pitch    = -(axis_y * 0.05) * frame_time * 25
-        cam_rot = vect.add(vect.new(pitch, 0, heading), cam_rot)
+    if axisX ~= 0 or axisY ~= 0 then
+        heading  = -(axisX * 0.05) * frameTime * 25
+        pitch    = -(axisY * 0.05) * frameTime * 25
+        cameraRot  = vect.add(vect.new(pitch, 0, heading), cameraRot)
 
-        if cam_rot.x > -45.0 then
-            cam_rot.x = -45.0
-        elseif cam_rot.x < -89.0 then
-            cam_rot.x = -89.0
+        if cameraRot.x > maxRotX then
+            cameraRot.x = maxRotX
+        elseif cameraRot.x < minRotX then
+            cameraRot.x = minRotX
         end
-
-        ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(cam, jet, cam_rot.x, 0.0, cam_rot.z, 0.0, 0.0, -4.0, true)
+        sound.panLoop:play()
+        ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(cam, jet, cameraRot.x, 0.0, cameraRot.z, 0.0, 0.0, -4.0, true)
+    else
+        sound.panLoop:stop()
     end
     local heading = currect_heading(CAM.GET_CAM_ROT(cam, 2).z) 
     HUD.LOCK_MINIMAP_ANGLE(round( heading ))
-    HUD.SET_RADAR_ZOOM_PRECISE(0.0)
+end
+
+
+local function recharge_cannon()
+    charge = increment(charge, 0.015, 1.0)
 end
 
 
 local render_cannon_cam = function ()
     if not cannon then
-        CAM.RENDER_SCRIPT_CAMS(false, false, 3000, true, false, 0)
+        if CAM.IS_CAM_RENDERING(cam) then
+            CAM.RENDER_SCRIPT_CAMS(false, false, 0, true, false, 0)
+        end
+        if AUDIO.IS_AUDIO_SCENE_ACTIVE("DLC_BTL_Hacker_Drone_HUD_Scene") then
+            AUDIO.STOP_AUDIO_SCENE("DLC_BTL_Hacker_Drone_HUD_Scene")
+        end
+        sound.panLoop:stop()
+        sound.zoomOut:stop()
+        sound.fireLoop:stop()
+        sound.backgroundLoop:stop()
         return
     end
-    CAM.RENDER_SCRIPT_CAMS(true, false, 3000, true, false, 0)
+
+    if not CAM.IS_CAM_RENDERING(cam) then
+        CAM.RENDER_SCRIPT_CAMS(true, false, 0, true, false, 0)
+    end
+
     PAD.DISABLE_CONTROL_ACTION(2, 85, true)   -- INPUT_VEH_RADIO_WHEEL
     PAD.DISABLE_CONTROL_ACTION(2, 122, true)  -- INPUT_VEH_FLY_MOUSE_CONTROL_OVERRIDE
-
-    set_cannon_cam_zoom_level()
+   
+    disablePhone()
+    set_cannon_cam_zoom()
     set_cannon_cam_rot()
 
     GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_STATE")
@@ -253,12 +283,14 @@ local render_cannon_cam = function ()
 	GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
 
     if PAD.IS_CONTROL_PRESSED(2, 69) then
-        local hit, pos, normal, ent = RAYCAST(cam, 1000)
-        if hit == 1 then
+        local raycastResult = getRaycastResult(1000.0)
+        local pos = raycastResult.endCoords
+        if raycastResult.didHit then            
             STREAMING.SET_FOCUS_POS_AND_VEL(pos.x, pos.y, pos.z, 0.0, 0.0, 0.0)
         end
         if charge == 1.0 then
             if not counting then
+                sound.fireLoop:play()
                 sTime = cTime()
                 counting = true
             end
@@ -267,21 +299,18 @@ local render_cannon_cam = function ()
                     countdown = countdown - 1
                     sTime = cTime()
                 end
+
                 GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_COUNTDOWN")
 				GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_INT(countdown)
 				GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
-
-                if AUDIO.HAS_SOUND_FINISHED(sId.fire_charge) then
-                    sId.fire_charge = AUDIO.GET_SOUND_ID()
-                    AUDIO.PLAY_SOUND_FRONTEND(sId.fire_charge, "cannon_charge_fire_loop", "dlc_xm_orbital_cannon_sounds", true)
-                end
             else
                 charge = 0.0
                 countdown = 3
                 counting = false
-                
-                local rot = GET_ROTATION_FROM_DIRECTION(normal)
-                REQUEST_PTFX_ASSET(effect.asset)
+
+                local rot = toRotation(raycastResult.surfaceNormal)
+                local effect = Effect.new("scr_xm_orbital", "scr_xm_orbital_blast")
+                requestPtfxAsset(effect.asset)
                 FIRE.ADD_EXPLOSION(pos.x, pos.y, pos.z, 59, 1.0, true, false, 1.0)
                 GRAPHICS.USE_PARTICLE_FX_ASSET(effect.asset)
                 GRAPHICS.START_NETWORKED_PARTICLE_FX_NON_LOOPED_AT_COORD(
@@ -289,54 +318,62 @@ local render_cannon_cam = function ()
 					pos.x, 
                     pos.y, 
                     pos.z, 
-					rot.x - 90, 
+					rot.x - 90.0, -- to make the effect rotation relative 
                     rot.y, 
                     rot.z, 
-					1.0, 
+					1.0,
 					false, false, false, true
 				)
+
                 AUDIO.PLAY_SOUND_FROM_COORD(-1, "DLC_XM_Explosions_Orbital_Cannon", pos.x, pos.y, pos.z, 0, true, 0, false)
                 CAM.SHAKE_CAM(cam, "GAMEPLAY_EXPLOSION_SHAKE", 1.5)
             end
-        else -- recharging
-            charge = incr(charge, 0.015, 1.0)
+        else
+            recharge_cannon()
+            sound.fireLoop:stop()
             counting = false
         end
     elseif charge ~= 1.0 or counting then
-        charge = incr(charge, 0.015, 1.0)
+        recharge_cannon()
+        AUDIO.SET_VARIABLE_ON_SOUND(sound.fireLoop.Id, "Firing", 0.0)
+        sound.fireLoop:stop()
 		counting = false
 		countdown = 3
     end
 
-    if charge ~= 1.0 and not AUDIO.HAS_SOUND_FINISHED(sId.fire_charge) then
-        AUDIO.STOP_SOUND(sId.fire_charge)
-        AUDIO.RELEASE_SOUND_ID(sId.fire_charge)
-        sId.fire_charge = -1
+    if not AUDIO.IS_AUDIO_SCENE_ACTIVE("DLC_BTL_Hacker_Drone_HUD_Scene") then
+        AUDIO.START_AUDIO_SCENE("DLC_BTL_Hacker_Drone_HUD_Scene")
     end
+    sound.backgroundLoop:play()
 
     STREAMING.CLEAR_FOCUS()
     GRAPHICS.DRAW_SCALEFORM_MOVIE_FULLSCREEN(scaleform, 255, 255, 255, 255, 0)
 end
 
 
+local set_vehicle_cam_distance = function (--[[Vehicle]] vehicle, value)
+    local addr = memory.read_long(entities.handle_to_pointer(vehicle) + 0x20) + 0x38
+	if addr ~= NULL then
+        memory.write_float(addr, value)
+    end
+end
+
+
 self.main_loop = function ()
-    if state == 0 then
+    if state == UfoState.beingCreated then
         CAM.DO_SCREEN_FADE_OUT(500)
 		wait(600)
 		local pos = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID())
-		REQUEST_MODELS(vehicle_hash, object_hash)
-		jet = entities.create_vehicle(vehicle_hash, pos, CAM.GET_GAMEPLAY_CAM_ROT(0).z)
+		requestModels(vehicleHash, objHash)
+		jet = entities.create_vehicle(vehicleHash, pos, CAM.GET_GAMEPLAY_CAM_ROT(0).z)
 		ENTITY.SET_ENTITY_VISIBLE(jet, false, 0)
 		VEHICLE.SET_VEHICLE_ENGINE_ON(jet, true, true, true)
 		VEHICLE._SET_VEHICLE_JET_ENGINE_ON(jet, true)
 		ENTITY.SET_ENTITY_INVINCIBLE(jet, true)
 		VEHICLE.SET_PLANE_TURBULENCE_MULTIPLIER(jet, 0.0)
-		veh_cam_dist = memory.read_long(entities.handle_to_pointer(jet) + 0x20) + 0x38
-		if veh_cam_dist ~= NULL then
-            memory.write_float(veh_cam_dist, - 20.0)
-        end
+        set_vehicle_cam_distance(jet, -20)
 		
-		object = entities.create_object(object_hash, pos)
+		object = entities.create_object(objHash, pos)
 		ENTITY.ATTACH_ENTITY_TO_ENTITY(object, jet, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, false, true, true, false, 0, true)
 		
         CAM.DESTROY_ALL_CAMS(true)
@@ -347,89 +384,91 @@ self.main_loop = function ()
 		GRAPHICS.SET_SCRIPT_GFX_DRAW_ORDER(1)
 		
         AUDIO.REQUEST_SCRIPT_AUDIO_BANK("DLC_CHRISTMAS2017/XM_ION_CANNON", false, -1)
+        AUDIO.SET_AUDIO_FLAG("DisableFlightMusic", true);
 
         ENTITY.SET_ENTITY_COORDS_NO_OFFSET(jet, pos.x, pos.y, pos.z + 200, false, false, true)
         PED.SET_PED_INTO_VEHICLE(PLAYER.PLAYER_PED_ID(), jet, -1)
         wait(600)
 		CAM.DO_SCREEN_FADE_IN(500)
 
-        state = 1
-    elseif state == 1 then
+        state = UfoState.onFlight
+    elseif state == UfoState.onFlight then
         PAD.DISABLE_CONTROL_ACTION(2, 75, true) -- INPUT_VEH_EXIT
 		PAD.DISABLE_CONTROL_ACTION(2, 80, true) -- INPUT_VEH_CIN_CAM
 		PAD.DISABLE_CONTROL_ACTION(2, 99, true) -- INPUT_VEH_SELECT_NEXT_WEAPON
 
-        VEHICLE.DISABLE_VEHICLE_WEAPON(true, - 123497569, jet, PLAYER.PLAYER_PED_ID())
-		VEHICLE.DISABLE_VEHICLE_WEAPON(true, - 494786007, jet, PLAYER.PLAYER_PED_ID())	
+        VEHICLE.DISABLE_VEHICLE_WEAPON(true, -123497569, jet, PLAYER.PLAYER_PED_ID())
+		VEHICLE.DISABLE_VEHICLE_WEAPON(true, -494786007, jet, PLAYER.PLAYER_PED_ID())	
         CAM._DISABLE_VEHICLE_FIRST_PERSON_CAM_THIS_FRAME()
 		
-		if PAD.IS_DISABLED_CONTROL_JUST_PRESSED(2, 75) or PAD.IS_DISABLED_CONTROL_PRESSED(2, 75) then
-			state = 2
+		if PAD.IS_DISABLED_CONTROL_JUST_PRESSED(2, 75) or PAD.IS_DISABLED_CONTROL_PRESSED(2, 75) or
+        getVehiclePlayerIsIn(PLAYER.PLAYER_ID()) ~= jet then
+			state = UfoState.fadingOut
 		end
-
-        if GET_VEHICLE_PLAYER_IS_IN(PLAYER.PLAYER_ID()) ~= jet then
-            state = 2
-        end
 		
 		if PAD.IS_CONTROL_JUST_PRESSED(2, 80) or PAD.IS_CONTROL_JUST_PRESSED(2, 45) then
-			AUDIO.PLAY_SOUND_FRONTEND(-1, "cannon_active", "dlc_xm_orbital_cannon_sounds", true)
+            AUDIO.PLAY_SOUND_FRONTEND(-1, "cannon_active", "dlc_xm_orbital_cannon_sounds", true);
             zoom = 0.0
 			cannon = not cannon
             STREAMING.CLEAR_FOCUS()
             HUD.UNLOCK_MINIMAP_ANGLE()
             if cannon then
-                cam_rot = vect.new(-89.0, 0.0, 0.0)
+                cameraRot = vect.new(-89.0, 0.0, 0.0)
                 ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION (cam, jet, -89.0, 0.0, 0.0, 0.0, 0.0, -4.0, true)
             end
 		end
 
-        toggle_off_radar(true)
         tractor_beam()
-        draw_boxes_on_players()
+        draw_sprite_on_players()
         render_cannon_cam()
         draw_instructional_buttons()
-    elseif state == 2 then
+        setOutOfRadar(true)
+    elseif state == UfoState.fadingOut then
         CAM.DO_SCREEN_FADE_OUT(500)
 	    wait(600)
         
-        state = 3
-    elseif state == 3 then
-	    local ptr1 = alloc()
-	    local pos = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID())
-	    if veh_cam_dist ~= NULL then 
-            memory.write_float(veh_cam_dist, -1.57) 
-        end
-	    if not AUDIO.HAS_SOUND_FINISHED(sId.zoom_out) then
-            AUDIO.STOP_SOUND(sId.zoom_out)
-            AUDIO.RELEASE_SOUND_ID(sId.zoom_out)
-        end
-        STREAMING.CLEAR_FOCUS()
-	    AUDIO.RELEASE_NAMED_SCRIPT_AUDIO_BANK("DLC_CHRISTMAS2017/XM_ION_CANNON")
-	    entities.delete_by_handle(jet)
-	    entities.delete_by_handle(object)
-	    PATHFIND.GET_CLOSEST_VEHICLE_NODE(pos.x, pos.y, pos.z, ptr1, 1, 100, 2.5)
-	    pos = memory.read_vector3(ptr1); memory.free(ptr1)
-	    ENTITY.SET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID(), pos.x, pos.y, pos.z, false, false, false)
-	    ENTITY.SET_ENTITY_VISIBLE(PLAYER.PLAYER_PED_ID(), true, 0)
-	    PED.REMOVE_PED_HELMET(PLAYER.PLAYER_PED_ID(), true)
-	    CAM.SET_CAM_ACTIVE(cam, false)
-	    CAM.RENDER_SCRIPT_CAMS(false, false, 3000, true, false, 0)
-	    CAM.DESTROY_CAM(cam, false)
-        HUD.UNLOCK_MINIMAP_ANGLE()
-        toggle_off_radar(false)
+        state = UfoState.beingDestroyed
+    elseif state == UfoState.beingDestroyed then
+        sound.zoomOut:stop()
+        sound.backgroundLoop:stop()
+        sound.fireLoop:stop()
+        sound.panLoop:stop()
 
-        state = 4
-    elseif state == 4 then
+        STREAMING.CLEAR_FOCUS()
+        AUDIO.STOP_AUDIO_SCENE("DLC_BTL_Hacker_Drone_HUD_Scene")
+	    AUDIO.RELEASE_NAMED_SCRIPT_AUDIO_BANK("DLC_CHRISTMAS2017/XM_ION_CANNON")
+	    
+        set_vehicle_cam_distance(jet, -1.57)
+        entities.delete_by_handle(jet)
+	    entities.delete_by_handle(object)
+        
+        local ptr = alloc()
+	    local pos = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID())
+	    PATHFIND.GET_CLOSEST_VEHICLE_NODE(pos.x, pos.y, pos.z, ptr, 1, 100, 2.5)
+	    pos = memory.read_vector3(ptr); memory.free(ptr)
+        ENTITY.SET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID(), pos.x, pos.y, pos.z, false, false, false)
+        ENTITY.SET_ENTITY_VISIBLE(PLAYER.PLAYER_PED_ID(), true, 0)
+	    PED.REMOVE_PED_HELMET(PLAYER.PLAYER_PED_ID(), true)
+        setOutOfRadar(false)
+	    
+        CAM.SET_CAM_ACTIVE(cam, false)
+	    CAM.RENDER_SCRIPT_CAMS(false, false, 0, true, false, 0)
+	    CAM.DESTROY_CAM(cam, false)
+        HUD.UNLOCK_MINIMAP_ANGLE()    
+        attracted = {}
+    
+        state = UfoState.fadingIn
+    elseif state == UfoState.fadingIn then
 	    wait(600)
 	    CAM.DO_SCREEN_FADE_IN(500)
 
-        state = -1
+        state = UfoState.nonExistent
     end
 end
 
 self.on_stop = function ()
-    if state ~= -1 and GET_VEHICLE_PLAYER_IS_IN(PLAYER.PLAYER_ID()) == jet then
-        state = 3
+    if self.exists() and getVehiclePlayerIsIn(PLAYER.PLAYER_ID()) == jet then
+        self.destroy()
         self.main_loop()
     end
 end
