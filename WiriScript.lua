@@ -88,59 +88,59 @@ end
 
 -- label =  "weapon ID"
 gWeapons = {												
-	WT_PIST 		= "weapon_pistol",
-	WT_STUN			= "weapon_stungun",
+	WT_PIST 	= "weapon_pistol",
+	WT_STUN		= "weapon_stungun",
 	WT_RAYPISTOL	= "weapon_raypistol",
 	WT_RIFLE_SCBN 	= "weapon_specialcarbine",
-	WT_SG_PMP		= "weapon_pumpshotgun",
-	WT_MG			= "weapon_mg",
+	WT_SG_PMP	= "weapon_pumpshotgun",
+	WT_MG		= "weapon_mg",
 	WT_RIFLE_HVY 	= "weapon_heavysniper",
-	WT_MINIGUN		= "weapon_minigun",
-	WT_RPG			= "weapon_rpg",
-	WT_RAILGUN 		= "weapon_railgun",
-	WT_CMPGL 		= "weapon_compactlauncher",
-	WT_EMPL 		= "weapon_emplauncher"
+	WT_MINIGUN	= "weapon_minigun",
+	WT_RPG		= "weapon_rpg",
+	WT_RAILGUN 	= "weapon_railgun",
+	WT_CMPGL 	= "weapon_compactlauncher",
+	WT_EMPL 	= "weapon_emplauncher"
 }
 
 
 gMeleeWeapons = {
-	WT_UNARMED 		= "weapon_unarmed",
-	WT_KNIFE		= "weapon_knife",
-	WT_MACHETE		= "weapon_machete",
+	WT_UNARMED 	= "weapon_unarmed",
+	WT_KNIFE	= "weapon_knife",
+	WT_MACHETE	= "weapon_machete",
 	WT_BATTLEAXE	= "weapon_battleaxe",
-	WT_WRENCH		= "weapon_wrench",
-	WT_HAMMER		= "weapon_hammer",
-	WT_BAT			= "weapon_bat"
+	WT_WRENCH	= "weapon_wrench",
+	WT_HAMMER	= "weapon_hammer",
+	WT_BAT		= "weapon_bat"
 }
 
 
 -- here you can modify which peds are available to choose
 -- ["name shown in Stand"] = "ped model ID"
 gPedModels = {
-	["Prisoner"] 				= "s_m_y_prismuscl_01",
-	["Mime"] 					= "s_m_y_mime",
-	["Astronaut"] 				= "s_m_m_movspace_01",
-	["SWAT"] 					= "s_m_y_swat_01",
-	["Ballas Ganster"] 			= "csb_ballasog",
-	["Marine"] 					= "csb_ramp_marine",
+	["Prisoner"] 			= "s_m_y_prismuscl_01",
+	["Mime"] 			= "s_m_y_mime",
+	["Astronaut"] 			= "s_m_m_movspace_01",
+	["SWAT"] 			= "s_m_y_swat_01",
+	["Ballas Ganster"] 		= "csb_ballasog",
+	["Marine"] 			= "csb_ramp_marine",
 	["Female Police Officer"] 	= "s_f_y_cop_01",
 	["Male Police Officer"] 	= "s_m_y_cop_01",
-	["Jesus"] 					= "u_m_m_jesus_01",
-	["Zombie"] 					= "u_m_y_zombie_01",
-	["Juggernaut"] 				= "u_m_y_juggernaut_01",
-	["Clown"] 					= "s_m_y_clown_01",
-	["Hooker"] 					= "s_f_y_hooker_01",
-	["Altruist"] 				= "a_m_y_acult_01"
+	["Jesus"] 			= "u_m_m_jesus_01",
+	["Zombie"] 			= "u_m_y_zombie_01",
+	["Juggernaut"] 			= "u_m_y_juggernaut_01",
+	["Clown"] 			= "s_m_y_clown_01",
+	["Hooker"] 			= "s_f_y_hooker_01",
+	["Altruist"] 			= "a_m_y_acult_01"
 }
 
 
 -- [name] = {"keyboard; controller", index}
 gImputs = {
-	INPUT_JUMP						= {"Spacebar; X", 22},
-	INPUT_VEH_ATTACK				= {"Mouse L; RB", 69},
-	INPUT_VEH_AIM					= {"Mouse R; LB", 68},
-	INPUT_VEH_DUCK					= {"X; A", 73},
-	INPUT_VEH_HORN					= {"E; L3", 86},
+	INPUT_JUMP			= {"Spacebar; X", 22},
+	INPUT_VEH_ATTACK		= {"Mouse L; RB", 69},
+	INPUT_VEH_AIM			= {"Mouse R; LB", 68},
+	INPUT_VEH_DUCK			= {"X; A", 73},
+	INPUT_VEH_HORN			= {"E; L3", 86},
 	INPUT_VEH_CINEMATIC_UP_ONLY 	= {"Numpad +; none", 96},
 	INPUT_VEH_CINEMATIC_DOWN_ONLY 	= {"Numpad -; none", 97}
 }
@@ -157,10 +157,10 @@ gProofs = {
 
 gSound = 
 {
-	zoomOut 			= Sound.new("zoom_out_loop", "dlc_xm_orbital_cannon_sounds"),
-	activating			= Sound.new("cannon_activating_loop", "dlc_xm_orbital_cannon_sounds"),
+	zoomOut 		= Sound.new("zoom_out_loop", "dlc_xm_orbital_cannon_sounds"),
+	activating		= Sound.new("cannon_activating_loop", "dlc_xm_orbital_cannon_sounds"),
 	backgroundLoop 		= Sound.new("background_loop", "dlc_xm_orbital_cannon_sounds"),
-	fireLoop 			= Sound.new("cannon_charge_fire_loop", "dlc_xm_orbital_cannon_sounds")
+	fireLoop 		= Sound.new("cannon_charge_fire_loop", "dlc_xm_orbital_cannon_sounds")
 }
 
 NULL = 0
