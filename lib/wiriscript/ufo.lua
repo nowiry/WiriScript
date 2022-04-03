@@ -18,8 +18,8 @@ local UfoState =
     fadingIn = 4,
 }
 local state = UfoState.nonExistent
-local vehicleHash = joaat("hydra")
-local objHash = joaat("imp_prop_ship_01a")
+local vehicleHash = util.joaat("hydra")
+local objHash = util.joaat("imp_prop_ship_01a")
 local jet
 local object
 local cam
@@ -442,11 +442,10 @@ self.main_loop = function ()
         entities.delete_by_handle(jet)
 	    entities.delete_by_handle(object)
         
-        local ptr = alloc()
+        local outCoords = v3.new()
 	    local pos = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID())
-	    PATHFIND.GET_CLOSEST_VEHICLE_NODE(pos.x, pos.y, pos.z, ptr, 1, 100, 2.5)
-	    pos = memory.read_vector3(ptr); memory.free(ptr)
-        ENTITY.SET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID(), pos.x, pos.y, pos.z, false, false, false)
+	    PATHFIND.GET_CLOSEST_VEHICLE_NODE(pos.x, pos.y, pos.z, outCoords, 1, 100, 2.5)
+        ENTITY.SET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID(), v3.getX(outCoords), v3.getY(outCoords), v3.getZ(outCoords), false, false, false)
         ENTITY.SET_ENTITY_VISIBLE(PLAYER.PLAYER_PED_ID(), true, 0)
 	    PED.REMOVE_PED_HELMET(PLAYER.PLAYER_PED_ID(), true)
         setOutOfRadar(false)
