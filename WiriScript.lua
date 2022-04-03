@@ -4977,6 +4977,7 @@ menu.action(script, menuname("WiriScript", "Show Credits"), {}, "", function()
 		"komt",
 		"vsus/Ren",
 		"ICYPhoenix",
+		"aaron",
 		"Koda",
 		"jayphen",
 		"Fwishky",
