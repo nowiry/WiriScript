@@ -30,7 +30,7 @@ ufo = require "wiriscript.ufo"
 guidedMissile = require "wiriscript.guided_missile"
 UI = UI.new()
 
-gVersion = 17
+gVersion = 18
 gShowingIntro = false
 gWorldPtr = memory.rip(memory.scan("48 8B 05 ? ? ? ? 45 ? ? ? ? 48 8B 48 08 48 85 C9 74 07") + 3)
 gWorldPtr = memory.read_long(gWorldPtr)
