@@ -32,7 +32,7 @@ local startPos
 local sTime
 local flash_rate = 0.0
 local ptfx_asset = "scr_xs_props"
-local m_object_hash = joaat("xs_prop_arena_airmissile_01a")
+local m_object_hash = util.joaat("xs_prop_arena_airmissile_01a")
 local scaleform = GRAPHICS.REQUEST_SCALEFORM_MOVIE("SUBMARINE_MISSILES")
 local effects = {
     missile_trail = -1
