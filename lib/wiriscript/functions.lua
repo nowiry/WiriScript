@@ -5,16 +5,15 @@ THIS FILE IS PART OF WIRISCRIPT
 --------------------------------
 ]]
 
+
+
 util.require_natives(1640181023)
 if not filesystem.exists(filesystem.scripts_dir() .. "lib/natives-1640181023.lua") then
 	error("required file not found: lib/natives-1640181023.lua")
 end
 
 wait = util.yield
-joaat = util.joaat
-alloc = memory.alloc
 cTime = util.current_time_millis
-create_tick_handler = util.create_tick_handler
 
 gConfig = {
 	controls = {
@@ -24,10 +23,10 @@ gConfig = {
 	general = {
 		standnotifications 	= false,
 		displayhealth 		= true,
-		language 		= "english",
+		language 			= "english",
 		bustedfeatures 		= false,	
-		developer		= false, 	-- developer flag (enables/disables some debug features)
-		showintro		= true
+		developer			= false, 	-- developer flag (enables/disables some debug features)
+		showintro			= true
 	},
 	ufo = {
 		disableboxes 		= false, 	-- determines if boxes are drawn on players to show their position
@@ -64,40 +63,56 @@ gConfig = {
 -- NOTIFICATION
 --------------------------
 
+
+gNotificationTextureDict = "DIA_ZOMBIE1"
+gNotificationTextureName = "DIA_ZOMBIE1"
+
 notification = {}
+if filesystem.exists(filesystem.resources_dir() .. "WiriTextures.ytd") then
+	util.register_file(filesystem.resources_dir() .. "WiriTextures.ytd")
+	gNotificationTextureDict = "WiriTextures"
+	gNotificationTextureName = "logo"
+end
+
 function notification.stand(message)
 	message = "[WiriScript] " .. tostring(message):gsub('[~]%w[~]', "") -- removes any text colour (i.e. ~r~, ~b~, ~s~, etc.)
 	if not string.match(message, '[%.?]$') then message = message .. '.' end
 	util.toast(message)
 end
 
-function notification.normal(message, color)
-	if not gConfig.general.standnotifications then
-		GRAPHICS.REQUEST_STREAMED_TEXTURE_DICT("DIA_ZOMBIE1", 0)
-		while not GRAPHICS.HAS_STREAMED_TEXTURE_DICT_LOADED("DIA_ZOMBIE1") do
-			wait()
-		end
-		message = tostring(message) or "NULL"
-		if not message:match('[%.?]$') then message = message .. '.' end -- basically, if the string doesnt have an ending '.' or '?' concats a '.'
-		HUD._THEFEED_SET_NEXT_POST_BACKGROUND_COLOR(color or HudColour.black)
-		util.BEGIN_TEXT_COMMAND_THEFEED_POST(message)
-		HUD.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT("DIA_ZOMBIE1", "DIA_ZOMBIE1", true, 4, "WiriScript", "~c~Notification~s~")
-		HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER(true, false)
-	else
-		notification.stand(message)
+function notification.help(message, color)
+	if gConfig.general.standnotifications then
+		return notification.stand(message)
 	end
+	message = tostring(message) or "NULL"
+	if not message:match('[%.?]$') then 
+		message = message .. '.' 
+	end
+	HUD._THEFEED_SET_NEXT_POST_BACKGROUND_COLOR(color or HudColour.black)
+	util.BEGIN_TEXT_COMMAND_THEFEED_POST("~BLIP_INFO_ICON~ " .. message)
+	HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER_WITH_TOKENS(true, true)
 end
 
-function notification.help(message, color)
-	if not gConfig.general.standnotifications then
-		message = tostring(message) or "NULL"
-		if not message:match('[%.?]$') then message = message .. '.' end
-		HUD._THEFEED_SET_NEXT_POST_BACKGROUND_COLOR(color or HudColour.black)
-		util.BEGIN_TEXT_COMMAND_THEFEED_POST("~BLIP_INFO_ICON~ " .. message)
-		HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER_WITH_TOKENS(true, true)
-	else
-		notification.stand(message)
+function notification.normal(message, color)
+	if gConfig.general.standnotifications then
+		return self.stand(message)
 	end
+	if not GRAPHICS.HAS_STREAMED_TEXTURE_DICT_LOADED(gNotificationTextureDict)  then
+		GRAPHICS.REQUEST_STREAMED_TEXTURE_DICT(gNotificationTextureDict, 0)
+		repeat
+			wait()
+		until GRAPHICS.HAS_STREAMED_TEXTURE_DICT_LOADED(gNotificationTextureDict)
+	end
+
+	message = tostring(message) or "NULL"
+	if not message:match('[%.?]$') then -- basically, if the string doesnt have an ending '.' or '?' concats a '.'
+		message = message .. '.'
+	end
+	HUD._THEFEED_SET_NEXT_POST_BACKGROUND_COLOR(color or HudColour.black)
+	util.BEGIN_TEXT_COMMAND_THEFEED_POST(message)
+	HUD.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT(
+		gNotificationTextureDict, gNotificationTextureName, true, 4, "WiriScript", "~c~Notification~s~")
+	HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER(true, false)
 end
 
 --------------------------
@@ -637,7 +652,7 @@ function getNearbyEntities(pId, radius)
 end
 
 function deleteNearbyVehicles(pos, model, radius)
-	local hash = joaat(model)
+	local hash = util.joaat(model)
 	local vehicles = entities.get_all_vehicles_as_handles()
 	for _, vehicle in ipairs(vehicles) do
 		if ENTITY.DOES_ENTITY_EXIST(vehicle) and ENTITY.GET_ENTITY_MODEL(vehicle) == hash then
@@ -657,10 +672,12 @@ end
 
 -- deletes all non player peds with the given model name
 function deletePedsWithModelHash(modelHash)
-	for k, ped in pairs(entities.get_all_peds_as_handles()) do
+	if not STREAMING.IS_MODEL_VALID(modelHash) then
+		error("got an invalid model hash")
+	end
+	for _, ped in ipairs(entities.get_all_peds_as_handles()) do
 		if ENTITY.GET_ENTITY_MODEL(ped) == modelHash and not PED.IS_PED_A_PLAYER(ped) then
 			requestControlLoop(ped)
-			ENTITY.SET_ENTITY_AS_MISSION_ENTITY(ped, true, true)
 			entities.delete_by_handle(ped)
 		end
 	end
@@ -731,12 +748,23 @@ function isPedInAnyAircraft(ped)
 	return PED.IS_PED_IN_ANY_PLANE(ped) or PED.IS_PED_IN_ANY_HELI(ped)
 end
 
+function getOffsetFromEntityGivenDistance(entity, distance)
+	local pos = ENTITY.GET_ENTITY_COORDS(entity, 0)
+	local theta = (math.random() + math.random(0, 1)) * math.pi --returns a random angle between 0 and 2pi (exclusive)
+	local coords = vect.new(
+		pos.x + distance * math.cos(theta),
+		pos.y + distance * math.sin(theta),
+		pos.z
+	)
+	return coords
+end
+
 --------------------------
 -- PLAYER
 --------------------------
 
 function isPlayerFriend(pId)
-	local ptr = alloc(104)
+	local ptr = memory.alloc(104)
 	NETWORK.NETWORK_HANDLE_FROM_PLAYER(pId, ptr, 13)
 	return ( NETWORK.NETWORK_IS_HANDLE_VALID(ptr, 13) and NETWORK.NETWORK_IS_FRIEND(ptr) )
 end
@@ -783,8 +811,8 @@ end
 
 function getPlayerClan(player)
 	local clan = {icon = 0, tag = "", name = "", motto = "", alt_badge = "Off", rank = "Rank4"}
-	local network_handle = alloc(104)
-    local clan_desc = alloc(280)
+	local network_handle = memory.alloc(104)
+    local clan_desc = memory.alloc(280)
     
 	NETWORK.NETWORK_HANDLE_FROM_PLAYER(player, network_handle, 13)
     if NETWORK.NETWORK_IS_HANDLE_VALID(network_handle, 13) and NETWORK.NETWORK_CLAN_PLAYER_GET_DESC(clan_desc, 35, network_handle) then
@@ -799,7 +827,7 @@ function getPlayerClan(player)
 			memory.read_int(clan_desc + 0x108),
 			memory.read_int(clan_desc + 0x110)
 		}]]
-		clan.alt_badge = toBool(memory.read_byte(clan_desc + 0xA0))
+		clan.alt_badge = memory.read_byte(clan_desc + 0xA0) == 1 and "On" or "Off"
 	end
 	
 	memory.free(network_handle)
@@ -854,8 +882,8 @@ function getRaycastResult(dist, flag)
 	local result = {}
 	flag = flag or TraceFlag.everything
 	local didHit 		= memory.alloc(8)
-	local endCoords 	= memory.alloc()
-	local surfaceNormal = memory.alloc()
+	local endCoords 	= v3.new()
+	local surfaceNormal = v3.new()
 	local hitEntity 	= memory.alloc_int()
 	local origin 		= CAM.GET_FINAL_RENDERED_CAM_COORD()
 	local destination 	= getOffsetFromCam(dist)
@@ -874,13 +902,13 @@ function getRaycastResult(dist, flag)
 		), didHit, endCoords, surfaceNormal, hitEntity
 	)
 	result.didHit 			= toBool(memory.read_byte(didHit))
-	result.endCoords 		= memory.read_vector3(endCoords)
-	result.surfaceNormal 	= memory.read_vector3(surfaceNormal)
+	result.endCoords 		= vect.new(v3.get(endCoords))
+	result.surfaceNormal 	= vect.new(v3.get(surfaceNormal))
 	result.hitEntity 		= memory.read_int(hitEntity)
 
 	memory.free(didHit)
-	memory.free(endCoords)
-	memory.free(surfaceNormal)
+	v3.free(endCoords)
+	v3.free(surfaceNormal)
 	memory.free(hitEntity)
 	return result
 end
@@ -1132,7 +1160,7 @@ function getWaypointCoords()
 end
 
 function getGroundZ(pos)
-	local ptr = alloc()
+	local ptr = memory.alloc()
 	MISC.GET_GROUND_Z_FOR_3D_COORD(pos.x, pos.y, pos.z, ptr, false)
 	local groundz = memory.read_float(ptr); memory.free(ptr)
 	return groundz
