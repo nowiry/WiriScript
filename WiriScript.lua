@@ -635,6 +635,28 @@ end)
 recycleBin = menu.list(profilesRoot, menuname("Spoofing Profile", "Recycle Bin"), {}, "Temporary stores the deleted profiles. Profiles are permanetly erased when the script stops.")
 menu.divider(profilesRoot, menuname("Spoofing Profile", "Spoofing Profile") )
 
+local function isProfileCrewValid(crewTable)
+	if crewTable == nil then
+		return true
+	end
+	if type(crewTable) ~= "table" then
+		return false
+	end
+	if not equals(crewTable, {}) then
+		if (
+			type(crewTable.icon) 		~= "number" or
+			type(crewTable.name) 		~= "string" or
+			type(crewTable.tag) 		~= "string" or
+			type(crewTable.rank)		~= "string"	or
+			type(crewTable.motto) 		~= "string"	or
+			type(crewTable.alt_badge) 	~= "string"
+		) then
+			return false
+		end
+	end
+	return true
+end
+
 for _, path in ipairs(filesystem.list_files(wiriDir .. "profiles")) do
 	local filename, ext = string.match(path, '^.+\\(.+)%.(.+)$')
 	if ext == "json" then
@@ -645,7 +667,7 @@ for _, path in ipairs(filesystem.list_files(wiriDir .. "profiles")) do
 			isProfileValid = false
 		elseif not tonumber(profile.rid) or not profile.name then
 			isProfileValid = false
-		elseif profile.crew and type(profile.crew) ~= "table" then
+		elseif not isProfileCrewValid(profile.crew) then
 			isProfileValid = false
 		end
 
@@ -4977,7 +4999,6 @@ menu.action(script, menuname("WiriScript", "Show Credits"), {}, "", function()
 		"komt",
 		"vsus/Ren",
 		"ICYPhoenix",
-		"aaron",
 		"Koda",
 		"jayphen",
 		"Fwishky",
