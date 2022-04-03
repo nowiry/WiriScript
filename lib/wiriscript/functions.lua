@@ -95,7 +95,7 @@ end
 
 function notification.normal(message, color)
 	if gConfig.general.standnotifications then
-		return self.stand(message)
+		return notification.stand(message)
 	end
 	if not GRAPHICS.HAS_STREAMED_TEXTURE_DICT_LOADED(gNotificationTextureDict)  then
 		GRAPHICS.REQUEST_STREAMED_TEXTURE_DICT(gNotificationTextureDict, 0)
