@@ -5,7 +5,7 @@ THIS FILE IS PART OF WIRISCRIPT
 --------------------------------
 ]]
 
-gVersion = 19
+gVersion = 20
 
 local scriptdir <const> = filesystem.scripts_dir()
 if not filesystem.exists(scriptdir .. "lib/wiriscript") then
