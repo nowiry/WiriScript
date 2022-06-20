@@ -7,8 +7,8 @@ THIS FILE IS PART OF WIRISCRIPT
 
 util.require_natives(1651208000)
 
-if not filesystem.exists(filesystem.scripts_dir() .. "lib/natives-1640181023.lua") then
-	error("required file not found: lib/natives-1640181023.lua")
+if not filesystem.exists(filesystem.scripts_dir() .. "lib/natives-1651208000.lua") then
+	error("required file not found: lib/natives-1651208000.lua")
 end
 
 json = require "pretty.json"
