@@ -13,7 +13,7 @@ end
 
 json = require "pretty.json"
 local self = {}
-self.version = 19
+self.version = 20
 
 gConfig = {
 	controls = {
