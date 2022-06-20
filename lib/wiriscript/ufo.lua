@@ -8,7 +8,7 @@ THIS FILE IS PART OF WIRISCRIPT
 require "wiriscript.functions"
 
 local self = {}
-self.version = 19
+self.version = 20
 
 local UfoState <const> =
 {
