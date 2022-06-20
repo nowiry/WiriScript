@@ -126,21 +126,24 @@ ModelList.__index = ModelList
 
 ---@param parent integer
 ---@param menuname string
+---@param command string
+---@param helpText string
 ---@param onClick? fun(name: string, model: string)
 ---@param changeMenuName? boolean #If the list's name will change to show the selected model.
 ---@return ModelList
-function ModelList.new(parent, menuname, onClick, changeMenuName)
+function ModelList.new(parent, menuname, command, helpText, onClick, changeMenuName)
 	local self = setmetatable({}, ModelList)
-	self.ref = menu.list(parent, menuname, {}, "")
-	for name, model in pairs_by_keys(PedModels) do
-		local model_menuname = get_menu_name("Ped Models", name)
-		menu.action(self.ref, model_menuname, {}, "", function()
+	self.ref = menu.list(parent, menuname, {command}, helpText)
+	for orgName, model in pairs_by_keys(PedModels) do
+		local modelName = get_menu_name("Ped Models", orgName)
+		local modelCommand = command ~= "" and command .. modelName or ""
+		menu.action(self.ref, modelName, {modelCommand}, "", function(click)
 			if changeMenuName then
-				menu.set_menu_name(self.ref, ("%s: %s"):format(menuname, model_menuname))
+				menu.set_menu_name(self.ref, ("%s: %s"):format(menuname, modelName))
 			end
-			menu.focus(self.ref)
+			if click == CLICK_MENU then menu.focus(self.ref) end
 			self.selected = model
-			if onClick then onClick(name, model) end
+			if onClick then onClick(orgName, model) end
 		end)
 	end
 	return self
@@ -276,24 +279,27 @@ WeaponList.__index = WeaponList
 
 ---@param parent integer
 ---@param name string
+---@param command string
+---@param helpText string
 ---@param onClick? fun(name: string, model: string)
 ---@param changeMenuName? boolean
 ---@return WeaponList
-function WeaponList.new(parent, name, onClick, changeMenuName)
+function WeaponList.new(parent, name, command, helpText, onClick, changeMenuName)
 	local self = setmetatable({}, WeaponList)
 	self.name = name
-	self.reference = menu.list(parent, name, {}, "")
+	self.reference = menu.list(parent, name, {command}, helpText)
 	for section, t in pairs_by_keys(Weapons) do
 		local sectionList = menu.list(self.reference, util.get_label_text(section), {}, "")
 		for label, model in pairs_by_keys(t) do
-			local w_menuname = util.get_label_text(label)
-			menu.action(sectionList, w_menuname, {}, "", function()
+			local weaponName = util.get_label_text(label)
+			local weaponCommand = command ~= "" and command .. weaponName or ""
+			menu.action(sectionList, weaponName, {weaponCommand}, "", function(click)
 				if changeMenuName then
-					menu.set_menu_name(self.reference, name .. ": " .. w_menuname)
+					menu.set_menu_name(self.reference, name .. ": " .. weaponName)
 				end
-				menu.focus(self.reference)
+				if click == CLICK_MENU then menu.focus(self.reference) end
 				self.selected = model
-				if onClick then onClick(w_menuname, model) end
+				if onClick then onClick(weaponName, model) end
 			end)
 		end
 	end
@@ -1428,7 +1434,7 @@ generate_features = function(pId)
 		end)
 	end
 
-	ModelList.new(attackerOpt, get_menu_name("Trolling - Attacker Options", "Spawn Attacker"), function (name, model)
+	ModelList.new(attackerOpt, get_menu_name("Trolling - Attacker Options", "Spawn Attacker"), "", "", function (name, model)
 		local i = 0
 		local modelHash <const> = util.joaat(model)
 		request_model(modelHash)
@@ -1477,7 +1483,7 @@ generate_features = function(pId)
 	end)
 
 	-- Set weapon
-	weaponList = WeaponList.new(attackerOpt, get_menu_name("Trolling - Attacker Options", "Set Weapon"), nil, true)
+	weaponList = WeaponList.new(attackerOpt, get_menu_name("Trolling - Attacker Options", "Set Weapon"), "", "", nil, true)
 
 	-------------------------------------
 	-- ENEMY CHOP
@@ -2028,10 +2034,10 @@ generate_features = function(pId)
 	end)
 
 	menu.toggle_loop(damageOpt, get_menu_name("Trolling - Damage", "Taze"), {"taze"}, "", function ()
+		if not players.exists(pId) then util.stop_thread() end
 		local pos = players.get_position(pId)
 		local hash <const> = util.joaat("weapon_stungun")
 		request_weapon_asset(hash)
-		WEAPON.GIVE_WEAPON_TO_PED(players.user_ped(), hash, 120, 1, 0)
 		MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
 			pos.x, pos.y, pos.z + 2.0,
 			pos.x, pos.y, pos.z,
@@ -4545,7 +4551,6 @@ function FilesList:clear()
 end
 
 function FilesList:reload()
-	print "reloading"
 	self:clear(); self:load()
 end
 
@@ -4586,7 +4591,7 @@ function HandlingEditor.new(parent, menuname, commands, helpTxt)
 	end)
 	self.ref_vehicleName = menu.readonly(self.reference, get_menu_name("Handling Editor", "Vehicle"))
 	local name <const> = get_menu_name("Handling Editor", "Save")
-	self.ref_save = menu.action(self.reference, name, {}, "", function ()
+	self.ref_save = menu.action(self.reference, name, {"savehandling"}, "", function ()
 		local ok, msg = self:save()
 		if not ok then return notification:help(capitalize(msg) .. ".", HudColour.red) end
 		notification:normal("Handling data successfully saved.", HudColour.purpleDark)
@@ -5020,6 +5025,13 @@ Member =
 	handle = 0,
 	mgr = 0,
 	isMgrOpen = false,
+	invincible = 0,
+	weaponHash = 0,
+	references =
+	{
+		invincible = 0,
+		teleport = 0,
+	},
 }
 Member.__index = Member
 
@@ -5036,9 +5048,6 @@ function Member.new(ped)
 	PED.SET_PED_SHOOT_RATE(ped, 1000)
 	PED.SET_PED_COMBAT_ATTRIBUTES(ped, 0, false)
 	PED.SET_PED_COMBAT_ATTRIBUTES(ped, 46, true)
-	local weaponHash <const> = util.joaat("weapon_heavypistol")
-	WEAPON.GIVE_WEAPON_TO_PED(ped, weaponHash, -1, false, true)
-	WEAPON.SET_CURRENT_PED_WEAPON(ped, weaponHash, false)
 	local blip = add_ai_blip_for_ped(ped, true, false, 100.0, 2, -1)
 	set_blip_name(blip, "blip_9rt4uwu", true) -- a random collision for 0xED0C8764
 	HUD.SET_BLIP_AS_FRIENDLY(blip, true)
@@ -5047,8 +5056,7 @@ end
 
 function Member:removeMgr()
 	if self.mgr == 0 then return end
-	menu.delete(self.mgr)
-	self.mgr = 0
+	menu.delete(self.mgr); self.mgr = 0
 end
 
 function Member:delete()
@@ -5068,18 +5076,19 @@ function Member:createMgr(parent, name)
 	end, function ()
 		self.isMgrOpen = false
 	end)
-	WeaponList.new(self.mgr, get_menu_name("Bg Menu", "Weapon"), function (name, model)
+	self.references = {}
+	WeaponList.new(self.mgr, get_menu_name("Bg Menu", "Weapon"), "", "", function (name, model)
 		local hash <const> = util.joaat(model)
-		WEAPON.REMOVE_ALL_PED_WEAPONS(self.handle, 1)
-		WEAPON.GIVE_WEAPON_TO_PED(self.handle, hash, -1, false, true)
-		WEAPON.SET_CURRENT_PED_WEAPON(self.handle, hash, false)
+		self:giveWeapon(hash, true)
 		self.weaponHash = hash
 	end)
+	self.references.invincible =
 	menu.toggle(self.mgr, get_menu_name("Bg Menu", "Invincible"), {}, "", function (on)
 		request_control(self.handle, 1000)
 		ENTITY.SET_ENTITY_INVINCIBLE(self.handle, on)
 		ENTITY.SET_ENTITY_PROOFS(self.handle, on, on, on, on, on, on, on, on)
 	end)
+	self.references.teleport =
 	menu.action(self.mgr, get_menu_name("Bg Menu", "Teleport to Me"), {}, "", function ()
 		request_control(self.handle, 1000)
 		local pos = get_random_offset_in_range(players.user_ped(), 2.0, 3.0)
@@ -5090,6 +5099,25 @@ function Member:createMgr(parent, name)
 		self:delete()
 		self:removeMgr()
 	end)
+end
+
+---@param value boolean
+function Member:setInvincible(value)
+	assert(self.mgr ~= 0, "bodyguard manager not found")
+	menu.set_value(self.references.invincible, value)
+end
+
+---@param weaponHash integer
+---@param removeWeapons boolean
+function Member:giveWeapon(weaponHash, removeWeapons)
+	if removeWeapons then WEAPON.REMOVE_ALL_PED_WEAPONS(self.handle, 1) end
+	WEAPON.GIVE_WEAPON_TO_PED(self.handle, weaponHash, -1, false, true)
+	WEAPON.SET_CURRENT_PED_WEAPON(self.handle, weaponHash, false)
+end
+
+function Member:teleport()
+	assert(self.mgr ~= 0, "bodyguard manager not found")
+	menu.trigger_command(self.references.teleport)
 end
 
 -------------------------------------
@@ -5112,23 +5140,21 @@ Group =
 	members = {},
 	numMembers = 0,
 	formation = Formation.freedomToMove,
+	defaults = {
+		invincible = false,
+		weaponHash = util.joaat("weapon_heavypistol"),
+	},
 	relGroup = util.joaat("rgFM_AiDislike"),
-	boxColour = Colour.new(255, 255, 255, 255)
 }
 Group.__index = Group
 
 ---@return Group
 function Group.new()
 	local self = setmetatable({}, Group)
-	---If player's group already has members, they're going
-	---to be included
 	for num = 0, 6, 1 do
 		local ped = PED.GET_PED_AS_GROUP_MEMBER(self.getID(), num)
-		if ENTITY.DOES_ENTITY_EXIST(ped) and not PED.IS_PED_INJURED(ped) and
-		request_control(ped, 1000) then
-			local member = Member.new(ped)
-			self:pushMember(member)
-		end
+		if ENTITY.DOES_ENTITY_EXIST(ped) and
+		request_control(ped, 1000) then self:pushMember(Member.new(ped)) end
 	end
 	return self
 end
@@ -5163,20 +5189,17 @@ function Group:setRelationshipGrp(relGroup)
 	self.relGroup = relGroup
 	for num = 0, 6, 1 do
 		local ped = PED.GET_PED_AS_GROUP_MEMBER(self.getID(), num)
-		if ENTITY.DOES_ENTITY_EXIST(ped) and not PED.IS_PED_INJURED(ped) and
-		request_control(ped, 1000) then
-			PED.SET_PED_RELATIONSHIP_GROUP_HASH(ped, relGroup)
-		end
+		if ENTITY.DOES_ENTITY_EXIST(ped) and
+		request_control(ped, 1000) then PED.SET_PED_RELATIONSHIP_GROUP_HASH(ped, relGroup) end
 	end
 end
 
 function Group:onTick()
 	for i = self.numMembers, 1, -1 do
 		local member <const> = self.members[i]
-		if ENTITY.DOES_ENTITY_EXIST(member.handle) and not
-		ENTITY.IS_ENTITY_DEAD(member.handle) then
+		if ENTITY.DOES_ENTITY_EXIST(member.handle) and not PED.IS_PED_INJURED(member.handle) then
 			if member.isMgrOpen and menu.is_open() then
-				draw_box_esp(member.handle, self.boxColour)
+				draw_box_esp(member.handle, Colour.new(255, 255, 255, 255))
 			end
 			if not PED.IS_PED_IN_GROUP(member.handle) then
 				PED.SET_PED_AS_GROUP_MEMBER(member.handle, self.getID())
@@ -5199,10 +5222,18 @@ function Group:deleteMembers()
 	for num = 0, 6, 1 do
 		local ped = PED.GET_PED_AS_GROUP_MEMBER(self.getID(), num)
 		if ENTITY.DOES_ENTITY_EXIST(ped) and
-		request_control(ped, 1000) then
-			entities.delete_by_handle(ped)
-		end
+		request_control(ped, 1000) then entities.delete_by_handle(ped) end
 	end
+end
+
+---@param value boolean
+function Group:setInvincible(value)
+	for _, member in ipairs(self.members) do member:setInvincible(value) end
+	self.defaults.invincible = value
+end
+
+function Group:teleport()
+	for _, member in ipairs(self.members) do member:teleport() end
 end
 
 -------------------------------------
@@ -5234,7 +5265,7 @@ function BodyguardMenu.new(parent, name, command_names)
 	menu.divider(self.ref, name)
 	self.group = Group.new()
 
-	ModelList.new(self.ref, get_menu_name("Bg Menu", "Spawn"), function (name, model)
+	ModelList.new(self.ref, get_menu_name("Bg Menu", "Spawn"), "spawnbg", "", function (name, model)
 		if self.group:getSize() >= 7 then
 			return notification:help("You reached the maximum number of bodygards.", HudColour.red)
 		end
@@ -5249,28 +5280,32 @@ function BodyguardMenu.new(parent, name, command_names)
 		ENTITY.SET_ENTITY_LOAD_COLLISION_FLAG(ped, true, 1)
 		local member = Member.new(ped)
 		self.group:pushMember(member)
+		member:giveWeapon(self.group.defaults.weaponHash, false)
 		set_entity_face_entity(ped, players.user_ped(), false)
 		member:createMgr(self.ref, get_menu_name("Ped Models", name))
+		if self.group.defaults.invincible then member:setInvincible(true) end
 	end)
 
-	menu.action(self.ref, get_menu_name("Bg Menu", "Clone Myself"), {}, "", function ()
+	menu.action(self.ref, get_menu_name("Bg Menu", "Clone Myself"), {"clonebg"}, "", function ()
 		if self.group:getSize() >= 7 then
 			return notification:help("You reached the maximum number of bodygards.", HudColour.red)
 		end
 		local pos = get_random_offset_in_range(PLAYER.PLAYER_PED_ID(), 2.0, 3.0)
 		pos.z = pos.z - 1.0
 		local modelHash <const> = ENTITY.GET_ENTITY_MODEL(PLAYER.PLAYER_PED_ID())
-		local clone = entities.create_ped(4, modelHash, pos, 0)
-		NETWORK.SET_NETWORK_ID_EXISTS_ON_ALL_MACHINES(NETWORK.PED_TO_NET(clone), true)
-		ENTITY.SET_ENTITY_AS_MISSION_ENTITY(clone, false, true)
-		NETWORK.SET_NETWORK_ID_ALWAYS_EXISTS_FOR_PLAYER(NETWORK.PED_TO_NET(clone), PLAYER.PLAYER_ID(), true)
-		ENTITY.SET_ENTITY_LOAD_COLLISION_FLAG(clone, true, 1)
-		PED.CLONE_PED_TO_TARGET(PLAYER.PLAYER_PED_ID(), clone)
-		local member = Member.new(clone)
+		local ped = entities.create_ped(4, modelHash, pos, 0)
+		NETWORK.SET_NETWORK_ID_EXISTS_ON_ALL_MACHINES(NETWORK.PED_TO_NET(ped), true)
+		ENTITY.SET_ENTITY_AS_MISSION_ENTITY(ped, false, true)
+		NETWORK.SET_NETWORK_ID_ALWAYS_EXISTS_FOR_PLAYER(NETWORK.PED_TO_NET(ped), PLAYER.PLAYER_ID(), true)
+		ENTITY.SET_ENTITY_LOAD_COLLISION_FLAG(ped, true, 1)
+		PED.CLONE_PED_TO_TARGET(PLAYER.PLAYER_PED_ID(), ped)
+		local member = Member.new(ped)
 		self.group:pushMember(member)
-		set_entity_face_entity(clone, players.user_ped(), false)
+		member:giveWeapon(self.group.defaults.weaponHash, false)
+		set_entity_face_entity(ped, players.user_ped(), false)
 		local name <const> = get_menu_name("Bg Menu", "Clone")
 		member:createMgr(self.ref, name)
+		if self.group.defaults.invincible then member:setInvincible(true) end
 	end)
 
 	self:createCommands(self.ref)
@@ -5294,7 +5329,7 @@ function BodyguardMenu:createCommands(parent)
 		get_menu_name("Bg Menu", "Freedom"), get_menu_name("Bg Menu", "Circle"),
 		get_menu_name("Bg Menu", "Line"), get_menu_name("Bg Menu", "Arrow")
 	}
-	menu.slider_text(list, get_menu_name("Bg Menu", "Group Formation"), {"gformation"}, "", formations, function (opt)
+	menu.slider_text(list, get_menu_name("Bg Menu", "Group Formation"), {"groupformation"}, "", formations, function (opt)
 		local formation
 		if opt == 1 then
 			formation = Formation.freedomToMove
@@ -5338,9 +5373,18 @@ function BodyguardMenu:createCommands(parent)
 		self.group:setRelationshipGrp(rg)
 	end)
 
-	menu.action(list, get_menu_name("Bg Menu", "Delete Members"), {"cleargroup"}, "", function ()
+	menu.action(list, get_menu_name("Bg Menu", "Delete Members"), {"cleargroup"}, "", function()
 		self.group:deleteMembers()
 	end)
+	menu.action(list, get_menu_name("Bg Menu", "Teleport Members to Me"), {}, "", function()
+		self.group:teleport()
+	end)
+	menu.toggle(list, get_menu_name("Bg Menu", "Invincible"), {"invinciblegroup"}, "", function(toggle)
+		self.group:setInvincible(toggle)
+	end)
+	WeaponList.new(list, get_menu_name("Bg Menu", "Default Weapon"), "defaultgun", "", function(name, model)
+		self.group.defaults.weaponHash = util.joaat(model)
+	end, true)
 end
 
 
