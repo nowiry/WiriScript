@@ -1,3 +1,4 @@
+---@diagnostic disable: param-type-mismatch
 --[[
 --------------------------------
 THIS FILE IS PART OF WIRISCRIPT
@@ -5,17 +6,11 @@ THIS FILE IS PART OF WIRISCRIPT
 --------------------------------
 ]]
 
-util.require_natives(1651208000)
-
-if not filesystem.exists(filesystem.scripts_dir() .. "lib/natives-1651208000.lua") then
-	error("required file not found: lib/natives-1651208000.lua")
-end
-
 json = require "pretty.json"
-local self = {}
-self.version = 20
+local colour = {}
+colour.version = 21
 
-gConfig = {
+Config = {
 	controls = {
 		vehicleweapons 		= 86,
 		airstrikeaircraft 	= 86
@@ -23,9 +18,9 @@ gConfig = {
 	general = {
 		standnotifications 	= false,
 		displayhealth 		= true,
-		language 		= "english",
-		developer		= false, 	-- developer flag (enables/disables some debug features)
-		showintro		= true
+		language 			= "english",
+		developer			= false, 	-- developer flag (enables/disables some debug features)
+		showintro			= true
 	},
 	ufo = {
 		disableboxes 		= false, 	-- determines if boxes are drawn on players to show their position
@@ -37,10 +32,10 @@ gConfig = {
 	healthtxtpos = {
 		x = 0.03,
 		y = 0.05
-	},
+	}
 }
 
----@alias hudColour_t integer
+---@alias HudColour integer
 
 HudColour =
 {
@@ -73,74 +68,60 @@ HudColour =
 	friendly = 118,
 }
 
+local NULL <const> = 0
+
 --------------------------
 -- NOTIFICATION
 --------------------------
 
 ---@class Notification
-Notification =
+notification =
 {
 	txdDict = "DIA_ZOMBIE1",
 	txdName = "DIA_ZOMBIE1",
 	title = "WiriScript",
-	subtitle = "~c~Notification~s~",
+	subtitle = "~c~" .. util.get_label_text("PM_PANE_FEE") .. "~s~",
 	defaultColour = HudColour.black
 }
-Notification.__index = Notification
-Notification.__close = function (self)
-	GRAPHICS.SET_STREAMED_TEXTURE_DICT_AS_NO_LONGER_NEEDED(self.txdDict)
-end
 
 ---@param msg string
-function Notification.stand(msg)
+function notification.stand(msg)
+	assert(type(msg) == "string", "msg must be a string, got " .. type(msg))
 	msg = "[WiriScript] " .. tostring(msg):gsub('[~]%w[~]', "") -- removes any text colour (i.e. ~r~, ~b~, ~s~, etc.)
 	util.toast(msg)
 end
 
----@param msg string
----@param colour? hudColour_t
-function Notification:help(msg, colour)
-	if gConfig.general.standnotifications then
+---@param format string
+---@param colour? HudColour
+function notification:help(format, colour, ...)
+	assert(type(format) == "string", "msg must be a string, got " .. type(format))
+	local msg = string.format(format, ...)
+	if Config.general.standnotifications then
 		return self.stand(msg)
 	end
-	msg = tostring(msg) or "NULL"
 	HUD._THEFEED_SET_NEXT_POST_BACKGROUND_COLOR(colour or self.defaultColour)
 	util.BEGIN_TEXT_COMMAND_THEFEED_POST("~BLIP_INFO_ICON~ " .. msg)
 	HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER_WITH_TOKENS(true, true)
 end
 
----@param msg string
----@param colour? hudColour_t
-function Notification:normal(msg, colour)
-	if gConfig.general.standnotifications then
-		return Notification.stand(msg)
+---@param format string
+---@param colour? HudColour
+function notification:normal(format, colour, ...)
+	assert(type(format) == "string", "msg must be a string, got " .. type(format))
+	local msg = string.format(format, ...)
+	if Config.general.standnotifications then
+		return self.stand(msg)
 	end
-	if not self:hasTxdDictLoaded() then self:requestTxdDict() end
-	msg = tostring(msg) or "NULL"
+	if not GRAPHICS.HAS_STREAMED_TEXTURE_DICT_LOADED(self.txdDict) then
+		GRAPHICS.REQUEST_STREAMED_TEXTURE_DICT(self.txdDict, true)
+		while not GRAPHICS.HAS_STREAMED_TEXTURE_DICT_LOADED(self.txdDict) do
+			util.yield()
+		end
+	end
 	HUD._THEFEED_SET_NEXT_POST_BACKGROUND_COLOR(colour or self.defaultColour)
 	util.BEGIN_TEXT_COMMAND_THEFEED_POST(msg)
 	HUD.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT(self.txdDict, self.txdName, true, 4, self.title, self.subtitle)
 	HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER(false, false)
-end
-
-function Notification:requestTxdDict()
-	GRAPHICS.REQUEST_STREAMED_TEXTURE_DICT(self.txdDict, 0)
-	while not GRAPHICS.HAS_STREAMED_TEXTURE_DICT_LOADED(self.txdDict) do util.yield() end
-end
-
----@return boolean
-function Notification:hasTxdDictLoaded()
-	return GRAPHICS.HAS_STREAMED_TEXTURE_DICT_LOADED(self.txdDict)
-end
-
----@param title? string
----@param subtitle? string
----@return Notification
-function Notification.new(title, subtitle)
-	local self = setmetatable({}, Notification)
-	self.title = title
-	self.subtitle = subtitle
-	return self
 end
 
 --------------------------
@@ -148,23 +129,100 @@ end
 --------------------------
 
 Features = {}
-MenuNames = setmetatable({}, {__index = Features})
+Translation = {}
 
 ---@param section string
 ---@param name string
 ---@return string
-function get_menu_name(section, name)
+function translate(section, name)
 	Features[section] = Features[section] or {}
 	Features[section][name] = Features[section][name] or ""
-	if gConfig.general.language == "english" then
+	if Config.general.language == "english" then
 		return name
 	end
-	MenuNames[section] = MenuNames[section] or Features[section]
-	if not MenuNames[section][name] then
-		MenuNames[section][name] = ""
+	Translation[section] = Translation[section] or Features[section]
+	if not Translation[section][name] then
+		Translation[section][name] = ""
 		return name
 	end
-	return MenuNames[section][name] == "" and name or MenuNames[section][name]
+	if Translation[section][name] == "" then
+		return name
+	end
+	return Translation[section][name]
+end
+
+
+---@param value any
+---@param e string
+function type_match (value, e)
+	local t = type(value)
+	for w in e:gmatch('[^|]+') do
+		if t == w then return true end
+	end
+	local msg = "must be %s, got %s"
+	return false, msg:format(e:gsub('|', " or "), t)
+end
+
+
+---@param tbl table
+---@param types {[1]: string, [2]:string}
+---@return boolean
+---@return string? errmsg
+local check_table_types = function (tbl, types)
+	if type(tbl) ~= "table" then
+		return false, "tbl must be a tble"
+	end
+	for key, value in pairs(tbl) do
+		local ok, err = type_match(key, types[1])
+		if not ok then return false, "field " .. key .. ' ' .. err end
+
+		local ok, err = type_match(value, types[2])
+		if not ok then return false, "field " .. key .. ' ' .. err end
+	end
+	return true
+end
+
+
+---@param obj table
+---@return boolean
+---@return string? errmsg
+function is_translation_valid (obj)
+	for sect_name, section in pairs(obj) do
+		if type(sect_name) ~= "string" then
+			return false, "got unexpected key type: " .. type(sect_name)
+		end
+		if type(section) ~= "table" then
+			return false, "field " .. sect_name .. " must be a table, got " .. type(section)
+		end
+		local ok, err = check_table_types(section, {"string", "string"})
+		if not ok then return false, err end
+	end
+	return true
+end
+
+
+---@param language string
+---@return boolean
+---@return string? errmsg
+function load_translation(language)
+	local path = filesystem.scripts_dir() .. "WiriScript\\language\\" .. language
+	if not filesystem.exists(path) then
+		return false, "no such a file"
+	end
+
+	local ok, result = json.parse(path, false)
+	if not ok then
+		return false, result
+	end
+
+	local ok, err = is_translation_valid(result)
+	if not ok then
+		return false, err
+	end
+
+	Translation = result
+	util.log("Translation file successfully loaded: %s", language)
+	return true
 end
 
 --------------------------
@@ -175,57 +233,50 @@ Ini = {}
 
 ---Saves a table with key-value pairs in an ini format file.
 ---@param fileName string
----@param t table
-function Ini.save(fileName, t)
-	local file <close> = assert(io.open(fileName, "w"), fileName .. " does not exist")
+---@param obj table
+function Ini.save(fileName, obj)
+	local file <close> = assert(io.open(fileName, "w"), "error loading file")
 	local s = {}
-	for section, values in pairs(t) do
+	for section, tbl in pairs(obj) do
+		assert(type(tbl) == "table", "expected field " .. section .. " to be a table, got " .. type(tbl))
 		local l = {}
 		table.insert(l, string.format("[%s]", section))
-		for key, v in pairs(values) do
-			table.insert(l, string.format("%s=%s", key, v))
-		end
+		for k, v in pairs(tbl) do table.insert(l, string.format("%s=%s", k, v)) end
 		table.insert(s, table.concat(l, '\n') .. '\n')
 	end
 	file:write(table.concat(s, '\n'))
 end
 
----@param value string
----@return any
-function Ini.match_value_type(value)
-	if type(value) == "string" then
-		if tonumber(value) then
-			return tonumber(value)
-		end
-		local toBool = {["true"] = true, ["false"] = false}
-		if toBool[value] ~= nil then
-			return toBool[value]
-		end
-		return value
-	else
-		error("expected value to be a string, got " .. type(value))
-	end
-end
 
 ---Parses a table from an ini format file.
 ---@param fileName any
 ---@return table
 function Ini.load(fileName)
-	local t = {}
-	local cSection = ""
+	assert(type(fileName) == "string", "fileName must be a string")
+	local file <close> = assert(io.open(fileName, "r"), "error loading file: " .. fileName)
+	local data = {}
+	local section
 	for line in io.lines(fileName) do
-		local section = string.match(line, '^%[' .. '([^%]]+)' .. '%]$')
-		if section then
-			cSection = section
-			t[cSection] = t[cSection] or {}
-		elseif t[cSection] and #line > 0 then
-			local key, value = string.match(line, '^([%w_]+)%s*=%s*(.+)$')
-			if key and value then
-				t[cSection][key] = Ini.match_value_type(value)
+		local tempSection = string.match(line, '^%[([^%]]+)%]$')
+		if tempSection ~= nil then
+			section = tonumber(tempSection) and tonumber(tempSection) or tempSection
+			data[section] = data[section] or {}
+		end
+		local param, value = string.match(line, '^([%w_]+)%s*=%s*(.+)$')
+		if section ~= nil and param and value ~= nil then
+			if tonumber(value) then
+				value = tonumber(value)
+			elseif value == "true" then
+				value = true
+			elseif value == "false" then
+				value = false
 			end
+			if tonumber(param) then param = tonumber(param) end
+			---@diagnostic disable-next-line: need-check-nil
+			data[section][param] = value
 		end
 	end
-	return t
+	return data
 end
 
 
@@ -298,46 +349,54 @@ function Sound:stop()
     end
 end
 
---------------------------
--- VECTOR
---------------------------
+function Sound:hasFinished()
+	return AUDIO.HAS_SOUND_FINISHED(self.Id)
+end
 
----@class Vector3
----@field x number
----@field y number
----@field z number
+function Sound:playFromEntity(entity)
+	if self.Id ~= -1 then
+		return
+	end
+	self.Id = AUDIO.GET_SOUND_ID()
+	AUDIO.PLAY_SOUND_FROM_ENTITY(self.Id, self.name, entity, self.reference, true, 0)
+end
 
 --------------------------
 -- COLOUR
 --------------------------
 
----@param hudColour hudColour_t
----@return table
-function get_hud_colour(hudColour)
-	local colourR = memory.alloc(1)
-	local colourG = memory.alloc(1)
-	local colourB = memory.alloc(1)
-	local colourA = memory.alloc(1)
-	HUD.GET_HUD_COLOUR(hudColour, colourR, colourG, colourB, colourA);
-	local colour = Colour.new(
-		memory.read_int(colourR),
-		memory.read_int(colourG),
-		memory.read_int(colourB),
-		memory.read_int(colourA)
-	)
+---@class Colour
+---@field r number | integer
+---@field g number | integer
+---@field b number | integer
+---@field a number | integer
+
+function new_colour(r, g, b, a)
+	return {r = r, g = g, b = b, a = a}
+end
+
+---@return Colour
+function get_random_colour()
+	local colour = {a = 255}
+	colour.r = math.random(0,255)
+	colour.g = math.random(0,255)
+	colour.b = math.random(0,255)
 	return colour
 end
 
-
-Colour = {}
-Colour.new = function(R, G, B, A)
-    return {r = R or 0, g = G or 0, b = B or 0, a = A or 0}
+---@param hudColour HudColour
+---@return Colour
+function get_hud_colour(hudColour)
+	local r = memory.alloc(1)
+	local g = memory.alloc(1)
+	local b = memory.alloc(1)
+	local a = memory.alloc(1)
+	HUD.GET_HUD_COLOUR(hudColour, r, g, b, a)
+	return {r = memory.read_int(r), g = memory.read_int(g), b = memory.read_int(b), a = memory.read_int(a)}
 end
 
----Requires on tick call
----@param colour any
----@return any
-Colour.rainbow = function(colour)
+---@param colour Colour
+function rainbow_colour(colour)
 	if colour.r > 0 and colour.b == 0 then
 		colour.r = colour.r - 1
 		colour.g = colour.g + 1
@@ -350,60 +409,26 @@ Colour.rainbow = function(colour)
 		colour.r = colour.r + 1
 		colour.b = colour.b - 1
 	end
-	return colour
-end
-
-Colour.random = function()
-    local new = {}
-    new.r = math.random(0, 255)
-    new.g = math.random(0, 255)
-    new.b = math.random(0, 255)
-    new.a = 255
-    return new
-end
-
----@param colour table
----@return table
-Colour.toInt = function(colour)
-	local new = {}
-	new.r = math.floor(colour.r * 255)
-	new.g = math.floor(colour.g * 255)
-	new.b = math.floor(colour.b * 255)
-	new.a = math.floor(colour.a * 255)
-    return new
-end
-
----@param colour table
----@return number
----@return number
----@return number
-Colour.get = function (colour)
-	return colour.r, colour.g, colour.b
-end
-
----@param y0 number
----@param y1 number
----@param perc number
----@return number
-function interpolate(y0, y1, perc)
-	if perc > 1.0 then perc = 1.0 end
-	return (1 - perc) * y0 + perc * y1
 end
 
 ---@param perc number
----@return table
+---@return Colour
 function get_blended_colour(perc)
-	local color = {a = 1.0}
+	local colour = {a = 255}
+	local r, g, b
 	if perc <= 0.5 then
-		color.r = 1.0
-		color.g = interpolate(0.0, 1.0, (perc / 0.5))
-		color.b = 0.0
+		r = 1.0
+		g = interpolate(0.0, 1.0, perc/0.5)
+		b = 0.0
 	else
-		color.r = interpolate(1.0, 0, ((perc - 0.5) / 0.5))
-		color.g = 1.0
-		color.b = 0.0
+		r = interpolate(1.0, 0, (perc - 0.5)/0.5)
+		g = 1.0
+		b = 0.0
 	end
-	return Colour.toInt(color)
+	colour.r = math.ceil(r * 255)
+	colour.g = math.ceil(g * 255)
+	colour.b = math.ceil(b * 255)
+	return colour
 end
 
 --------------------------
@@ -481,7 +506,7 @@ function Instructional:draw ()
 	GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(self.scaleform, "DRAW_INSTRUCTIONAL_BUTTONS")
 	GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
 
-    GRAPHICS.DRAW_SCALEFORM_MOVIE_FULLSCREEN(self.scaleform, 255, 255, 255, 255, 0)
+    GRAPHICS.DRAW_SCALEFORM_MOVIE_FULLSCREEN(self.scaleform, 255, 255, 255, 220, 0)
 	self.position = 0
 end
 
@@ -490,22 +515,37 @@ end
 --------------------------
 
 ---@class Timer
----@field reset function
----@field elapsed function
+---@field elapsed fun(): integer
+---@field reset fun()
+---@field isEnabled fun(): boolean
+---@field disable fun()
+
 
 ---@return Timer
 function newTimer()
-	local self = {start = util.current_time_millis()}
+	local self = {
+		start = util.current_time_millis(),
+		m_enabled = false,
+	}
+
 	local function reset()
 		self.start = util.current_time_millis()
+		self.m_enabled = true
 	end
+
 	local function elapsed()
 		return util.current_time_millis() - self.start
 	end
+
+	local function disable() self.m_enabled = false end
+	local function isEnabled() return self.m_enabled end
+
 	return
 	{
+		isEnabled = isEnabled,
 		reset = reset,
-		elapsed = elapsed
+		elapsed = elapsed,
+		disable = disable,
 	}
 end
 
@@ -551,7 +591,7 @@ function clearBit(bitfield, bitNum)
 	return (bitfield & ~(1 << bitNum))
 end
 
----@param entity integer
+---@param entity Entity
 ---@param value boolean
 function set_explosion_proof(entity, value)
 	local pEntity = entities.handle_to_pointer(entity)
@@ -562,8 +602,8 @@ function set_explosion_proof(entity, value)
 end
 
 
----@param entity integer
----@param target integer
+---@param entity Entity
+---@param target Entity
 ---@param usePitch? boolean
 function set_entity_face_entity(entity, target, usePitch)
 	local pos1 = ENTITY.GET_ENTITY_COORDS(entity, false)
@@ -574,21 +614,21 @@ function set_entity_face_entity(entity, target, usePitch)
 	if not usePitch then
 		ENTITY.SET_ENTITY_HEADING(entity, rot.z)
 	else
-		ENTITY.SET_ENTITY_ROTATION(entity, rot.x, rot.y, rot.z)
+		ENTITY.SET_ENTITY_ROTATION(entity, rot.x, rot.y, rot.z, 2, 0)
 	end
 end
 
----@param entity integer
+---@param entity Entity
 ---@param blipSprite integer
----@param colour integer
----@return integer
+---@param colour Colour
+---@return Blip
 function add_blip_for_entity(entity, blipSprite, colour)
 	local blip = HUD.ADD_BLIP_FOR_ENTITY(entity)
 	HUD.SET_BLIP_SPRITE(blip, blipSprite)
 	HUD.SET_BLIP_COLOUR(blip, colour)
 	HUD.SHOW_HEIGHT_ON_BLIP(blip, false)
 	util.create_tick_handler(function ()
-		if ENTITY.DOES_ENTITY_EXIST(entity) and not ENTITY.IS_ENTITY_DEAD(entity) then
+		if ENTITY.DOES_ENTITY_EXIST(entity) and not ENTITY.IS_ENTITY_DEAD(entity, 0) then
 			local heading = ENTITY.GET_ENTITY_HEADING(entity)
         	HUD.SET_BLIP_ROTATION(blip, round(heading))
 		elseif not HUD.DOES_BLIP_EXIST(blip) then
@@ -601,7 +641,7 @@ function add_blip_for_entity(entity, blipSprite, colour)
 	return blip
 end
 
----@param blip integer
+---@param blip Blip
 ---@param name string
 ---@param isLabel? boolean
 function set_blip_name(blip, name, isLabel)
@@ -614,7 +654,7 @@ function set_blip_name(blip, name, isLabel)
 	HUD.END_TEXT_COMMAND_SET_BLIP_NAME(blip)
 end
 
----@param entity integer
+---@param entity Entity
 ---@return boolean
 function request_control_once(entity)
 	if not NETWORK.NETWORK_IS_IN_SESSION() then
@@ -625,7 +665,7 @@ function request_control_once(entity)
 	return NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(entity)
 end
 
----@param entity integer
+---@param entity Entity
 ---@param timeOut? integer #time in `ms` trying to get control
 ---@return boolean
 function request_control(entity, timeOut)
@@ -640,10 +680,10 @@ function request_control(entity, timeOut)
 	return start.elapsed() < timeOut
 end
 
----@param ped integer
+---@param ped Ped
 ---@param maxPeds? integer
 ---@param ignore? integer
----@return integer[]
+---@return Entity[]
 function get_ped_nearby_peds(ped, maxPeds, ignore)
 	maxPeds = maxPeds or 16
 	local pEntityList = memory.alloc((maxPeds + 1) * 8)
@@ -655,9 +695,9 @@ function get_ped_nearby_peds(ped, maxPeds, ignore)
 	return pedsList
 end
 
----@param ped integer
+---@param ped Ped
 ---@param maxVehicles? integer
----@return integer[]
+---@return Entity[]
 function get_ped_nearby_vehicles(ped, maxVehicles)
 	maxVehicles = maxVehicles or 16
 	local pVehicleList = memory.alloc((maxVehicles + 1) * 8)
@@ -669,8 +709,8 @@ function get_ped_nearby_vehicles(ped, maxVehicles)
 	return vehiclesList
 end
 
----@param ped integer
----@return integer[]
+---@param ped Ped
+---@return Entity[]
 function get_ped_nearby_entities(ped)
 	local peds = get_ped_nearby_peds(ped)
 	local vehicles = get_ped_nearby_vehicles(ped)
@@ -679,40 +719,40 @@ function get_ped_nearby_entities(ped)
 	return entities
 end
 
----@param pId integer
+---@param pId Player
 ---@param radius number
----@return integer[]
+---@return Entity[]
 function get_peds_in_player_range(pId, radius)
 	local peds = {}
 	local playerPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
 	local pos = players.get_position(pId)
 	for _, ped in ipairs(entities.get_all_peds_as_handles()) do
 		if ped ~= playerPed and not PED.IS_PED_FATALLY_INJURED(ped) then
-			local pedPos = ENTITY.GET_ENTITY_COORDS(ped)
+			local pedPos = ENTITY.GET_ENTITY_COORDS(ped, true)
 			if pos:distance(pedPos) <= radius then table.insert(peds, ped) end
 		end
 	end
 	return peds
 end
 
----@param pId integer
+---@param pId Player
 ---@param radius number
----@return integer[]
+---@return Entity[]
 function get_vehicles_in_player_range(pId, radius)
 	local vehicles = {}
 	local p = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
 	local pos = players.get_position(pId)
 	local v = PED.GET_VEHICLE_PED_IS_IN(p, false)
 	for _, vehicle in ipairs(entities.get_all_vehicles_as_handles()) do
-		local vehPos = ENTITY.GET_ENTITY_COORDS(vehicle)
+		local vehPos = ENTITY.GET_ENTITY_COORDS(vehicle, true)
 		if vehicle ~= v and pos:distance(vehPos) <= radius then table.insert(vehicles, vehicle) end
 	end
 	return vehicles
 end
 
----@param pId integer
+---@param pId Player
 ---@param radius number
----@return integer[]
+---@return Entity[]
 function get_entities_in_player_range(pId, radius)
 	local peds = get_peds_in_player_range(pId, radius)
 	local vehicles = get_vehicles_in_player_range(pId, radius)
@@ -721,41 +761,55 @@ function get_entities_in_player_range(pId, radius)
 	return entities
 end
 
----@param entity integer
----@param colour? table
-function draw_box_esp(entity, colour)
-	colour = colour or Colour.new(255, 0, 0, 255)
-	local minimum = v3.new()
-	local maximum = v3.new()
-	if ENTITY.DOES_ENTITY_EXIST(entity) then
-		MISC.GET_MODEL_DIMENSIONS(ENTITY.GET_ENTITY_MODEL(entity), minimum, maximum)
-		local width   = 2 * maximum.x
-		local length  = 2 * maximum.y
-		local depth   = 2 * maximum.z
-		local offset1 = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -width / 2,  length / 2,  depth / 2)
-		local offset4 = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity,  width / 2,  length / 2,  depth / 2)
-		local offset5 = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -width / 2,  length / 2, -depth / 2)
-		local offset7 = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity,  width / 2,  length / 2, -depth / 2)
-		local offset2 = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -width / 2, -length / 2,  depth / 2)
-		local offset3 = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity,  width / 2, -length / 2,  depth / 2)
-		local offset6 = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -width / 2, -length / 2, -depth / 2)
-		local offset8 = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity,  width / 2, -length / 2, -depth / 2)
-		GRAPHICS.DRAW_LINE(offset1.x, offset1.y, offset1.z, offset4.x, offset4.y, offset4.z, colour.r, colour.g, colour.b, 255)
-		GRAPHICS.DRAW_LINE(offset1.x, offset1.y, offset1.z, offset2.x, offset2.y, offset2.z, colour.r, colour.g, colour.b, 255)
-		GRAPHICS.DRAW_LINE(offset1.x, offset1.y, offset1.z, offset5.x, offset5.y, offset5.z, colour.r, colour.g, colour.b, 255)
-		GRAPHICS.DRAW_LINE(offset2.x, offset2.y, offset2.z, offset3.x, offset3.y, offset3.z, colour.r, colour.g, colour.b, 255)
-		GRAPHICS.DRAW_LINE(offset3.x, offset3.y, offset3.z, offset8.x, offset8.y, offset8.z, colour.r, colour.g, colour.b, 255)
-		GRAPHICS.DRAW_LINE(offset4.x, offset4.y, offset4.z, offset7.x, offset7.y, offset7.z, colour.r, colour.g, colour.b, 255)
-		GRAPHICS.DRAW_LINE(offset4.x, offset4.y, offset4.z, offset3.x, offset3.y, offset3.z, colour.r, colour.g, colour.b, 255)
-		GRAPHICS.DRAW_LINE(offset5.x, offset5.y, offset5.z, offset7.x, offset7.y, offset7.z, colour.r, colour.g, colour.b, 255)
-		GRAPHICS.DRAW_LINE(offset6.x, offset6.y, offset6.z, offset2.x, offset2.y, offset2.z, colour.r, colour.g, colour.b, 255)
-		GRAPHICS.DRAW_LINE(offset6.x, offset6.y, offset6.z, offset8.x, offset8.y, offset8.z, colour.r, colour.g, colour.b, 255)
-		GRAPHICS.DRAW_LINE(offset5.x, offset5.y, offset5.z, offset6.x, offset6.y, offset6.z, colour.r, colour.g, colour.b, 255)
-		GRAPHICS.DRAW_LINE(offset7.x, offset7.y, offset7.z, offset8.x, offset8.y, offset8.z, colour.r, colour.g, colour.b, 255)
-	end
+---@param start v3
+---@param to v3
+---@param colour Colour
+local draw_line = function (start, to, colour)
+	GRAPHICS.DRAW_LINE(start.x, start.y, start.z, to.x, to.y, to.z, colour.r, colour.g, colour.b, colour.a)
 end
 
----@param entity integer
+
+---@param entity Entity
+---@param colour? Colour
+function draw_box_esp(entity, colour)
+	if not ENTITY.DOES_ENTITY_EXIST(entity) then
+		return
+	end
+	colour = colour or {r = 255, g = 0, b = 0, a = 255}
+	local min = v3.new()
+	local max = v3.new()
+	MISC.GET_MODEL_DIMENSIONS(ENTITY.GET_ENTITY_MODEL(entity), min, max)
+	min:abs(); max:abs()
+
+	local upperLeftRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -max.x, -max.y, max.z)
+	local upperRightRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, min.x, -max.y, max.z)
+	local lowerLeftRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -max.x, -max.y, -min.z)
+	local lowerRightRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, min.x, -max.y, -min.z)
+
+	local upperLeftFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -max.x, min.y, max.z)
+	local upperRightFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, min.x, min.y, max.z)
+	local lowerLeftFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -max.x, min.y, -min.z)
+	local lowerRightFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, min.x, min.y, -min.z)
+
+
+	draw_line(upperLeftRear, upperRightRear, colour)
+	draw_line(lowerLeftRear, lowerRightRear, colour)
+	draw_line(upperLeftRear, lowerLeftRear, colour)
+	draw_line(upperRightRear, lowerRightRear, colour)
+
+	draw_line(upperLeftFront, upperRightFront, colour)
+	draw_line(lowerLeftFront, lowerRightFront, colour)
+	draw_line(upperLeftFront, lowerLeftFront, colour)
+	draw_line(upperRightFront, lowerRightFront, colour)
+
+	draw_line(upperLeftRear, upperLeftFront, colour)
+	draw_line(upperRightRear, upperRightFront, colour)
+	draw_line(lowerLeftRear, lowerLeftFront, colour)
+	draw_line(lowerRightRear, lowerRightFront, colour)
+end
+
+
+---@param entity Entity
 ---@param flag integer
 function set_decor_flag(entity, flag)
 	if ENTITY.DOES_ENTITY_EXIST(entity) then
@@ -763,7 +817,7 @@ function set_decor_flag(entity, flag)
 	end
 end
 
----@param entity integer
+---@param entity Entity
 ---@param flag integer
 ---@return boolean
 function is_decor_flag_set(entity, flag)
@@ -775,19 +829,18 @@ function is_decor_flag_set(entity, flag)
 	return false
 end
 
----@param entity integer
+---@param entity Entity
 function remove_decor(entity)
 	DECORATOR.DECOR_REMOVE(entity, "Casino_Game_Info_Decorator")
 end
 
-
----@param ped integer
+---@param ped Ped
 ---@param forcedOn boolean
 ---@param hasCone boolean
 ---@param noticeRange number
 ---@param colour integer
 ---@param sprite integer
----@return integer
+---@return Blip
 function add_ai_blip_for_ped(ped, forcedOn, hasCone, noticeRange, colour, sprite)
 	if colour == -1 then
 		HUD.SET_PED_HAS_AI_BLIP(ped, true)
@@ -803,10 +856,10 @@ function add_ai_blip_for_ped(ped, forcedOn, hasCone, noticeRange, colour, sprite
 end
 
 ---Returns a random offset from an entity in range.
----@param entity integer
+---@param entity Entity
 ---@param minDistance number
 ---@param maxDistance number
----@return Vector3
+---@return v3
 function get_random_offset_in_range(entity, minDistance, maxDistance)
 	local radius = random_float(minDistance, maxDistance)
 	local angle = random_float(0, 2 * math.pi)
@@ -817,11 +870,30 @@ function get_random_offset_in_range(entity, minDistance, maxDistance)
 	return pos
 end
 
+---@param entity Entity
+function set_entity_as_no_longer_needed(entity)
+	if not ENTITY.DOES_ENTITY_EXIST(entity) then return end
+	local pHandle = memory.alloc_int()
+	memory.write_int(pHandle, entity)
+	ENTITY.SET_ENTITY_AS_NO_LONGER_NEEDED(pHandle)
+end
+
+---@param ped Ped
+---@param hash Hash
+---@return boolean
+function is_ped_task_active(ped, hash)
+	if ENTITY.DOES_ENTITY_EXIST(ped) and not PED.IS_PED_INJURED(ped) then
+		local status = TASK.GET_SCRIPT_TASK_STATUS(ped, hash)
+		return status == 1 or status == 0
+	end
+	return false
+end
+
 --------------------------
 -- PLAYER
 --------------------------
 
----@param pId integer
+---@param pId Player
 ---@return boolean
 function is_player_friend(pId)
 	local pHandle = memory.alloc(104)
@@ -830,29 +902,60 @@ function is_player_friend(pId)
 	return isFriend
 end
 
----@param pId integer
----@return integer
+---@param pId Player
+---@return Vehicle
 function get_vehicle_player_is_in(pId)
-	local p = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
-	local vehicle = PED.GET_VEHICLE_PED_IS_IN(p, false)
+	local playerPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
+	local vehicle = PED.GET_VEHICLE_PED_IS_IN(playerPed, false)
 	return vehicle
 end
 
----@param player integer
----@return integer
+---@param player Player
+---@return Entity
 function get_entity_player_is_aiming_at(player)
-	local entity = NULL
-	if PLAYER.IS_PLAYER_FREE_AIMING(player) then
-		local pEntity = memory.alloc_int()
-		if PLAYER.GET_ENTITY_PLAYER_IS_FREE_AIMING_AT(player, pEntity) then
-			entity = memory.read_int(pEntity)
-		end
-		if ENTITY.IS_ENTITY_A_PED(entity) and PED.IS_PED_IN_ANY_VEHICLE(entity) then
-			local vehicle = PED.GET_VEHICLE_PED_IS_IN(entity, false)
-			entity = vehicle
-		end
+	if not PLAYER.IS_PLAYER_FREE_AIMING(player) then
+		return NULL
+	end
+	local entity, pEntity = NULL, memory.alloc_int()
+	if PLAYER.GET_ENTITY_PLAYER_IS_FREE_AIMING_AT(player, pEntity) then
+		entity = memory.read_int(pEntity)
+	end
+	if entity ~= NULL and ENTITY.IS_ENTITY_A_PED(entity) and PED.IS_PED_IN_ANY_VEHICLE(entity, false) then
+		entity = PED.GET_VEHICLE_PED_IS_IN(entity, false)
 	end
 	return entity
+end
+
+---@param entity Entity
+---@return integer address
+function get_net_obj(entity)
+	local pEntity = entities.handle_to_pointer(entity)
+	return pEntity ~= NULL and memory.read_long(pEntity + 0x00D0) or NULL
+end
+
+---@param entity Entity
+---@return Player owner
+function get_entity_owner(entity)
+	local net_obj = get_net_obj(entity)
+	return net_obj ~= NULL and memory.read_byte(net_obj + 0x49) or -1
+end
+
+---@param ped Ped
+---@return boolean
+function is_ped_an_animal(ped)
+	return PED.GET_PED_TYPE(ped) == 28
+end
+
+---@param player Player
+function is_player_passive(player)
+	if player == players.user() then
+		local address = memory.script_global(1574582)
+		if address ~= 0 then return memory.read_int(address) == 1 end
+	else
+		local address = memory.script_global(1893551 + (player * 599 + 1) + 8)
+		if address ~= 0 then return memory.read_byte(address) == 1 end
+	end
+	return false
 end
 
 --------------------------
@@ -860,7 +963,7 @@ end
 --------------------------
 
 ---@param dist number
----@return userdata
+---@return v3
 function get_offset_from_cam(dist)
 	local rot = CAM.GET_FINAL_RENDERED_CAM_ROT(2)
 	local pos = CAM.GET_FINAL_RENDERED_CAM_COORD()
@@ -871,7 +974,14 @@ function get_offset_from_cam(dist)
 	return offset
 end
 
-_ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION = function (--[[Cam (int)]] cam, --[[Entity (int)]] entity, --[[float]] xRot, --[[float]] yRot, --[[float]] zRot, --[[float]] xOffset, --[[float]] yOffset, --[[float]] zOffset, --[[BOOL (bool)]] isRelative)
+--------------------------
+-- NATIVES
+--------------------------
+
+---@diagnostic disable: undefined-global
+
+--- CAM::_0x202A5ED9CE01D6E7
+function CAM._ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(cam, entity, xRot, yRot, zRot, xOffset, yOffset, zOffset, isRelative)
     native_invoker.begin_call()
     native_invoker.push_arg_int(cam)
     native_invoker.push_arg_int(entity)
@@ -880,6 +990,17 @@ _ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION = function (--[[Cam (int)]] cam, --[[
     native_invoker.push_arg_bool(isRelative)
     native_invoker.end_call("202A5ED9CE01D6E7")
 end
+
+function PED.COUNT_PEDS_IN_COMBAT_WITH_TARGET_WITHIN_RADIUS(ped, posX, posY, posZ, radius)
+	native_invoker.begin_call()
+	native_invoker.push_arg_int(ped)
+	native_invoker.push_arg_float(posX); native_invoker.push_arg_float(posY); native_invoker.push_arg_float(posZ)
+	native_invoker.push_arg_float(radius)
+	native_invoker.end_call("336B3D200AB007CB")
+	return native_invoker.get_return_value_int()
+end
+
+---@diagnostic enable: undefined-global
 
 --------------------------
 -- RAYCAST
@@ -898,9 +1019,15 @@ TraceFlag =
 	foliage = 256,
 }
 
+---@class RaycastResult
+---@field didHit boolean
+---@field endCoords v3
+---@field surfaceNormal v3
+---@field hitEntity Entity
+
 ---@param dist number
 ---@param flag? integer
----@return table
+---@return RaycastResult
 function get_raycast_result(dist, flag)
 	local result = {}
 	flag = flag or TraceFlag.everything
@@ -908,21 +1035,10 @@ function get_raycast_result(dist, flag)
 	local endCoords = v3.new()
 	local surfaceNormal = v3.new()
 	local hitEntity = memory.alloc_int()
-	local origin = CAM.GET_FINAL_RENDERED_CAM_COORD()
-	local destination = get_offset_from_cam(dist)
-	SHAPETEST.GET_SHAPE_TEST_RESULT(
-		SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(
-			origin.x,
-			origin.y,
-			origin.z,
-			destination.x,
-			destination.y,
-			destination.z,
-			flag,
-			PLAYER.PLAYER_PED_ID(), -- the shape test ignores the local ped 
-			1
-		), didHit, endCoords, surfaceNormal, hitEntity
-	)
+	local pos1 = CAM.GET_FINAL_RENDERED_CAM_COORD()
+	local pos2 = get_offset_from_cam(dist)
+	local handle = SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(pos1.x, pos1.y, pos1.z, pos2.x, pos2.y, pos2.z, flag, players.user_ped(), 4)
+	SHAPETEST.GET_SHAPE_TEST_RESULT(handle, didHit, endCoords, surfaceNormal, hitEntity)
 	result.didHit = memory.read_byte(didHit) ~= 0
 	result.endCoords = endCoords
 	result.surfaceNormal = surfaceNormal
@@ -958,9 +1074,7 @@ function request_weapon_asset(hash)
 		return
 	end
 	WEAPON.REQUEST_WEAPON_ASSET(hash, 31, 0)
-	while not WEAPON.HAS_WEAPON_ASSET_LOADED(hash) do
-		util.yield()
-	end
+	while not WEAPON.HAS_WEAPON_ASSET_LOADED(hash) do util.yield() end
 end
 
 --------------------------
@@ -988,8 +1102,8 @@ write_global = {
 	int = function(global, value)
 		memory.write_int(memory.script_global(global), value)
 	end,
-	float = function(global)
-		return memory.write_float(memory.script_global(global), on)
+	float = function(global, value)
+		return memory.write_float(memory.script_global(global), value)
 	end
 }
 
@@ -1008,6 +1122,23 @@ read_global = {
 		return memory.read_string(memory.script_global(global))
 	end
 }
+
+
+local orgScan = memory.scan
+
+---@param name string
+---@param pattern string
+---@param callback fun(address: integer)
+function memory.scan(name, pattern, callback)
+	local address = orgScan(pattern)
+	if address ~= NULL then
+		util.log("Found " .. name)
+		callback(address)
+	else
+		util.log("Failed to find " .. name)
+		util.stop_script()
+	end
+end
 
 --------------------------
 -- TABLE
@@ -1059,17 +1190,12 @@ end
 ---Inserts `value` if `t` does not already includes it.
 ---@param t table
 ---@param value any
----@return boolean
 function table.insert_once(t, value)
-	if not table.find(t, value) then
-		table.insert(t, value)
-		return true
-	end
-	return false
+	if not table.find(t, value) then table.insert(t, value) end
 end
 
----@generic K, V
----@param t table
+---@generic T: table, K, V
+---@param t T
 ---@param f fun(key: K, value: V): boolean
 ---@return V
 ---@nodiscard
@@ -1077,10 +1203,11 @@ function table.find_if(t, f)
 	for k, v in pairs(t) do
 		if f(k, v) then return k end
 	end
+	return nil
 end
 
----@generic K, V
----@param t table<K, V>
+---@generic T: table, K, V
+---@param t T
 ---@param value any
 ---@return K?
 ---@nodiscard
@@ -1091,8 +1218,8 @@ function table.find(t, value)
 	return nil
 end
 
----@generic K, V
----@param t table<K, V>
+---@generic T: table, K, V
+---@param t T
 ---@param f fun(key: K, value: V):boolean
 ---@return integer
 function table.count_if(t, f)
@@ -1107,6 +1234,19 @@ end
 -- MISC
 --------------------------
 
+---Credits to Sainan
+function int_to_uint(int)
+    if int >= 0 then
+        return int
+    end
+    return (1 << 32) + int
+end
+
+function interpolate(y0, y1, perc)
+	perc = perc > 1.0 and 1.0 or perc
+	return (1 - perc) * y0 + perc * y1
+end
+
 ---@param num number
 ---@param places? integer
 ---@return number?
@@ -1114,18 +1254,8 @@ function round(num, places)
 	return tonumber(string.format('%.' .. (places or 0) .. 'f', num))
 end
 
-function draw_debug_text(...)
-	local arg = {...}
-	local strg = ""
-	for _, w in ipairs(arg) do
-		strg = strg .. tostring(w) .. '\n'
-	end
-	local colour = Colour.new(1.0, 0, 0, 1.0)
-	directx.draw_text(0.05, 0.05, strg, ALIGN_TOP_LEFT, 1.0, colour, false)
-end
-
 ---@param blip integer
----@return Vector3?
+---@return v3?
 function get_blip_coords(blip)
 	if blip == NULL then return nil end
 	local pos = HUD.GET_BLIP_COORDS(blip)
@@ -1140,16 +1270,16 @@ function get_blip_coords(blip)
 	return pos
 end
 
----@param pos Vector3
+---@param pos v3
 ---@return number?
 function get_ground_z(pos)
 	local ptr = memory.alloc(4)
-	MISC.GET_GROUND_Z_FOR_3D_COORD(pos.x, pos.y, pos.z, ptr, false)
+	MISC.GET_GROUND_Z_FOR_3D_COORD(pos.x, pos.y, pos.z, ptr, false, true)
 	local groundz = memory.read_float(ptr)
 	return groundz
 end
 
----@param windowName string
+---@param windowName string #Must be a label
 ---@param maxInput integer
 ---@param defaultText string
 ---@return string
@@ -1165,7 +1295,7 @@ function get_input_from_screen_keyboard(windowName, maxInput, defaultText)
 	end
 end
 
----@param s number
+---@param s string
 ---@param x number
 ---@param y number
 ---@param scale number
@@ -1180,7 +1310,7 @@ function draw_string(s, x, y, scale, font)
 	HUD.SET_TEXT_OUTLINE()
 	HUD.SET_TEXT_EDGE(1, 0, 0, 0, 0)
 	HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(s)
-	HUD.END_TEXT_COMMAND_DISPLAY_TEXT(x, y)
+	HUD.END_TEXT_COMMAND_DISPLAY_TEXT(x, y, 0)
 end
 
 function capitalize(txt)
@@ -1216,10 +1346,23 @@ function random_float(min, max)
 	return min + math.random() * (max - min)
 end
 
-local org_log = util.log
-util.log = function (msg)
-	org_log("[WiriScript] " .. msg)
+local orgLog = util.log
+
+---@param format string
+---@param ... any
+util.log = function (format, ...)
+	local text = format:format(...)
+	orgLog("[WiriScript] " .. text)
 end
 
+function draw_debug_text(...)
+	local arg = {...}
+	local strg = ""
+	for _, w in ipairs(arg) do
+		strg = strg .. tostring(w) .. '\n'
+	end
+	local colour = {r = 1.0, g = 0.0, b = 0.0, a = 1.0}
+	directx.draw_text(0.05, 0.05, strg, ALIGN_TOP_LEFT, 1.0, colour, false)
+end
 
-return self
+return colour
