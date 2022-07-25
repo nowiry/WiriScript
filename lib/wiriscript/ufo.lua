@@ -4,11 +4,11 @@ THIS FILE IS PART OF WIRISCRIPT
          Nowiry#2663
 --------------------------------
 ]]
-
+--- @diagnostic disable:param-type-mismatch
 require "wiriscript.functions"
 
 local self = {}
-self.version = 20
+self.version = 21
 
 local UfoState <const> =
 {
@@ -26,15 +26,16 @@ local object = 0
 local cam = 0
 local targetVehicles = {}
 local isCannonActive = false
-local scaleform = GRAPHICS.REQUEST_SCALEFORM_MOVIE("ORBITAL_CANNON_CAM")
+local scaleform = 0
 local sound <const> = {
     zoomOut = Sound.new("zoom_out_loop", "dlc_xm_orbital_cannon_sounds"),
     fireLoop = Sound.new("cannon_charge_fire_loop", "dlc_xm_orbital_cannon_sounds"),
     backgroundLoop = Sound.new("background_loop", "dlc_xm_orbital_cannon_sounds"),
     panLoop = Sound.new("pan_loop", "dlc_xm_orbital_cannon_sounds")
 }
-local sphereColour = Colour.new(0, 255, 255, 255)
+local sphereColour = {r = 0, g = 255, b = 255, a = 255}
 local backholePos
+local NULL <const> = 0
 
 self.exists = function ()
     return state ~= UfoState.nonExistent
@@ -66,6 +67,7 @@ local function drawInstructionalButtons()
     if Instructional:begin() then
         Instructional.add_control(75, "BB_LC_EXIT")
         if isCannonActive then
+            Instructional.add_control(69, "ORB_CAN_FIRE")
             Instructional.add_control(80, "Disable Cannon")
             if PAD._IS_USING_KEYBOARD(0) then
                 Instructional.add_control_group(29, "ORB_CAN_ZOOM")
@@ -81,7 +83,6 @@ local function drawInstructionalButtons()
                 Instructional.add_control(73, "Tractor beam")
             end
         end
-        Instructional.add_control(69, "ORB_CAN_FIRE")
         Instructional:set_background_colour(0, 0, 0, 80)
         Instructional:draw()
         SetTimerPosition(1)
@@ -107,7 +108,7 @@ local attractVehicles = function ()
         local distance = backholePos:distance(vehiclePos)
         if ENTITY.DOES_ENTITY_EXIST(vehicle) and vehicle ~= jet and distance < 80.0 and
         ENTITY.HAS_ENTITY_CLEAR_LOS_TO_ENTITY(object, vehicle, TraceFlag.world) then
-            if gConfig.ufo.targetplayer then
+            if Config.ufo.targetplayer then
                 local pVehicle = entities.handle_to_pointer(vehicle)
                 local pDriver = getVehicleDriver(pVehicle)
                 if isPedPlayer(pDriver) and not table.find(targetVehicles, vehicle) then
@@ -129,7 +130,7 @@ local tractorBeam = function ()
     local pos = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(jet, 0.0, 0.0, -8.0)
     backholePos = pos
     if not isCannonActive then
-        Colour.rainbow(sphereColour)
+        rainbow_colour(sphereColour)
         GRAPHICS._DRAW_SPHERE(pos.x, pos.y, pos.z, 1.0, sphereColour.r, sphereColour.g, sphereColour.b, 255)
     end
     if PAD.IS_DISABLED_CONTROL_JUST_PRESSED(2, 73) then
@@ -139,7 +140,7 @@ local tractorBeam = function ()
     end
     for i = #targetVehicles, 1, -1 do
         local vehicle = targetVehicles[i]
-        local vehiclePos = ENTITY.GET_ENTITY_COORDS(vehicle)
+        local vehiclePos = ENTITY.GET_ENTITY_COORDS(vehicle, false)
         local distance = vehiclePos:distance(pos)
         if ENTITY.DOES_ENTITY_EXIST(vehicle) and distance < 200 then
             local delta = v3.new(pos)
@@ -161,23 +162,23 @@ local function drawLockonSprite(pos, size, hudColour)
 		local colour = get_hud_colour(hudColour)
 		GRAPHICS.SET_DRAW_ORIGIN(pos.x, pos.y, pos.z, 0)
 		size = size * 0.03
-		GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_outline", 0.0, 0.0, size, size * GRAPHICS._GET_ASPECT_RATIO(0), 0.0, colour.r, colour.g, colour.b, colour.a, false)
+		GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_outline", 0.0, 0.0, size, size * GRAPHICS._GET_ASPECT_RATIO(0), 0.0, colour.r, colour.g, colour.b, colour.a, false, true)
 		GRAPHICS.CLEAR_DRAW_ORIGIN()
 	else
-		GRAPHICS.REQUEST_STREAMED_TEXTURE_DICT("helicopterhud", 0)
+		GRAPHICS.REQUEST_STREAMED_TEXTURE_DICT("helicopterhud", false)
 	end
 end
 
 
 local drawSpriteOnPlayers = function ()
-    if gConfig.ufo.disableboxes then
+    if Config.ufo.disableboxes then
         return
     end
     for _, player in pairs(players.list(false)) do
         local playerPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(player)
         if ENTITY.IS_ENTITY_ON_SCREEN(playerPed) and not players.is_in_interior(player) then
             local playerPos = ENTITY.GET_ENTITY_COORDS(playerPed, false)
-            local myPos = ENTITY.GET_ENTITY_COORDS(players.user_ped())
+            local myPos = ENTITY.GET_ENTITY_COORDS(players.user_ped(), false)
             local dist = myPos:distance(myPos)
             local size = interpolate(1.0, 0.5, dist / 1000.0)
             local hudColour = is_player_friend(player) and HudColour.friendly or HudColour.red
@@ -251,7 +252,7 @@ local function setCannonCamRot()
             cameraRot.x = minRotX
         end
         sound.panLoop:play()
-        _ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(cam, jet, cameraRot.x, 0.0, cameraRot.z, 0.0, 0.0, -4.0, true)
+        CAM._ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(cam, jet, cameraRot.x, 0.0, cameraRot.z, 0.0, 0.0, -4.0, true)
     else
         sound.panLoop:stop()
     end
@@ -268,6 +269,14 @@ local lastCountdown <const> = newTimer()
 local rechargeDuration <const> = 2000 -- `ms`
 
 local renderCannonCam = function ()
+    if not GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(scaleform) then
+        scaleform = GRAPHICS.REQUEST_SCALEFORM_MOVIE("ORBITAL_CANNON_CAM")
+
+        while not GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(scaleform) do
+            util.yield_once()
+        end
+    end
+
     if not isCannonActive then
         if CAM.IS_CAM_RENDERING(cam) then
             CAM.RENDER_SCRIPT_CAMS(false, false, 0, true, false, 0)
@@ -300,7 +309,7 @@ local renderCannonCam = function ()
 	GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
 
     if PAD.IS_CONTROL_PRESSED(2, 69) then
-        local raycastResult = get_raycast_result(1000.0)
+        local raycastResult = get_raycast_result(9999.0)
         local pos = raycastResult.endCoords
         if raycastResult.didHit then
             STREAMING.SET_FOCUS_POS_AND_VEL(pos.x, pos.y, pos.z, 0.0, 0.0, 0.0)
@@ -327,7 +336,7 @@ local renderCannonCam = function ()
                 local rot = raycastResult.surfaceNormal:toRot()
                 local effect = Effect.new("scr_xm_orbital", "scr_xm_orbital_blast")
                 request_fx_asset(effect.asset)
-                FIRE.ADD_EXPLOSION(pos.x, pos.y, pos.z, 59, 1.0, true, false, 1.0)
+                FIRE.ADD_EXPLOSION(pos.x, pos.y, pos.z, 59, 1.0, true, false, 1.0, false)
                 GRAPHICS.USE_PARTICLE_FX_ASSET(effect.asset)
                 GRAPHICS.START_NETWORKED_PARTICLE_FX_NON_LOOPED_AT_COORD(
 					effect.name,
@@ -385,10 +394,10 @@ self.mainLoop = function ()
         else
             if not ENTITY.DOES_ENTITY_EXIST(jet) then
                 request_model(vehicleHash); request_model(objHash)
-                local pos = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID())
+                local pos = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID(), false)
                 jet = entities.create_vehicle(vehicleHash, pos, CAM.GET_GAMEPLAY_CAM_ROT(0).z)
                 ENTITY.SET_ENTITY_VISIBLE(jet, false, 0)
-                ENTITY.SET_ENTITY_VISIBLE(PLAYER.PLAYER_PED_ID(), false, 0)
+                ENTITY.SET_ENTITY_VISIBLE(PLAYER.PLAYER_PED_ID(), false, true)
                 VEHICLE.SET_VEHICLE_ENGINE_ON(jet, true, true, true)
                 ENTITY.SET_ENTITY_INVINCIBLE(jet, true)
                 VEHICLE.SET_PLANE_TURBULENCE_MULTIPLIER(jet, 0.0)
@@ -401,7 +410,7 @@ self.mainLoop = function ()
 
                 CAM.DESTROY_ALL_CAMS(true)
                 cam = CAM.CREATE_CAM("DEFAULT_SCRIPTED_CAMERA", false)
-                _ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(cam, jet, -89.0, 0.0, 0.0, 0.0, 0.0, -4.0, true)
+                CAM._ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(cam, jet, -89.0, 0.0, 0.0, 0.0, 0.0, -4.0, true)
                 CAM.SET_CAM_FOV(cam, camFov)
                 CAM.SET_CAM_ACTIVE(cam, true)
                 GRAPHICS.SET_SCRIPT_GFX_DRAW_ORDER(1)
@@ -411,7 +420,7 @@ self.mainLoop = function ()
                 if not GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(scaleform) then
                     scaleform = GRAPHICS.REQUEST_SCALEFORM_MOVIE("ORBITAL_CANNON_CAM")
                     repeat
-                        util.yield()
+                        util.yield_once()
                     until GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(scaleform)
                 end
                 fadingTimer.reset()
@@ -421,7 +430,7 @@ self.mainLoop = function ()
             end
         end
     elseif state == UfoState.onFlight then
-        if ENTITY.IS_ENTITY_VISIBLE(jet) then ENTITY.SET_ENTITY_VISIBLE(jet, false, 0) end
+        if ENTITY.IS_ENTITY_VISIBLE(jet) then ENTITY.SET_ENTITY_VISIBLE(jet, false, true) end
         PAD.DISABLE_CONTROL_ACTION(2, 75, true) -- INPUT_VEH_EXIT
 		PAD.DISABLE_CONTROL_ACTION(2, 80, true) -- INPUT_VEH_CIN_CAM
 		PAD.DISABLE_CONTROL_ACTION(2, 99, true) -- INPUT_VEH_SELECT_NEXT_WEAPON
@@ -439,7 +448,7 @@ self.mainLoop = function ()
 		if PAD.IS_CONTROL_JUST_PRESSED(2, 80) or PAD.IS_CONTROL_JUST_PRESSED(2, 45) then
             if isCannonActive then
                 cameraRot = v3.new(-89.0, 0.0, 0.0)
-                _ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION (cam, jet, -89.0, 0.0, 0.0, 0.0, 0.0, -4.0, true)
+                CAM._ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION (cam, jet, -89.0, 0.0, 0.0, 0.0, 0.0, -4.0, true)
             end
             AUDIO.PLAY_SOUND_FRONTEND(-1, "cannon_active", "dlc_xm_orbital_cannon_sounds", true);
             zoom = 0.0
@@ -477,9 +486,9 @@ self.mainLoop = function ()
 	    entities.delete_by_handle(object); object = 0
 
         local outCoords = v3.new()
-	    local pos = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID())
+	    local pos = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID(), false)
 	    PATHFIND.GET_CLOSEST_VEHICLE_NODE(pos.x, pos.y, pos.z, outCoords, 1, 100, 2.5)
-        ENTITY.SET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID(), outCoords.x, outCoords.y, outCoords.z, false, false, false)
+        ENTITY.SET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID(), outCoords.x, outCoords.y, outCoords.z, false, false, false, false)
         ENTITY.SET_ENTITY_VISIBLE(PLAYER.PLAYER_PED_ID(), true, 0)
 	    PED.REMOVE_PED_HELMET(PLAYER.PLAYER_PED_ID(), true)
         DisableOTR()
