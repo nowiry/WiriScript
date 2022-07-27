@@ -85,7 +85,6 @@ local function drawInstructionalButtons()
         end
         Instructional:set_background_colour(0, 0, 0, 80)
         Instructional:draw()
-        SetTimerPosition(1)
     end
 end
 
@@ -164,8 +163,6 @@ local function drawLockonSprite(pos, size, hudColour)
 		size = size * 0.03
 		GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_outline", 0.0, 0.0, size, size * GRAPHICS._GET_ASPECT_RATIO(0), 0.0, colour.r, colour.g, colour.b, colour.a, false, true)
 		GRAPHICS.CLEAR_DRAW_ORIGIN()
-	else
-		GRAPHICS.REQUEST_STREAMED_TEXTURE_DICT("helicopterhud", false)
 	end
 end
 
@@ -271,10 +268,7 @@ local rechargeDuration <const> = 2000 -- `ms`
 local renderCannonCam = function ()
     if not GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(scaleform) then
         scaleform = GRAPHICS.REQUEST_SCALEFORM_MOVIE("ORBITAL_CANNON_CAM")
-
-        while not GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(scaleform) do
-            util.yield_once()
-        end
+        return
     end
 
     if not isCannonActive then
@@ -376,11 +370,11 @@ local renderCannonCam = function ()
 end
 
 
-local setVehicleCamDistance = function (--[[Vehicle]] vehicle, value)
+local setVehicleCamDistance = function (--[[Vehicle]] vehicle, distance)
     if vehicle == 0 then return end
     local addr = memory.read_long(entities.handle_to_pointer(vehicle) + 0x20)
 	if addr ~= NULL then
-        memory.write_float(addr + 0x38, value)
+        memory.write_float(addr + 0x38, distance)
     end
 end
 
@@ -396,8 +390,11 @@ self.mainLoop = function ()
                 request_model(vehicleHash); request_model(objHash)
                 local pos = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID(), false)
                 jet = entities.create_vehicle(vehicleHash, pos, CAM.GET_GAMEPLAY_CAM_ROT(0).z)
-                ENTITY.SET_ENTITY_VISIBLE(jet, false, 0)
-                ENTITY.SET_ENTITY_VISIBLE(PLAYER.PLAYER_PED_ID(), false, true)
+                util.spoof_script("main_persistent", function()
+                    ENTITY.SET_ENTITY_VISIBLE(jet, false, 0)
+                    ENTITY.SET_ENTITY_VISIBLE(players.user_ped(), false, true)
+                end)
+
                 VEHICLE.SET_VEHICLE_ENGINE_ON(jet, true, true, true)
                 ENTITY.SET_ENTITY_INVINCIBLE(jet, true)
                 VEHICLE.SET_PLANE_TURBULENCE_MULTIPLIER(jet, 0.0)
@@ -413,16 +410,11 @@ self.mainLoop = function ()
                 CAM._ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(cam, jet, -89.0, 0.0, 0.0, 0.0, 0.0, -4.0, true)
                 CAM.SET_CAM_FOV(cam, camFov)
                 CAM.SET_CAM_ACTIVE(cam, true)
-                GRAPHICS.SET_SCRIPT_GFX_DRAW_ORDER(1)
 
+                request_streamed_texture_dict("helicopterhud")
                 AUDIO.REQUEST_SCRIPT_AUDIO_BANK("DLC_CHRISTMAS2017/XM_ION_CANNON", false, -1)
                 AUDIO.SET_AUDIO_FLAG("DisableFlightMusic", true)
-                if not GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(scaleform) then
-                    scaleform = GRAPHICS.REQUEST_SCALEFORM_MOVIE("ORBITAL_CANNON_CAM")
-                    repeat
-                        util.yield_once()
-                    until GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(scaleform)
-                end
+
                 fadingTimer.reset()
             elseif fadingTimer.elapsed() > 1200 then
                 state = UfoState.onFlight
@@ -431,9 +423,9 @@ self.mainLoop = function ()
         end
     elseif state == UfoState.onFlight then
         if ENTITY.IS_ENTITY_VISIBLE(jet) then ENTITY.SET_ENTITY_VISIBLE(jet, false, true) end
-        PAD.DISABLE_CONTROL_ACTION(2, 75, true) -- INPUT_VEH_EXIT
-		PAD.DISABLE_CONTROL_ACTION(2, 80, true) -- INPUT_VEH_CIN_CAM
-		PAD.DISABLE_CONTROL_ACTION(2, 99, true) -- INPUT_VEH_SELECT_NEXT_WEAPON
+        PAD.DISABLE_CONTROL_ACTION(2, 75, true)
+		PAD.DISABLE_CONTROL_ACTION(2, 80, true)
+		PAD.DISABLE_CONTROL_ACTION(2, 99, true)
 
         VEHICLE.DISABLE_VEHICLE_WEAPON(true, util.joaat("vehicle_weapon_player_lazer"), jet, PLAYER.PLAYER_PED_ID())
 		VEHICLE.DISABLE_VEHICLE_WEAPON(true, util.joaat("vehicle_weapon_space_rocket"), jet, PLAYER.PLAYER_PED_ID())
@@ -462,6 +454,7 @@ self.mainLoop = function ()
         drawSpriteOnPlayers()
         renderCannonCam()
         drawInstructionalButtons()
+        HudTimer.SetHeightMultThisFrame(1)
         EnableOTR()
         DisablePhone()
     elseif state == UfoState.beingDestroyed then
@@ -519,6 +512,7 @@ self.onStop = function ()
         end
         state = UfoState.beingDestroyed
         self.mainLoop()
+        set_streamed_texture_dict_as_no_longer_needed("helicopterhud")
     end
 end
 
