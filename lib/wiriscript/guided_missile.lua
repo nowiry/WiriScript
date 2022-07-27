@@ -32,7 +32,7 @@ local startPos
 local timer <const> = newTimer()
 local fxAsset <const> = "scr_xs_props"
 local objHash <const> = util.joaat("xs_prop_arena_airmissile_01a")
-local scaleform = GRAPHICS.REQUEST_SCALEFORM_MOVIE("SUBMARINE_MISSILES")
+local scaleform = 0
 local effects = {missile_trail = -1}
 local sounds <const> =
 {
@@ -96,7 +96,7 @@ local function drawInstructionalButtons()
     HUD.HIDE_HUD_COMPONENT_THIS_FRAME(7)
     HUD.HIDE_HUD_COMPONENT_THIS_FRAME(9)
     HUD.HIDE_HUD_COMPONENT_THIS_FRAME(8)
-    SetTimerPosition(1)
+    HudTimer.SetHeightMultThisFrame(1)
 end
 
 
@@ -250,6 +250,43 @@ local getBoundsState = function ()
 end
 
 
+---@param heading number
+function drawMissileScaleformMovie(heading)
+    if not GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(scaleform) then
+        scaleform = GRAPHICS.REQUEST_SCALEFORM_MOVIE("SUBMARINE_MISSILES")
+    else
+        GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_ZOOM_VISIBLE")
+        GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_BOOL(false)
+        GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
+
+        GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_ALT_FOV_HEADING")
+        GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(0.0)
+        GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(0.0)
+        GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(heading)
+        GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
+
+        local boundsState = getBoundsState()
+        if boundsState == BoundsState.gettingOut then
+            sounds.outOfBounds:play()
+            GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_WARNING_IS_VISIBLE")
+            GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_BOOL(true)
+            GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
+
+            GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_WARNING_FLASH_RATE")
+            GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(0.5)
+            GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
+        elseif boundsState == BoundsState.inBounds then
+            sounds.outOfBounds:stop()
+            GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_WARNING_IS_VISIBLE")
+            GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_BOOL(false)
+            GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
+        end
+
+        GRAPHICS.DRAW_SCALEFORM_MOVIE_FULLSCREEN(scaleform, 255, 255, 255, 0, 1)
+    end
+end
+
+
 self.mainLoop = function ()
     if state == MissileState.beingCreated then
         if PED.IS_PED_IN_ANY_VEHICLE(PLAYER.PLAYER_PED_ID(), false) then
@@ -281,14 +318,6 @@ self.mainLoop = function ()
         GRAPHICS.SET_TIMECYCLE_MODIFIER("eyeinthesky")
         CAM._ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(camera, object, 0.0, 0.0, 180.0, 0.0, -0.9, 0.0, 1)
         CAM.RENDER_SCRIPT_CAMS(true, false, 0, true, true, 0)
-
-        GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_WARNING_IS_VISIBLE")
-        GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_BOOL(false)
-        GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
-
-        GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_ZOOM_VISIBLE")
-        GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_BOOL(false)
-        GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
 
         if not AUDIO.IS_AUDIO_SCENE_ACTIVE("dlc_aw_arena_piloted_missile_scene") then
             AUDIO.START_AUDIO_SCENE("dlc_aw_arena_piloted_missile_scene")
@@ -340,7 +369,8 @@ self.mainLoop = function ()
 
         if NETWORK.NETWORK_HAS_CONTROL_OF_NETWORK_ID(NETWORK.OBJ_TO_NET(object))  then
             if ENTITY.HAS_ENTITY_COLLIDED_WITH_ANYTHING(object) or ENTITY.GET_LAST_MATERIAL_HIT_BY_ENTITY(object) ~= 0 or
-            ENTITY.IS_ENTITY_IN_WATER(object) or PAD.IS_DISABLED_CONTROL_JUST_PRESSED(2, 75) then
+            ENTITY.IS_ENTITY_IN_WATER(object) or PAD.IS_DISABLED_CONTROL_JUST_PRESSED(2, 75) or
+            getBoundsState() == BoundsState.outOfBounds then
                 self.destroy()
             end
             if not PAD._IS_USING_KEYBOARD(0) then
@@ -378,35 +408,10 @@ self.mainLoop = function ()
                 PED.SET_SCENARIO_PEDS_SPAWN_IN_SPHERE_AREA(coords.x, coords.y, coords.z, 60.0, 30);
             end
 
-            GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_ALT_FOV_HEADING")
-            GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(0)
-            GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(0)
-            GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(rotation.z)
-            GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
-
-            local boundsState = getBoundsState()
-            if boundsState == BoundsState.gettingOut then
-                sounds.outOfBounds:play()
-                GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_WARNING_IS_VISIBLE")
-                GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_BOOL(true)
-                GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
-
-                GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_WARNING_FLASH_RATE")
-                GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(0.5)
-                GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
-            elseif boundsState == BoundsState.inBounds then
-                sounds.outOfBounds:stop()
-                GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_WARNING_IS_VISIBLE")
-                GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_BOOL(false)
-                GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
-            elseif boundsState == BoundsState.outOfBounds then
-                self.destroy()
-            end
-
             local myPos = ENTITY.GET_ENTITY_COORDS(players.user_ped(), false)
             STREAMING.REQUEST_COLLISION_AT_COORD(myPos.x, myPos.y, myPos.z)
 
-            GRAPHICS.DRAW_SCALEFORM_MOVIE_FULLSCREEN(scaleform, 255, 255, 255, 0, 1)
+            drawMissileScaleformMovie(rotation.z)
             drawInstructionalButtons()
         else
             NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(object)
