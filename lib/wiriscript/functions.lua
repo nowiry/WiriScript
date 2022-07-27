@@ -7,8 +7,8 @@ THIS FILE IS PART OF WIRISCRIPT
 ]]
 
 json = require "pretty.json"
-local colour = {}
-colour.version = 21
+local self = {}
+self.version = 21
 
 Config = {
 	controls = {
@@ -91,6 +91,7 @@ function notification.stand(msg)
 	util.toast(msg)
 end
 
+
 ---@param format string
 ---@param colour? HudColour
 function notification:help(format, colour, ...)
@@ -104,20 +105,17 @@ function notification:help(format, colour, ...)
 	HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER_WITH_TOKENS(true, true)
 end
 
+
 ---@param format string
 ---@param colour? HudColour
 function notification:normal(format, colour, ...)
 	assert(type(format) == "string", "msg must be a string, got " .. type(format))
+
 	local msg = string.format(format, ...)
 	if Config.general.standnotifications then
 		return self.stand(msg)
 	end
-	if not GRAPHICS.HAS_STREAMED_TEXTURE_DICT_LOADED(self.txdDict) then
-		GRAPHICS.REQUEST_STREAMED_TEXTURE_DICT(self.txdDict, true)
-		while not GRAPHICS.HAS_STREAMED_TEXTURE_DICT_LOADED(self.txdDict) do
-			util.yield()
-		end
-	end
+
 	HUD._THEFEED_SET_NEXT_POST_BACKGROUND_COLOR(colour or self.defaultColour)
 	util.BEGIN_TEXT_COMMAND_THEFEED_POST(msg)
 	HUD.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT(self.txdDict, self.txdName, true, 4, self.title, self.subtitle)
@@ -395,21 +393,25 @@ function get_hud_colour(hudColour)
 	return {r = memory.read_int(r), g = memory.read_int(g), b = memory.read_int(b), a = memory.read_int(a)}
 end
 
+
 ---@param colour Colour
 function rainbow_colour(colour)
 	if colour.r > 0 and colour.b == 0 then
 		colour.r = colour.r - 1
 		colour.g = colour.g + 1
 	end
+
 	if colour.g > 0 and colour.r == 0 then
 		colour.g = colour.g - 1
 		colour.b = colour.b + 1
 	end
+
 	if colour.b > 0 and colour.g == 0 then
 		colour.r = colour.r + 1
 		colour.b = colour.b - 1
 	end
 end
+
 
 ---@param perc number
 ---@return Colour
@@ -627,17 +629,19 @@ function add_blip_for_entity(entity, blipSprite, colour)
 	HUD.SET_BLIP_SPRITE(blip, blipSprite)
 	HUD.SET_BLIP_COLOUR(blip, colour)
 	HUD.SHOW_HEIGHT_ON_BLIP(blip, false)
+
 	util.create_tick_handler(function ()
-		if ENTITY.DOES_ENTITY_EXIST(entity) and not ENTITY.IS_ENTITY_DEAD(entity, 0) then
-			local heading = ENTITY.GET_ENTITY_HEADING(entity)
-        	HUD.SET_BLIP_ROTATION(blip, round(heading))
+		if not ENTITY.DOES_ENTITY_EXIST(entity)or ENTITY.IS_ENTITY_DEAD(entity, 0) then
+			util.remove_blip(blip)
+			return false
 		elseif not HUD.DOES_BLIP_EXIST(blip) then
 			return false
 		else
-			util.remove_blip(blip)
-			return false
+			local heading = ENTITY.GET_ENTITY_HEADING(entity)
+        	HUD.SET_BLIP_ROTATION(blip, math.ceil(heading))
 		end
 	end)
+
 	return blip
 end
 
@@ -786,16 +790,15 @@ function draw_box_esp(entity, colour)
 	local lowerLeftRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -max.x, -max.y, -min.z)
 	local lowerRightRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, min.x, -max.y, -min.z)
 
-	local upperLeftFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -max.x, min.y, max.z)
-	local upperRightFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, min.x, min.y, max.z)
-	local lowerLeftFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -max.x, min.y, -min.z)
-	local lowerRightFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, min.x, min.y, -min.z)
-
-
 	draw_line(upperLeftRear, upperRightRear, colour)
 	draw_line(lowerLeftRear, lowerRightRear, colour)
 	draw_line(upperLeftRear, lowerLeftRear, colour)
 	draw_line(upperRightRear, lowerRightRear, colour)
+
+	local upperLeftFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -max.x, min.y, max.z)
+	local upperRightFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, min.x, min.y, max.z)
+	local lowerLeftFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -max.x, min.y, -min.z)
+	local lowerRightFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, min.x, min.y, -min.z)
 
 	draw_line(upperLeftFront, upperRightFront, colour)
 	draw_line(lowerLeftFront, lowerRightFront, colour)
@@ -1037,8 +1040,10 @@ function get_raycast_result(dist, flag)
 	local hitEntity = memory.alloc_int()
 	local pos1 = CAM.GET_FINAL_RENDERED_CAM_COORD()
 	local pos2 = get_offset_from_cam(dist)
+
 	local handle = SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(pos1.x, pos1.y, pos1.z, pos2.x, pos2.y, pos2.z, flag, players.user_ped(), 4)
 	SHAPETEST.GET_SHAPE_TEST_RESULT(handle, didHit, endCoords, surfaceNormal, hitEntity)
+
 	result.didHit = memory.read_byte(didHit) ~= 0
 	result.endCoords = endCoords
 	result.surfaceNormal = surfaceNormal
@@ -1051,30 +1056,68 @@ end
 --------------------------
 
 ---@param model integer
+---@return boolean
 function request_model(model)
-	if STREAMING.IS_MODEL_VALID(model) and not STREAMING.HAS_MODEL_LOADED(model) then
-		STREAMING.REQUEST_MODEL(model)
-		while not STREAMING.HAS_MODEL_LOADED(model) do
-			util.yield()
-		end
+	if not STREAMING.IS_MODEL_VALID(model) then
+		return false
 	end
+
+	if STREAMING.HAS_MODEL_LOADED(model) then
+		return true
+	end
+
+	local timer = newTimer()
+	STREAMING.REQUEST_MODEL(model)
+	while not STREAMING.HAS_MODEL_LOADED(model) and
+	timer.elapsed() < 500 do
+		util.yield_once()
+	end
+
+	return timer.elapsed() < 500
 end
 
+
 ---@param asset string
+---@return boolean
 function request_fx_asset(asset)
-	STREAMING.REQUEST_NAMED_PTFX_ASSET(asset)
-	while not STREAMING.HAS_NAMED_PTFX_ASSET_LOADED(asset) do
-		util.yield()
+	if STREAMING.HAS_NAMED_PTFX_ASSET_LOADED(asset) then
+		return false
 	end
+
+	local timer = newTimer()
+	STREAMING.REQUEST_NAMED_PTFX_ASSET(asset)
+	while not STREAMING.HAS_NAMED_PTFX_ASSET_LOADED(asset) and
+	timer.elapsed() < 500 do
+		util.yield_once()
+	end
+
+	return timer.elapsed() < 500
 end
+
 
 ---@param hash integer
 function request_weapon_asset(hash)
 	if WEAPON.HAS_WEAPON_ASSET_LOADED(hash) then
-		return
+		return true
 	end
+
 	WEAPON.REQUEST_WEAPON_ASSET(hash, 31, 0)
 	while not WEAPON.HAS_WEAPON_ASSET_LOADED(hash) do util.yield() end
+end
+
+---Credits to aaron
+---@param textureDict string
+function request_streamed_texture_dict(textureDict)
+	util.spoof_script("main_persistent", function()
+		GRAPHICS.REQUEST_STREAMED_TEXTURE_DICT(textureDict, false)
+	end)
+end
+
+---@param textureDict string
+function set_streamed_texture_dict_as_no_longer_needed(textureDict)
+	util.spoof_script("main_persistent", function()
+		GRAPHICS.SET_STREAMED_TEXTURE_DICT_AS_NO_LONGER_NEEDED(textureDict)
+	end)
 end
 
 --------------------------
@@ -1097,29 +1140,36 @@ end
 
 write_global = {
 	byte = function(global, value)
-		memory.write_byte(memory.script_global(global), value)
+		local address = memory.script_global(global)
+		if address ~= NULL then memory.write_byte(address, value) end
 	end,
 	int = function(global, value)
-		memory.write_int(memory.script_global(global), value)
+		local address = memory.script_global(global)
+		if address ~= NULL then memory.write_int(address, value) end
 	end,
 	float = function(global, value)
-		return memory.write_float(memory.script_global(global), value)
+		local address = memory.script_global(global)
+		if address ~= NULL then memory.write_float(address, value) end
 	end
 }
 
 
 read_global = {
 	byte = function(global)
-		return memory.read_byte(memory.script_global(global))
+		local address = memory.script_global(global)
+		return address ~= NULL and memory.read_byte(address) or nil
 	end,
 	int = function(global)
-		return memory.read_int(memory.script_global(global))
+		local address = memory.script_global(global)
+		return address ~= NULL and memory.read_int(address) or nil
 	end,
 	float = function(global)
-		return memory.read_float(memory.script_global(global))
+		local address = memory.script_global(global)
+		return address ~= NULL and memory.read_float(address) or nil
 	end,
 	string = function(global)
-		return memory.read_string(memory.script_global(global))
+		local address = memory.script_global(global)
+		return address ~= NULL and memory.read_string(address) or nil
 	end
 }
 
@@ -1138,6 +1188,35 @@ function memory.scan(name, pattern, callback)
 		util.log("Failed to find " .. name)
 		util.stop_script()
 	end
+end
+
+
+HudTimer = {}
+
+HudTimer.SetHeightMultThisFrame = function (mult)
+	write_global.int(1649593 + 1163, mult)
+end
+
+HudTimer.DisableThisFrame = function()
+	write_global.int(2727091, 1)
+end
+
+
+function EnableOTR()
+	local toggle_addr = 2689235 + ((PLAYER.PLAYER_ID() * 453) + 1) + 208
+	if read_global.int(toggle_addr) == 1 then
+		return
+	end
+	write_global.int(toggle_addr, 1)
+	write_global.int(2703735 + 56, NETWORK.GET_NETWORK_TIME() + 1)
+end
+
+function DisableOTR()
+	write_global.int(2689235 + ((PLAYER.PLAYER_ID() * 453) + 1) + 208, 0)
+end
+
+function DisablePhone()
+    write_global.int(20249, 1)
 end
 
 --------------------------
@@ -1159,19 +1238,6 @@ function table.random(t)
 	return type(result) ~= "table" and result or table.random(result)
 end
 
-function equals(a, b)
-	if a == b then return true end
-	local type1 = type(a)
-    local type2 = type(b)
-    if type1 ~= type2 then return false end
-	if type1 ~= "table" then return false end
-	for k, v in pairs(a) do
-		if b[ k ] == nil or not equals(v, b[ k ]) then
-			return false
-		end
-	end
-	return true
-end
 
 function pairs_by_keys(t, f)
 	local a = {}
@@ -1234,11 +1300,9 @@ end
 -- MISC
 --------------------------
 
----Credits to Sainan
+--- Credits to Sainan
 function int_to_uint(int)
-    if int >= 0 then
-        return int
-    end
+    if int >= 0 then return int end
     return (1 << 32) + int
 end
 
@@ -1257,7 +1321,9 @@ end
 ---@param blip integer
 ---@return v3?
 function get_blip_coords(blip)
-	if blip == NULL then return nil end
+	if blip == 0 then
+		return nil
+	end
 	local pos = HUD.GET_BLIP_COORDS(blip)
 	local tick = 0
 	local success, groundz = util.get_ground_z(pos.x, pos.y)
@@ -1273,9 +1339,9 @@ end
 ---@param pos v3
 ---@return number?
 function get_ground_z(pos)
-	local ptr = memory.alloc(4)
-	MISC.GET_GROUND_Z_FOR_3D_COORD(pos.x, pos.y, pos.z, ptr, false, true)
-	local groundz = memory.read_float(ptr)
+	local pGroundZ = memory.alloc(4)
+	MISC.GET_GROUND_Z_FOR_3D_COORD(pos.x, pos.y, pos.z, pGroundZ, false, true)
+	local groundz = memory.read_float(pGroundZ)
 	return groundz
 end
 
@@ -1290,9 +1356,8 @@ function get_input_from_screen_keyboard(windowName, maxInput, defaultText)
 	end
 	if MISC.UPDATE_ONSCREEN_KEYBOARD() == 1 then
 		return MISC.GET_ONSCREEN_KEYBOARD_RESULT()
-	else
-		return ""
 	end
+	return ""
 end
 
 ---@param s string
@@ -1317,28 +1382,6 @@ function capitalize(txt)
 	return tostring(txt):gsub('^%l', string.upper)
 end
 
-function capEachWord(txt)
-	txt = string.lower(txt)
-	return txt:gsub('(%l)(%w+)', function(a,b) return string.upper(a) .. b end)
-end
-
-function EnableOTR()
-	write_global.int(2689224 + ((PLAYER.PLAYER_ID() * 451) + 1) + 207, 1)
-	write_global.int(2703660 + 56, NETWORK.GET_NETWORK_TIME() + 1)
-end
-
-function DisableOTR()
-	write_global.int(2689224 + ((PLAYER.PLAYER_ID() * 451) + 1) + 207, 0)
-end
-
-function DisablePhone()
-    write_global.int(19937, 1)
-end
-
-function SetTimerPosition(value)
-    write_global.int(1645748 + 1121, value)
-end
-
 ---@param min number
 ---@param max number
 ---@return number
@@ -1346,13 +1389,14 @@ function random_float(min, max)
 	return min + math.random() * (max - min)
 end
 
+
 local orgLog = util.log
 
 ---@param format string
 ---@param ... any
 util.log = function (format, ...)
-	local text = format:format(...)
-	orgLog("[WiriScript] " .. text)
+	local strg = type(format) ~= "string" and tostring(format) or format:format(...)
+	orgLog("[WiriScript] " .. strg)
 end
 
 function draw_debug_text(...)
@@ -1365,4 +1409,4 @@ function draw_debug_text(...)
 	directx.draw_text(0.05, 0.05, strg, ALIGN_TOP_LEFT, 1.0, colour, false)
 end
 
-return colour
+return self
