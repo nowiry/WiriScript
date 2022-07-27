@@ -1959,7 +1959,7 @@ generate_features = function(pId)
 
 	---@param targetId integer
 	local function spawn_buzzard(targetId)
-		local vehicleHash <const> = 0x1517D4D9
+		local vehicleHash <const> = util.joaat("buzzard")
 		local pedHash <const> = util.joaat("s_m_y_blackops_01")
 		request_model(vehicleHash);	request_model(pedHash)
 		local target = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(targetId)
