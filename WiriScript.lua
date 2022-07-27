@@ -5275,7 +5275,7 @@ local options <const> = {
 	translate("Vehicle Effects", "Alien Disintegration"),
 	translate("Vehicle Effects", "Firey Particles"),
 }
-menu.slider_text(vehicleOptions, translate("Vehicle Effects", "Vehicle Effect"), {}, "",
+menu.slider_text(vehicleOptions, translate("Vehicle Effects", "Set Vehicle Effect"), {}, "",
 	options, function (index) selectedOpt = index end)
 
 -------------------------------------
