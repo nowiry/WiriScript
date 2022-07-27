@@ -727,7 +727,7 @@ return {
         ["Biker Cocaine Male"] = "mp_m_cocaine_01",
         ["Executive PA Male"] = "mp_m_execpa_01",
         ["Biker Counterfeit Female"] = "mp_f_counterfeit_01",
-        ["Pros"] = "mp_g_m_pros_01"
+        ["Pros"] = "mp_g_m_pros_01",
     },
     ["Player"] = {
         ["Freemode Female"] = "mp_f_freemode_01",
