@@ -5,8 +5,9 @@ THIS FILE IS PART OF WIRISCRIPT
          Nowiry#2663
 --------------------------------
 ]]
-util.require_natives(1651208000)
+
 gVersion = 21
+local scriptStartTime = util.current_time_millis()
 
 local required <const> = {
 	"lib/natives-1651208000.lua",
@@ -25,9 +26,10 @@ for _, file in ipairs(required) do
 	assert(filesystem.exists(scriptdir .. file), "required file not found: " .. file)
 end
 
-Func = require "wiriscript.functions"
-UFO = require "wiriscript.ufo"
-GuidedMissile = require "wiriscript.guided_missile"
+util.require_natives(1651208000)
+local Functions = require "wiriscript.functions"
+local UFO = require "wiriscript.ufo"
+local GuidedMissile = require "wiriscript.guided_missile"
 local pedList <const> = require "wiriscript.ped_list"
 local homingMissiles = require "wiriscript.homing_missiles"
 
@@ -35,11 +37,14 @@ if filesystem.exists(filesystem.resources_dir() .. "WiriTextures.ytd") then
 	util.register_file(filesystem.resources_dir() .. "WiriTextures.ytd")
 	notification.txdDict = "WiriTextures"
 	notification.txdName = "logo"
+	request_streamed_texture_dict("WiriTextures")
 else
 	error("required file not found: WiriTextures.ytd" )
 end
 
-if Func.version ~= gVersion or UFO.version ~= gVersion or GuidedMissile.version ~= gVersion then
+
+if Functions.version ~= gVersion or UFO.version ~= gVersion or GuidedMissile.version ~= gVersion or
+homingMissiles.version ~= gVersion then
 	error("versions of WiriScript's files don't match")
 end
 
@@ -228,6 +233,8 @@ local Weapons <const> =
 		WT_BULLRIFLE2 = "weapon_bullpuprifle_mk2",
 		WT_CMPRIFLE = "weapon_compactrifle",
 		WT_MLTRYRFL = "weapon_militaryrifle",
+		WT_HEAVYRIFLE = "WEAPON_HEAVYRIFLE",
+		WT_TACRIFLE = "WEAPON_TACTICALRIFLE",
 	},
 	-- Sniper rifles
 	VAULT_WMENUI_5 =
@@ -237,6 +244,7 @@ local Weapons <const> =
 		WT_SNIP_HVY2 = "weapon_heavysniper_mk2",
 		WT_MKRIFLE = "weapon_marksmanrifle",
 		WT_MKRIFLE2 = "weapon_marksmanrifle_mk2",
+		WT_PRCSRIFLE = "WEAPON_PRECISIONRIFLE",
 	},
 	-- Heavy weapons
 	VAULT_WMENUI_6 =
@@ -266,7 +274,7 @@ local Weapons <const> =
 		WT_KNUCKLE = "weapon_knuckle",
 		WT_MACHETE = "weapon_machete",
 		WT_FLASHLIGHT = "weapon_flashlight",
-		WT_SWBLADE = "weapon_switchblade",
+		WT_SWTCHBLDE = "weapon_switchblade",
 		WT_BATTLEAXE = "weapon_battleaxe",
 		WT_POOLCUE = "weapon_poolcue",
 		WT_WRENCH = "weapon_wrench",
@@ -1280,8 +1288,6 @@ generate_features = function(pId)
 				GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner", -size * 0.5,  size, txdSizeX, txdSizeY, 270, colour.r, colour.g, colour.b, colour.a, true, 0)
 				GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner",  size * 0.5,  size, txdSizeX, txdSizeY, 180, colour.r, colour.g, colour.b, colour.a, true, 0)
 				GRAPHICS.CLEAR_DRAW_ORIGIN()
-			else
-				GRAPHICS.REQUEST_STREAMED_TEXTURE_DICT("helicopterhud", 0)
 			end
 		end
 
@@ -1309,6 +1315,7 @@ generate_features = function(pId)
 					ENTITY.FREEZE_ENTITY_POSITION(PLAYER.PLAYER_PED_ID(), true)
 					AUDIO.REQUEST_SCRIPT_AUDIO_BANK("DLC_CHRISTMAS2017/XM_ION_CANNON", false, -1)
 					AUDIO.START_AUDIO_SCENE("dlc_xm_orbital_cannon_camera_active_scene")
+					request_streamed_texture_dict("helicopterhud")
 					Sounds.activating:play()
 
 					CAM.DESTROY_ALL_CAMS(true)
@@ -1341,7 +1348,7 @@ generate_features = function(pId)
 				STREAMING.SET_FOCUS_POS_AND_VEL(pos.x, pos.y, pos.z, 5.0, 0.0, 0.0)
 				CAM.SET_CAM_COORD(cam, pos.x, pos.y, pos.z + 150)
 				DisablePhone()
-				SetTimerPosition(1)
+				HudTimer.DisableThisFrame()
 
 				for _, player in ipairs(players.list()) do
 					if not players.is_in_interior(player) and player ~= gCannonTarget then
@@ -1442,6 +1449,7 @@ generate_features = function(pId)
 					GRAPHICS.ANIMPOSTFX_STOP("MP_OrbitalCannon")
 					AUDIO.STOP_AUDIO_SCENE("dlc_xm_orbital_cannon_camera_active_scene")
 					AUDIO.RELEASE_NAMED_SCRIPT_AUDIO_BANK("DLC_CHRISTMAS2017/XM_ION_CANNON")
+					set_streamed_texture_dict_as_no_longer_needed("helicopterhud")
 
 					CAM.RENDER_SCRIPT_CAMS(false, false, 0, true, false, 0)
 					CAM.SET_CAM_ACTIVE(cam, false)
@@ -1897,7 +1905,7 @@ generate_features = function(pId)
 		if PATHFIND.GET_CLOSEST_VEHICLE_NODE_WITH_HEADING(offset.x, offset.y, offset.z, outCoords, outHeading, 1, 3.0, 0) then
 			local driver = entities.create_ped(5, pedHash, offset, 0.0)
 			NETWORK.SET_NETWORK_ID_EXISTS_ON_ALL_MACHINES(NETWORK.PED_TO_NET(driver), true)
-			ENTITY.SET_ENTITY_AS_MISSION_ENTITY(driver, true, true)
+			ENTITY.SET_ENTITY_AS_MISSION_ENTITY(driver, false, true)
 			NETWORK.SET_NETWORK_ID_ALWAYS_EXISTS_FOR_PLAYER(NETWORK.PED_TO_NET(driver), PLAYER.PLAYER_ID(), true)
 			ENTITY.SET_ENTITY_LOAD_COLLISION_FLAG(driver, true, 1)
 			ENTITY.SET_ENTITY_INVINCIBLE(driver, true)
@@ -1951,7 +1959,7 @@ generate_features = function(pId)
 
 	---@param targetId integer
 	local function spawn_buzzard(targetId)
-		local vehicleHash <const> = util.joaat("buzzard")
+		local vehicleHash <const> = 0x1517D4D9
 		local pedHash <const> = util.joaat("s_m_y_blackops_01")
 		request_model(vehicleHash);	request_model(pedHash)
 		local target = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(targetId)
@@ -1964,7 +1972,7 @@ generate_features = function(pId)
 		local heli = entities.create_vehicle(vehicleHash, pos, CAM.GET_GAMEPLAY_CAM_ROT(0).z)
 		if ENTITY.DOES_ENTITY_EXIST(heli) then
 			NETWORK.SET_NETWORK_ID_EXISTS_ON_ALL_MACHINES(NETWORK.VEH_TO_NET(heli), true)
-			ENTITY.SET_ENTITY_AS_MISSION_ENTITY(heli, true, true)
+			ENTITY.SET_ENTITY_AS_MISSION_ENTITY(heli, false, true)
 			NETWORK.SET_NETWORK_ID_ALWAYS_EXISTS_FOR_PLAYER(NETWORK.VEH_TO_NET(heli), PLAYER.PLAYER_ID(), true)
 			ENTITY.SET_ENTITY_LOAD_COLLISION_FLAG(heli, true, 1)
 			set_decor_flag(heli, DecorFlag_isEnemyVehicle)
@@ -2013,9 +2021,9 @@ generate_features = function(pId)
 		local jet = entities.create_vehicle(jetHash, pos, CAM.GET_GAMEPLAY_CAM_ROT(0).z)
 		if ENTITY.DOES_ENTITY_EXIST(jet) then
 			NETWORK.SET_NETWORK_ID_EXISTS_ON_ALL_MACHINES(NETWORK.VEH_TO_NET(jet), true)
-			ENTITY.SET_ENTITY_AS_MISSION_ENTITY(jet, true, true)
-			NETWORK.SET_NETWORK_ID_ALWAYS_EXISTS_FOR_PLAYER(NETWORK.VEH_TO_NET(jet), PLAYER.PLAYER_ID(), true)
-			ENTITY.SET_ENTITY_LOAD_COLLISION_FLAG(jet, true, 1)
+		ENTITY.SET_ENTITY_AS_MISSION_ENTITY(jet, false, true)
+		NETWORK.SET_NETWORK_ID_ALWAYS_EXISTS_FOR_PLAYER(NETWORK.VEH_TO_NET(jet), players.user(), true)
+		ENTITY.SET_ENTITY_LOAD_COLLISION_FLAG(jet, true, 1)
 			set_decor_flag(jet, DecorFlag_isEnemyVehicle)
 			local pos = get_random_offset_in_range(jet, 30, 80)
 			pos.z = pos.z + 500
@@ -2028,7 +2036,7 @@ generate_features = function(pId)
 			VEHICLE.SET_VEHICLE_FORCE_AFTERBURNER(jet, true)
 
 			local pilot = entities.create_ped(5, pedHash, pos, CAM.GET_GAMEPLAY_CAM_ROT(0).z)
-			ENTITY.SET_ENTITY_AS_MISSION_ENTITY(pilot, true, true)
+			ENTITY.SET_ENTITY_AS_MISSION_ENTITY(pilot, false, true)
 			PED.SET_PED_INTO_VEHICLE(pilot, jet, -1)
 			TASK.TASK_PLANE_MISSION(pilot, jet, 0, target, 0.0, 0.0, 0.0, 6, 100.0, 0, 0.0, 80.0, 50.0, 0)
 			PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 1, true)
@@ -2046,6 +2054,7 @@ generate_features = function(pId)
 			if optName == "Buzzard" then spawn_buzzard(pId)
 			elseif optName == "Minitank" then spawn_minitank(pId)
 			elseif optName == "Lazer" then spawn_lazer(pId) end
+			i = i + 1
 			util.yield(200)
 		until i == count;
 	end)
@@ -2251,7 +2260,7 @@ generate_features = function(pId)
 		local driver = 0
 		local vehicle = entities.create_vehicle(vehicleHash, pos, 0.0)
 		NETWORK.SET_NETWORK_ID_EXISTS_ON_ALL_MACHINES(NETWORK.VEH_TO_NET(vehicle), true)
-		ENTITY.SET_ENTITY_AS_MISSION_ENTITY(vehicle, true, true)
+		ENTITY.SET_ENTITY_AS_MISSION_ENTITY(vehicle, false, true)
 		NETWORK.SET_NETWORK_ID_ALWAYS_EXISTS_FOR_PLAYER(NETWORK.VEH_TO_NET(vehicle), players.user(), true)
 		ENTITY.SET_ENTITY_LOAD_COLLISION_FLAG(vehicle, true, 1)
 		set_decor_flag(vehicle, DecorFlag_isTrollyVehicle)
@@ -2976,28 +2985,34 @@ local selfOpt <const> = menu.list(menu.my_root(), translate("Self", "Self"), {"s
 
 local defaultHealth = ENTITY.GET_ENTITY_MAX_HEALTH(PLAYER.PLAYER_PED_ID())
 local moddedHealth = defaultHealth
+local slider
 
-local SetEntityHealth = function(entity, health)
+local SetEntityMaxHealth = function(entity, value)
 	local maxHealth = ENTITY.GET_ENTITY_MAX_HEALTH(entity)
-	if maxHealth < health or maxHealth > health then
-		PED.SET_PED_MAX_HEALTH(entity, health)
+	if maxHealth == value then
+		return
 	end
-	ENTITY.SET_ENTITY_HEALTH(entity, health, 0)
+	PED.SET_PED_MAX_HEALTH(entity, value)
+	local health = ENTITY.GET_ENTITY_HEALTH(entity)
+	ENTITY.SET_ENTITY_HEALTH(entity, value, 0)
 end
 
 menu.toggle_loop(selfOpt, translate("Self", "Mod Max Health"), {"modhealth"}, "", function ()
-	SetEntityHealth(players.user(), moddedHealth)
+	SetEntityMaxHealth(players.user_ped(), moddedHealth)
 	if Config.general.displayhealth then
 		local health = ENTITY.GET_ENTITY_HEALTH(PLAYER.PLAYER_PED_ID())
 		local strg = string.format("~b~HEALTH ~w~ %s", health)
 		draw_string(strg, Config.healthtxtpos.x, Config.healthtxtpos.y, 0.6, 4)
 	end
 end, function ()
-	SetEntityHealth(players.user(), defaultHealth)
+	menu.set_value(slider, defaultHealth)
+	SetEntityMaxHealth(players.user_ped(), defaultHealth)
 end)
 
-menu.slider(selfOpt, translate("Self", "Set Max Health"), {"moddedhealth"}, "", 100, 9000, defaultHealth, 50,
-	function(value) moddedHealth = value end)
+slider = menu.slider(selfOpt, translate("Self", "Set Max Health"), {"moddedhealth"}, "", 100, 9000, defaultHealth, 50, function(value, prev, click)
+	if (click & CLICK_FLAG_AUTO) ~= 0 then return end
+	moddedHealth = value
+end)
 
 -------------------------------------
 -- REFILL HEALTH
@@ -3041,7 +3056,7 @@ end)
 -------------------------------------
 
 menu.action(selfOpt, translate("Self", "Instant Bullshark"), {}, "", function()
-	write_global.int(2703660 + 3576, 1)
+	write_global.int(2703735 + 3576, 1 << 0)
 end)
 
 -------------------------------------
@@ -3073,6 +3088,8 @@ menu.toggle_loop(selfOpt, translate("Forcefield", "Forcefield"), {"forcefield"},
 		local pos = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID(), false)
 		FIRE.ADD_EXPLOSION(pos.x, pos.y, pos.z, 29, 5.0, false, true, 0.0, true)
 	end
+end, function()
+	set_explosion_proof(players.user_ped(), false)
 end)
 
 
@@ -3099,7 +3116,7 @@ menu.toggle_loop(selfOpt, translate("Self", "Force"), {"jedimode"}, helpText, fu
 		GRAPHICS.SET_PARTICLE_FX_NON_LOOPED_COLOUR(colour.r, colour.g, colour.b)
 		GRAPHICS.START_NETWORKED_PARTICLE_FX_NON_LOOPED_ON_ENTITY(
 			effect.name,
-			localPed,
+			players.user_ped(),
 			0.0, 0.0, -0.9,
 			0.0, 0.0, 0.0,
 			1.0,
@@ -3334,7 +3351,7 @@ end)
 -------------------------------------
 
 local is_player_pointing = function ()
-	return read_global.int(4516656 + 930) == 3
+	return read_global.int(4521801 + 930) == 3
 end
 
 local targetEntity = NULL
@@ -3345,7 +3362,7 @@ translate("Self", "Move entities with your finger when pointing them. Press B to
 
 menu.toggle_loop(selfOpt, translate("Self", "God Finger"), {"godfinger"}, helpTxt, function()
 	if is_player_pointing() then
-		write_global.int(4516656 + 935, NETWORK.GET_NETWORK_TIME()) -- to avoid the animation to stop
+		write_global.int(4521801 + 935, NETWORK.GET_NETWORK_TIME()) -- to avoid the animation to stop
 		if not ENTITY.DOES_ENTITY_EXIST(targetEntity) then
 			local flag = TraceFlag.peds | TraceFlag.vehicles | TraceFlag.objects
 			local raycastResult = get_raycast_result(1000.0, flag)
@@ -3460,6 +3477,8 @@ menu.toggle_loop(weaponOpt, translate("Weapon - Shooting Effect", "Shooting Effe
 
 	if PED.IS_PED_SHOOTING(PLAYER.PLAYER_PED_ID()) then
 		local weapon = WEAPON.GET_CURRENT_PED_WEAPON_ENTITY_INDEX(PLAYER.PLAYER_PED_ID(), false)
+		local boneId = ENTITY.GET_ENTITY_BONE_INDEX_BY_NAME(weapon, "gun_muzzle")
+
 		GRAPHICS.USE_PARTICLE_FX_ASSET(effect.asset)
 		GRAPHICS._START_NETWORKED_PARTICLE_FX_NON_LOOPED_ON_ENTITY_BONE(
 			effect.name,
@@ -3470,7 +3489,7 @@ menu.toggle_loop(weaponOpt, translate("Weapon - Shooting Effect", "Shooting Effe
 			effect.rotation.x,
 			effect.rotation.y,
 			effect.rotation.z,
-			ENTITY.GET_ENTITY_BONE_INDEX_BY_NAME(weapon, "gun_muzzle"),
+			boneId,
 			effect.scale,
 			false, false, false
 		)
@@ -3631,12 +3650,12 @@ local hitEffects <const> = {
 local options <const> = {
 	{translate("Weapon - Hit Effect", "Clown Explosion")},
 	{translate("Weapon - Hit Effect", "Clown Appears")},
-	{translate("Weapon - Hit Effect", "FW Trailburst")},
-	{translate("Weapon - Hit Effect", "FW Starburst")},
-	{translate("Weapon - Hit Effect", "FW Fountain")},
+	{translate("Weapon - Hit Effect", "Trailburst FW")},
+	{translate("Weapon - Hit Effect", "Starburst FW")},
+	{translate("Weapon - Hit Effect", "Fountain FW")},
 	{translate("Weapon - Hit Effect", "Alien Disintegration")},
 	{translate("Weapon - Hit Effect", "Clown Flowers")},
-	{translate("Weapon - Hit Effect", "FW Ground Burst")},
+	{translate("Weapon - Hit Effect", "Ground Burst FW")},
 	{translate("Weapon - Hit Effect", "Clown Muz")},
 }
 local effectColour = {r = 0.5, g = 0.0, b = 0.5, a = 1.0}
@@ -3851,15 +3870,15 @@ local function set_entity_coords(entity, coords)
 	end
 end
 
-menu.toggle_loop(weaponOpt, translate("Weapon", "Teleport Gun"), {"tpgun"}, "", function(toggle)
-	local vehicle = PED.GET_VEHICLE_PED_IS_IN(PLAYER.PLAYER_PED_ID(), false)
+menu.toggle_loop(weaponOpt, translate("Weapon", "Teleport Gun"), {"tpgun"}, "", function()
 	local raycastResult = get_raycast_result(1000.0)
 	if raycastResult.didHit and PED.IS_PED_SHOOTING(PLAYER.PLAYER_PED_ID()) then
 		local coords = raycastResult.endCoords
-		if vehicle == NULL then
+		if not PED.IS_PED_IN_ANY_VEHICLE(players.user_ped(), false) then
 			coords.z = coords.z + 1.0
 			set_entity_coords(PLAYER.PLAYER_PED_ID(), coords)
 		else
+			local vehicle = PED.GET_VEHICLE_PED_IS_IN(PLAYER.PLAYER_PED_ID(), false)
 			local speed = ENTITY.GET_ENTITY_SPEED(vehicle)
 			ENTITY.SET_ENTITY_COORDS(vehicle, coords.x, coords.y, coords.z, false, false, false, false)
 			ENTITY.SET_ENTITY_HEADING(vehicle, CAM.GET_GAMEPLAY_CAM_ROT(0).z)
@@ -4363,11 +4382,10 @@ translate("Vehicle - Vehicle Weapons", "Allows you to use homing missiles on any
 
 reference =
 menu.toggle_loop(vehicleWeaponRoot, name, {"homingmissiles"}, helpText, function ()
-	if menu.get_value(vehicleWeapons) then menu.set_value(vehicleWeapons, false) end
-	if not UFO.exists() and not GuidedMissile.exists() then
-		homingMissiles.mainLoop()
-	else
+	if UFO.exists() or GuidedMissile.exists() then
 		menu.set_value(reference, false)
+	else
+		homingMissiles.mainLoop()
 	end
 end, function () homingMissiles.reset() end)
 
@@ -5164,7 +5182,7 @@ VehicleLockOn.__index = VehicleLockOn
 ---@param address integer
 ---@return VehicleLockOn
 function VehicleLockOn.new(address)
-	assert(address ~= 0, "got a null pointer")
+	assert(address ~= NULL, "got a null pointer")
 	local instance = setmetatable({}, VehicleLockOn)
 	instance.address = address
 	instance.defaultValue = memory.read_float(address)
@@ -5215,23 +5233,12 @@ end)
 -- VEHICLE EFFECTS
 -------------------------------------
 
-local VehicleEffect = {scale = 0.0, loopSpeed = 0.0}
-VehicleEffect.__index = VehicleEffect
-setmetatable(VehicleEffect, Effect)
-
-function VehicleEffect.new(asset, name, scale, loopSpeed)
-	local inst = setmetatable({}, VehicleEffect)
-	inst.asset = asset
-	inst.name = name
-	inst.scale = scale
-	inst.loopSpeed = loopSpeed
-	return inst
-end
-
 local effects <const> = {
-	VehicleEffect.new("scr_rcbarry2", "scr_clown_appears", 0.3, 500.0),
-	VehicleEffect.new("scr_rcbarry1", "scr_alien_impact_bul", 1.0, 50.0),
-	VehicleEffect.new("core", "ent_dst_elec_fire_sp", 0.8, 25.0)
+	{"scr_rcbarry1", "scr_alien_impact_bul", 1.0, 50},
+	{"scr_rcbarry2", "scr_clown_appears", 0.3, 500},
+	{"core", "ent_dst_elec_fire_sp", 1.0, 100},
+	{"scr_rcbarry1", "scr_alien_disintegrate", 0.1, 400},
+	{"scr_rcbarry1", "scr_alien_teleport", 0.1, 400}
 }
 local wheelBones <const> = {"wheel_lf", "wheel_lr", "wheel_rf", "wheel_rr"}
 local selectedOpt = 1
@@ -5241,29 +5248,32 @@ menu.toggle_loop(vehicleOptions, translate("Vehicle Effects", "Vehicle Effects")
 	local vehicle = PED.GET_VEHICLE_PED_IS_IN(PLAYER.PLAYER_PED_ID(), true)
 	if vehicle == NULL then return end
 	local effect = effects[selectedOpt]
-	request_fx_asset(effect.asset)
+	request_fx_asset(effect[1])
 	for _, bone in pairs(wheelBones) do
-		GRAPHICS.USE_PARTICLE_FX_ASSET(effect.asset)
+		GRAPHICS.USE_PARTICLE_FX_ASSET(effect[1])
 		GRAPHICS._START_NETWORKED_PARTICLE_FX_NON_LOOPED_ON_ENTITY_BONE(
-			effect.name,
+			effect[2],
 			vehicle,
-			0.0,	-- offsetX
-			0.0,	-- offsetY
-			0.0,	-- offsetZ
-			0.0,	-- rotX
-			0.0,	-- rotY
-			0.0,	-- rotZ
+			0.0,
+			0.0,
+			0.0,
+			0.0,
+			0.0,
+			0.0,
 			ENTITY.GET_ENTITY_BONE_INDEX_BY_NAME(vehicle, bone),
-			effect.scale,
+			effect[3],
 			false, false, false
 		)
 	end
-	util.yield(effect.loopSpeed)
+	util.yield(effect[4])
 end)
 
 local options <const> = {
+	translate("Vehicle Effects", "Alien Impact"),
 	translate("Vehicle Effects", "Clown Appears"),
-	translate("Vehicle Effects", "Alien Impact"), translate("Vehicle Effects", "Electic Fire")
+	translate("Vehicle Effects", "Blue Sparks"),
+	translate("Vehicle Effects", "Alien Disintegration"),
+	translate("Vehicle Effects", "Firey Particles"),
 }
 menu.slider_text(vehicleOptions, translate("Vehicle Effects", "Vehicle Effect"), {}, "",
 	options, function (index) selectedOpt = index end)
@@ -6469,7 +6479,7 @@ menu.toggle_loop(protectionOpt, translate("Protections", "Anticage"), {"anticage
 		end
 		local ownerId = get_entity_owner(obj)
 		local msg = string.format(format, PLAYER.GET_PLAYER_NAME(ownerId))
-		if ownerId ~= players.user() and NETWORK.NETWORK_IS_PLAYER_CONNECTED(ownerId) and
+		if  NETWORK.NETWORK_IS_PLAYER_CONNECTED(ownerId) and
 		(lastMsg ~= msg or lastNotification.elapsed() >= 15000) then
 			notification:normal(msg, HudColour.purpleDark)
 			lastMsg = msg
@@ -6886,8 +6896,11 @@ util.on_stop(function()
 		AUDIO.SKIP_RADIO_FORWARD()
 	end
 
+	set_streamed_texture_dict_as_no_longer_needed("WiriTextures")
 	Ini.save(configFile, Config)
 end)
+
+util.log("Script loaded in %d millis", util.current_time_millis() - scriptStartTime)
 
 while true do
 	bodyguardMenu:onTick()
