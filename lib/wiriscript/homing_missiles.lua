@@ -1,11 +1,13 @@
----@diagnostic disable: exp-in-action, unknown-symbol, break-outside
----@diagnostic disable
 --[[
 --------------------------------
 THIS FILE IS PART OF WIRISCRIPT
          Nowiry#2663
 --------------------------------
 ]]
+
+---@diagnostic disable: exp-in-action, unknown-symbol, break-outside
+---@diagnostic disable
+
 require "wiriscript.functions"
 
 --------------------------
@@ -52,15 +54,18 @@ end
 --------------------------------
 
 local self = {}
+self.version = 21
 local State <const> =
 {
 	GettingNearbyEnts = 0,
 	SettingTargets = 1,
+	Reseted = 2
 }
-local state = State.GettingNearbyEnts
-local targetEnts <const> = {-1, -1, -1, -1, -1, -1}
+local state = State.Reseted
+local targetEnts = {-1, -1, -1, -1, -1, -1}
+---Stores nearby targetable entities
 ---@type integer[]
-local nearbyEntities = {} -- stores nearby targetable entities
+local nearbyEntities = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}
 local numTargets = 0
 local lastShot <const> = newTimer()
 local rechargeTimer <const> = newTimer()
@@ -72,7 +77,6 @@ local myVehicle = 0
 local weapon <const> = util.joaat("VEHICLE_WEAPON_SPACE_ROCKET")
 local lockOnBits <const> = Bitwise.new()
 local bits <const> = Bitwise.new()
-local scaleform = 0
 local trans = {
 	DisablingPassive = translate("Misc", "Disabling passive mode")
 }
@@ -95,14 +99,15 @@ local Bit_IsCamPointingInFront <const> = 2
 local Bit_IgnoreFriends <const> = 3
 
 
----@param position userdata
+---@param position v3
 ---@param scale number
 ---@param hudColour HudColour
 local DrawLockOnSprite = function (position, scale, hudColour)
 	if GRAPHICS.HAS_STREAMED_TEXTURE_DICT_LOADED("helicopterhud") then
 		local colour = get_hud_colour(hudColour)
-		local txdSizeX = 0.013
-		local txdSizeY = 0.013 * GRAPHICS._GET_ASPECT_RATIO(0)
+		local txdSizeX = 0.010
+		local txdSizeY = 0.010 * GRAPHICS._GET_ASPECT_RATIO(0)
+
 		GRAPHICS.SET_DRAW_ORIGIN(position.x, position.y, position.z, 0)
 		scale = (scale * 0.03)
 		GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner", -scale * 0.5, -scale, txdSizeX, txdSizeY, 0.0, colour.r, colour.g, colour.b, colour.a, true, 0)
@@ -110,8 +115,6 @@ local DrawLockOnSprite = function (position, scale, hudColour)
 		GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner", -scale * 0.5,  scale, txdSizeX, txdSizeY, 270, colour.r, colour.g, colour.b, colour.a, true, 0)
 		GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner",  scale * 0.5,  scale, txdSizeX, txdSizeY, 180, colour.r, colour.g, colour.b, colour.a, true, 0)
 		GRAPHICS.CLEAR_DRAW_ORIGIN()
-	else
-		GRAPHICS.REQUEST_STREAMED_TEXTURE_DICT("helicopterhud", 0)
 	end
 end
 
@@ -148,7 +151,9 @@ local IsEntityInSaveScreenPos = function (entity)
 	local pScreenX = memory.alloc(4)
 	local pScreenY = memory.alloc(4)
 	local pos = ENTITY.GET_ENTITY_COORDS(entity, true)
-	GRAPHICS.GET_SCREEN_COORD_FROM_WORLD_COORD(pos.x, pos.y, pos.z, pScreenX, pScreenY)
+	if not GRAPHICS.GET_SCREEN_COORD_FROM_WORLD_COORD(pos.x, pos.y, pos.z, pScreenX, pScreenY) then
+		return false
+	end
 	local screenX = memory.read_float(pScreenX)
 	local screenY = memory.read_float(pScreenY)
 	if screenX < 0.1 or screenX > 0.9 or screenY < 0.1 or screenY > 0.9 then
@@ -193,6 +198,9 @@ end
 ---@param target Entity
 ---@return number
 local GetDistanceBetweenEntities = function(entity, target)
+	if not ENTITY.DOES_ENTITY_EXIST(entity) or not ENTITY.DOES_ENTITY_EXIST(target) then
+		return 0.0
+	end
 	local pos = ENTITY.GET_ENTITY_COORDS(entity, true)
 	return ENTITY.GET_ENTITY_COORDS(target, true):distance(pos)
 end
@@ -255,8 +263,8 @@ end
 ---@return integer
 local GetFartherTargetIndex = function()
 	local lastDistance = 0.0
-	local myPos = ENTITY.GET_ENTITY_COORDS(myVehicle, true)
-	local index = 0
+	local myPos = ENTITY.GET_ENTITY_COORDS(players.user_ped(), true)
+	local index = -1
 	for i = 1, 6 do
 		local pos = ENTITY.GET_ENTITY_COORDS(targetEnts[i], true)
 		local distance = myPos:distance(pos)
@@ -282,35 +290,35 @@ end
 
 
 local SetTargetEntities = function()
-	if entCount < 1 or entCount >= 20 then
+	if entCount < 1 or entCount > 20 then
         entCount = 1
     end
 
 	local entity = nearbyEntities[entCount]
     local flag <const> = TraceFlag.world | TraceFlag.vehicles
 
-	if ENTITY.DOES_ENTITY_EXIST(entity) and not ENTITY.IS_ENTITY_DEAD(entity, false) and
-	ENTITY.HAS_ENTITY_CLEAR_LOS_TO_ENTITY(players.user_ped(), entity, flag) then
+	if entity and ENTITY.DOES_ENTITY_EXIST(entity) and not ENTITY.IS_ENTITY_DEAD(entity, false) and
+	ENTITY.HAS_ENTITY_CLEAR_LOS_TO_ENTITY(myVehicle, entity, flag) then
 		if numTargets < 6 and TargetEntitiesInsert(entity) then
 			nearbyEntities[entCount] = -1
 			entCount = entCount + 1
 		elseif numTargets >= 6 then
 			local targetId = GetFartherTargetIndex()
 			local entityPos = ENTITY.GET_ENTITY_COORDS(entity, true)
-			local myPos = ENTITY.GET_ENTITY_COORDS(myVehicle, true)
-			local targetPos = ENTITY.GET_ENTITY_COORDS(targetEnts[targetId], true)
-
-			if myPos:distance(targetPos) > myPos:distance(entityPos) then
+			local myPos = ENTITY.GET_ENTITY_COORDS(players.user_ped(), true)
+			local target = targetEnts[targetId]
+			if target and
+			ENTITY.GET_ENTITY_COORDS(target, true):distance(myPos) > myPos:distance(entityPos) then
 				targetEnts[targetId] = entity
-				nearbyEntities[entCount] = -1
 				entCount = entCount + 1
+				nearbyEntities[entCount] = -1
 			end
 		end
 	else
 		nearbyEntities[entCount] = -1
 		entCount = entCount + 1
 	end
-	if entCount == 20 then
+	if entCount >= 20 then
 		state = State.GettingNearbyEnts
 		entCount = 1
 	end
@@ -369,14 +377,14 @@ local LockOnEnity = function (entity, count)
 	if lockOnBits:IsBitSet(bitPlace + 6) then
 		colour = HudColour.red
 	end
-	GRAPHICS.SET_SCRIPT_GFX_DRAW_ORDER(1)
 	local pos = ENTITY.GET_ENTITY_COORDS(entity, true)
 	DrawLockOnSprite(pos, 1.0, colour)
 end
 
 
 local LockOnTargets = function()
-    if numTargets == 0 then
+    if numTargets == 0 and ENTITY.DOES_ENTITY_EXIST(myVehicle) and not ENTITY.IS_ENTITY_DEAD(myVehicle) and
+	VEHICLE.IS_VEHICLE_DRIVEABLE(myVehicle) then
         local coords = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(myVehicle, 0.0, 100.0, 0.0)
         DrawLockOnSprite(coords, 0.8, HudColour.pureWhite)
     end
@@ -387,10 +395,6 @@ end
 local UpdateTargetEntities = function()
 	local count = 0
 	for i, entity in ipairs(targetEnts) do
-		if targetEnts[i] == -1 then
-			pluto_continue
-		end
-
 		if not ENTITY.DOES_ENTITY_EXIST(entity) or ENTITY.IS_ENTITY_DEAD(entity, false) or
 		not IsEntityInSaveScreenPos(entity) or not bits:IsBitSet(Bit_IsCamPointingInFront) or not
         ENTITY.HAS_ENTITY_CLEAR_LOS_TO_ENTITY(entity, myVehicle, TraceFlag.world | TraceFlag.vehicles) or
@@ -517,13 +521,13 @@ end
 
 Print = {}
 
---- @param font integer
---- @param scale v2
---- @param centred boolean
---- @param rightJustified boolean
---- @param outline boolean
---- @param colour? Colour
---- @param wrap? v2
+---@param font integer
+---@param scale v2
+---@param centred boolean
+---@param rightJustified boolean
+---@param outline boolean
+---@param colour? Colour
+---@param wrap? v2
 Print.setupdraw = function(font, scale, centred, rightJustified, outline, colour, wrap)
     HUD.SET_TEXT_FONT(font)
     HUD.SET_TEXT_SCALE(scale.x, scale.y)
@@ -539,9 +543,9 @@ Print.setupdraw = function(font, scale, centred, rightJustified, outline, colour
 end
 
 
---- @param text string
---- @param x number
---- @param y number
+---@param text string
+---@param x number
+---@param y number
 Print.drawstring = function (text, x, y)
     HUD.BEGIN_TEXT_COMMAND_DISPLAY_TEXT(text)
 	GRAPHICS.BEGIN_TEXT_COMMAND_SCALEFORM_STRING(text)
@@ -569,36 +573,39 @@ local DrawChargingMeter = function ()
 	local text = chargeLevel == 100 and "DRONE_READY" or "DRONE_CHARGING"
 	Print.drawstring(text, textPosX, 0.55 - 0.019)
 
-	if GRAPHICS.HAS_STREAMED_TEXTURE_DICT_LOADED("WiriTextures") then
-		GRAPHICS.DRAW_SPRITE(
-		"WiriTextures", "box", textPosX + 0.001, 0.5, maxWidth + 0.002, 0.06, 0.0, 255, 255, 255, 255, 0, 0)
-		Print.setupdraw(4, {x = 0.65, y = 0.65}, true, false, false, textColour)
-		Print.drawstring("DRONE_MISSILE", textPosX + 0.001, 0.495 - 0.02)
-	else
-		GRAPHICS.REQUEST_STREAMED_TEXTURE_DICT("WiriTextures")
-	end
+	GRAPHICS.DRAW_RECT(0.85 + maxWidth/2, 0.496, maxWidth, 0.06, 156, 156, 156, 80)
+	Print.setupdraw(4, {x = 0.65, y = 0.65}, true, false, false, textColour)
+	Print.drawstring("DRONE_MISSILE", textPosX + 0.001, 0.495 - 0.02)
 end
 
 
 local DisableControlActions = function ()
-	PAD.DISABLE_CONTROL_ACTION(0, 106, true)
-	PAD.DISABLE_CONTROL_ACTION(0, 122, true)
-	PAD.DISABLE_CONTROL_ACTION(0, 135, true)
-	PAD.DISABLE_CONTROL_ACTION(0, 99, true)
-	PAD.DISABLE_CONTROL_ACTION(0, 115, true)
-	PAD.DISABLE_CONTROL_ACTION(0, 262, true)
-	PAD.DISABLE_CONTROL_ACTION(0, 68, true)
-	PAD.DISABLE_CONTROL_ACTION(0, 69, true)
-	PAD.DISABLE_CONTROL_ACTION(0, 70, true)
-	PAD.DISABLE_CONTROL_ACTION(0, 114, true)
-	PAD.DISABLE_CONTROL_ACTION(0, 331, true)
+	PAD.DISABLE_CONTROL_ACTION(2, 106, true)
+	PAD.DISABLE_CONTROL_ACTION(2, 122, true)
+	PAD.DISABLE_CONTROL_ACTION(2, 135, true)
+	PAD.DISABLE_CONTROL_ACTION(2, 99, true)
+	PAD.DISABLE_CONTROL_ACTION(2, 115, true)
+	PAD.DISABLE_CONTROL_ACTION(2, 262, true)
+	PAD.DISABLE_CONTROL_ACTION(2, 68, true)
+	PAD.DISABLE_CONTROL_ACTION(2, 69, true)
+	PAD.DISABLE_CONTROL_ACTION(2, 70, true)
+	PAD.DISABLE_CONTROL_ACTION(2, 114, true)
+	PAD.DISABLE_CONTROL_ACTION(2, 331, true)
 end
 
 
 self.reset = function()
+	set_streamed_texture_dict_as_no_longer_needed("helicopterhud")
 	lockOnBits:reset()
-	if IsAnyHomingSoundActive() then StopHomingSounds() end
-	nearbyEntities = {}
+	targetEnts = {-1, -1, -1, -1, -1, -1}
+	entCount = 1
+	numTargets = 0
+	shotCount = 1
+	chargeLevel = 100.0
+	myVehicle = 0
+	StopHomingSounds()
+	nearbyEntities = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}
+	state = State.Reseted
 end
 
 
@@ -613,44 +620,50 @@ end
 
 
 self.mainLoop = function ()
-	if util.is_session_transition_active() or
-	ENTITY.IS_ENTITY_DEAD(players.user_ped(), false) or HUD.IS_PAUSE_MENU_ACTIVE() then
-		self.reset() return
-	end
+	if NETWORK.NETWORK_IS_GAME_IN_PROGRESS() and
+	PLAYER.IS_PLAYER_PLAYING(players.user()) and PED.IS_PED_IN_ANY_VEHICLE(players.user_ped(), false) then
+		
+		local vehicle = PED.GET_VEHICLE_PED_IS_IN(players.user_ped(), false)
+		if ENTITY.DOES_ENTITY_EXIST(vehicle) and not ENTITY.IS_ENTITY_DEAD(vehicle, false) and
+		VEHICLE.IS_VEHICLE_DRIVEABLE(vehicle, false) and
+		VEHICLE.GET_PED_IN_VEHICLE_SEAT(vehicle, -1, false) == players.user_ped() then
 
-    local vehicle = PED.GET_VEHICLE_PED_IS_IN(players.user_ped(), false)
+			if not is_player_passive(players.user()) then
+				if state == State.Reseted then
+					request_streamed_texture_dict("helicopterhud")
+					state = State.GettingNearbyEnts
+				end
+				myVehicle = vehicle
+				if IsCameraPointingInFrontOfEntity(vehicle, 40.0) then
+					bits:SetBit(Bit_IsCamPointingInFront)
+				else
+					bits:ClearBit(Bit_IsCamPointingInFront)
+				end
 
-	if not ENTITY.DOES_ENTITY_EXIST(vehicle) or ENTITY.IS_ENTITY_DEAD(vehicle, false) or
-	not VEHICLE.IS_VEHICLE_DRIVEABLE(vehicle, false) or
-	VEHICLE.GET_PED_IN_VEHICLE_SEAT(vehicle, -1, false) ~= players.user_ped() then
-		self.reset()
-		return
-	end
-
-	if is_player_passive(players.user()) then
-		local timerStart = memory.script_global(2810701 + 4463)
-		local timerState = memory.script_global(2810701 + 4463 + 1)
-		if memory.read_int(timerState) == 0 then
-			notification:normal(trans.DisablingPassive)
-			memory.write_int(timerStart, NETWORK.GET_NETWORK_TIME())
-			memory.write_int(timerState, 1)
+				LockOnManager()
+				ShootMissiles()
+				DrawChargingMeter()
+				DisablePhone()
+				DisableControlActions()
+			else
+				if state ~= State.Reseted then
+					self.reset()
+				end
+				local timerStart = memory.script_global(2815059 + 4463)
+				local timerState = memory.script_global(2815059 + 4463 + 1)
+				if timerStart ~= NULL and timerState ~= NULL and
+				memory.read_int(timerState) == 0 then
+					notification:normal(trans.DisablingPassive)
+					memory.write_int(timerStart, NETWORK.GET_NETWORK_TIME())
+					memory.write_int(timerState, 1)
+				end
+			end
+		elseif state ~= State.Reseted then
+			self.reset()
 		end
+	elseif state ~= State.Reseted then
 		self.reset()
-		return
 	end
-
-	myVehicle = vehicle
-	if IsCameraPointingInFrontOfEntity(vehicle, 40.0) then
-		bits:SetBit(Bit_IsCamPointingInFront)
-	else
-		bits:ClearBit(Bit_IsCamPointingInFront)
-	end
-
-	LockOnManager()
-	ShootMissiles()
-	DrawChargingMeter()
-	DisablePhone()
-	DisableControlActions()
 end
 
 
