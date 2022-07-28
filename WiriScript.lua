@@ -1,4 +1,3 @@
----@diagnostic disable:param-type-mismatch
 --[[
 --------------------------------
 THIS FILE IS PART OF WIRISCRIPT
@@ -6,6 +5,7 @@ THIS FILE IS PART OF WIRISCRIPT
 --------------------------------
 ]]
 
+---@diagnostic disable:param-type-mismatch
 gVersion = 21
 local scriptStartTime = util.current_time_millis()
 
@@ -3367,11 +3367,13 @@ menu.toggle_loop(selfOpt, translate("Self", "God Finger"), {"godfinger"}, helpTx
 	if is_player_pointing() then
 		write_global.int(4521801 + 935, NETWORK.GET_NETWORK_TIME()) -- to avoid the animation to stop
 		if not ENTITY.DOES_ENTITY_EXIST(targetEntity) then
-			local flag = TraceFlag.peds | TraceFlag.vehicles | TraceFlag.objects
-			local raycastResult = get_raycast_result(1000.0, flag)
+			local flag = TraceFlag.peds | TraceFlag.vehicles | TraceFlag.pedsSimpleCollision | TraceFlag.objects
+			local raycastResult = get_raycast_result(500.0, flag)
 			if raycastResult.didHit and ENTITY.DOES_ENTITY_EXIST(raycastResult.hitEntity) then
 				targetEntity = raycastResult.hitEntity
-			else return end
+			else
+				return
+			end
 		end
 		local myPos = players.get_position(players.user())
 		local entityPos = ENTITY.GET_ENTITY_COORDS(targetEntity, true)
@@ -6780,6 +6782,21 @@ menu.action(script, translate("WiriScript", "Show Credits"), {}, "", function()
 	end)
 end)
 
+local helpText = translate("WiriScript", "If you like WiriScirpt's features consider buying me a coffee or becoming a Sponsor")
+menu.hyperlink(script, "Buy Me a Coffee", "https://www.buymeacoffee.com/nowiry", helpText)
+
+
+local helpText = translate("WiriScript", "Join us in our fan club, created by %s")
+local menuName = translate("WiriScript", "Join %s")
+menu.hyperlink(menu.my_root(), menuName:format("WiriScript FanClub"), "https://cutt.ly/wiriscript-fanclub", helpText:format("komt"))
+
+
+
+players.on_join(generate_features)
+players.dispatch_on_join()
+util.log("On join dispatched")
+
+
 memory.scan("GetNetGamePlayer", "48 83 EC ? 33 C0 38 05 ? ? ? ? 74 ? 83 F9", function (address)
 	GetNetGamePlayer_addr = address
 end)
@@ -6861,15 +6878,6 @@ end]]
 		return true
 	end
 end]]
-
-local helpText = translate("WiriScript", "Join us in our fan club, created by %s")
-local menuName = translate("WiriScript", "Join %s")
-
-menu.hyperlink(menu.my_root(), menuName:format("WiriScript FanClub"), "https://cutt.ly/wiriscript-fanclub", helpText:format("komt"))
-
-players.on_join(generate_features)
-players.dispatch_on_join()
-util.log("On join dispatched")
 
 -------------------------------------
 --ON STOP

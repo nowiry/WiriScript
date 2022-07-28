@@ -1,4 +1,3 @@
----@diagnostic disable: param-type-mismatch
 --[[
 --------------------------------
 THIS FILE IS PART OF WIRISCRIPT
@@ -6,28 +5,29 @@ THIS FILE IS PART OF WIRISCRIPT
 --------------------------------
 ]]
 
+---@diagnostic disable: param-type-mismatch
 json = require "pretty.json"
 local self = {}
 self.version = 21
 
 Config = {
 	controls = {
-		vehicleweapons 		= 86,
-		airstrikeaircraft 	= 86
+		vehicleweapons = 86,
+		airstrikeaircraft = 86
 	},
 	general = {
-		standnotifications 	= false,
-		displayhealth 		= true,
-		language 			= "english",
-		developer			= false, 	-- developer flag (enables/disables some debug features)
-		showintro			= true
+		standnotifications = false,
+		displayhealth = true,
+		language = "english",
+		developer = false, 	-- developer flag (enables/disables some debug features)
+		showintro = true
 	},
 	ufo = {
-		disableboxes 		= false, 	-- determines if boxes are drawn on players to show their position
-		targetplayer		= false 	-- wether tractor beam only targets players or not
+		disableboxes = false, 	-- determines if boxes are drawn on players to show their position
+		targetplayer = false 	-- wether tractor beam only targets players or not
 	},
 	vehiclegun = {
-		disablepreview 		= false,
+		disablepreview = false,
 	},
 	healthtxtpos = {
 		x = 0.03,
@@ -96,10 +96,12 @@ end
 ---@param colour? HudColour
 function notification:help(format, colour, ...)
 	assert(type(format) == "string", "msg must be a string, got " .. type(format))
+
 	local msg = string.format(format, ...)
 	if Config.general.standnotifications then
 		return self.stand(msg)
 	end
+
 	HUD._THEFEED_SET_NEXT_POST_BACKGROUND_COLOR(colour or self.defaultColour)
 	util.BEGIN_TEXT_COMMAND_THEFEED_POST("~BLIP_INFO_ICON~ " .. msg)
 	HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER_WITH_TOKENS(true, true)
@@ -1011,7 +1013,7 @@ end
 
 TraceFlag =
 {
-	everything = -1,
+	everything = 4294967295,
 	none = 0,
 	world = 1,
 	vehicles = 2,
@@ -1041,7 +1043,7 @@ function get_raycast_result(dist, flag)
 	local pos1 = CAM.GET_FINAL_RENDERED_CAM_COORD()
 	local pos2 = get_offset_from_cam(dist)
 
-	local handle = SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(pos1.x, pos1.y, pos1.z, pos2.x, pos2.y, pos2.z, flag, players.user_ped(), 4)
+	local handle = SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(pos1.x, pos1.y, pos1.z, pos2.x, pos2.y, pos2.z, flag, players.user_ped(), 7)
 	SHAPETEST.GET_SHAPE_TEST_RESULT(handle, didHit, endCoords, surfaceNormal, hitEntity)
 
 	result.didHit = memory.read_byte(didHit) ~= 0
