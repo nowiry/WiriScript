@@ -2405,7 +2405,7 @@ generate_features = function(pId)
 						0, true, weapon, players.user(), true, false, -1.0, 0, false, false, 0, true, 1, 0, 0)
 					lastShoot.reset()
 				end
-			elseif request_control(bandito) and request_control(ped) then
+			elseif request_control(bandito) and request_control(driver) then
 				TASK.CLEAR_PED_TASKS(driver)
 				TASK.TASK_VEHICLE_DRIVE_WANDER(driver, bandito, 10.0, 786603)
 				PED.SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(driver, false)
@@ -5603,19 +5603,18 @@ function Wardrobe.new(parent, menu_name, command_names, help_text, ped)
 
     for componentId, name in pairs_by_keys(components, function (a, b) return a < b end) do
         if PED.GET_NUMBER_OF_PED_DRAWABLE_VARIATIONS(ped, componentId) < 1 then
-            goto LABEL_CONTINUE
+            continue
         end
 		self.components[componentId] =
         Component.new(self.reference, name, ped, componentId, function (drawableId, textureId)
             request_control(ped)
             PED.SET_PED_COMPONENT_VARIATION(ped, componentId, drawableId, textureId, 2)
         end)
-	::LABEL_CONTINUE::
     end
 
     for propId, name in pairs_by_keys(props, function (a, b) return a < b end) do
         if PED.GET_NUMBER_OF_PED_PROP_DRAWABLE_VARIATIONS(ped, propId) < 1 then
-            goto LABEL_CONTINUE
+            continue
         end
 		self.props[propId] =
         Prop.new(self.reference, name, ped, propId, function (drawableId, textureId)
@@ -5623,7 +5622,6 @@ function Wardrobe.new(parent, menu_name, command_names, help_text, ped)
             if drawableId == -1 then PED.CLEAR_PED_PROP(ped, propId)
             else PED.SET_PED_PROP_INDEX(ped, propId, drawableId, textureId, true) end
         end)
-	::LABEL_CONTINUE::
     end
 
     return self
@@ -5759,25 +5757,30 @@ function Member:createMgr(parent, name)
 			self:giveWeapon(hash); self.weaponHash = hash
 		end, true)
 	end
+
 	self.references.invincible = menu.toggle(self.mgr, trans.Invincible, {}, "", function (on)
 		request_control(self.handle, 1000)
 		ENTITY.SET_ENTITY_INVINCIBLE(self.handle, on)
 		ENTITY.SET_ENTITY_PROOFS(self.handle, on, on, on, on, on, on, on, on)
 	end)
+
 	self.references.teleport = menu.action(self.mgr, trans.TpToMe, {}, "", function ()
 		request_control(self.handle, 1000)
-		local vehicle = PED.GET_VEHICLE_PED_IS_IN(PLAYER.PLAYER_PED_ID(), false)
-		if ENTITY.DOES_ENTITY_EXIST(vehicle) then self:tpToVehicle(vehicle)
-		else self:tpToLeader() end
+		if not PED.IS_PED_IN_ANY_VEHICLE(players.user_ped(), false) then
+			self:tpToLeader()
+		else
+			local vehicle = PED.GET_VEHICLE_PED_IS_IN(players.user_ped(), false)
+			self:tpToVehicle(vehicle)
+		end
 	end)
-
-	self.wardrobe = Wardrobe.new(self.mgr, trans.Appearance, {}, "", self.handle)
 
 	menu.action(self.mgr, trans.Save, {}, "", function()
 		local ok, err = self:save()
 		if not ok then notification:help(err, HudColour.red) return end
 		notification:normal(trans.BodyguardSaved)
 	end)
+
+	self.wardrobe = Wardrobe.new(self.mgr, trans.Appearance, {}, "", self.handle)
 
 	menu.action(self.mgr, trans.Delete, {}, "",  function ()
 		self:delete() self:removeMgr()
@@ -5800,7 +5803,9 @@ end
 ---@param vehicle Vehicle
 function Member:tpToVehicle(vehicle)
 	if not VEHICLE.ARE_ANY_VEHICLE_SEATS_FREE(vehicle) or
-	PED.GET_VEHICLE_PED_IS_IN(self.handle, false) == vehicle then return end
+	(PED.IS_PED_IN_ANY_VEHICLE(self.handle, false) and PED.GET_VEHICLE_PED_IS_IN(self.handle, false) == vehicle) then
+		return
+	end
 	local seat
 	for i = -1, VEHICLE.GET_VEHICLE_MAX_NUMBER_OF_PASSENGERS(vehicle) -1 do
 		if VEHICLE.IS_VEHICLE_SEAT_FREE(vehicle, i, false) then seat = i break end
@@ -6875,6 +6880,7 @@ util.on_stop(function()
 		ENTITY.FREEZE_ENTITY_POSITION(PLAYER.PLAYER_PED_ID(), false)
 		menu.trigger_commands("becomeorbitalcannon off")
 		GRAPHICS.ANIMPOSTFX_STOP("MP_OrbitalCannon")
+		set_streamed_texture_dict_as_no_longer_needed("helicopterhud")
 
 		HUD.DISPLAY_RADAR(true)
 		CAM.RENDER_SCRIPT_CAMS(false, false, 0, true, false, 0)
