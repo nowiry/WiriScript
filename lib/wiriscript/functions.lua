@@ -723,13 +723,13 @@ function get_ped_nearby_entities(ped)
 	return entities
 end
 
----@param pId Player
+---@param player Player
 ---@param radius number
 ---@return Entity[]
-function get_peds_in_player_range(pId, radius)
+function get_peds_in_player_range(player, radius)
 	local peds = {}
-	local playerPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
-	local pos = players.get_position(pId)
+	local playerPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(player)
+	local pos = players.get_position(player)
 	for _, ped in ipairs(entities.get_all_peds_as_handles()) do
 		if ped ~= playerPed and not PED.IS_PED_FATALLY_INJURED(ped) then
 			local pedPos = ENTITY.GET_ENTITY_COORDS(ped, true)
@@ -739,17 +739,15 @@ function get_peds_in_player_range(pId, radius)
 	return peds
 end
 
----@param pId Player
+---@param player Player
 ---@param radius number
 ---@return Entity[]
-function get_vehicles_in_player_range(pId, radius)
+function get_vehicles_in_player_range(player, radius)
 	local vehicles = {}
-	local p = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
-	local pos = players.get_position(pId)
-	local v = PED.GET_VEHICLE_PED_IS_IN(p, false)
+	local pos = players.get_position(player)
 	for _, vehicle in ipairs(entities.get_all_vehicles_as_handles()) do
 		local vehPos = ENTITY.GET_ENTITY_COORDS(vehicle, true)
-		if vehicle ~= v and pos:distance(vehPos) <= radius then table.insert(vehicles, vehicle) end
+		if pos:distance(vehPos) <= radius then table.insert(vehicles, vehicle) end
 	end
 	return vehicles
 end
@@ -896,21 +894,23 @@ end
 -- PLAYER
 --------------------------
 
----@param pId Player
+---@param player Player
 ---@return boolean
-function is_player_friend(pId)
+function is_player_friend(player)
 	local pHandle = memory.alloc(104)
-	NETWORK.NETWORK_HANDLE_FROM_PLAYER(pId, pHandle, 13)
+	NETWORK.NETWORK_HANDLE_FROM_PLAYER(player, pHandle, 13)
 	local isFriend = NETWORK.NETWORK_IS_HANDLE_VALID(pHandle, 13) and NETWORK.NETWORK_IS_FRIEND(pHandle)
 	return isFriend
 end
 
----@param pId Player
+---@param player Player
 ---@return Vehicle
-function get_vehicle_player_is_in(pId)
-	local playerPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
-	local vehicle = PED.GET_VEHICLE_PED_IS_IN(playerPed, false)
-	return vehicle
+function get_vehicle_player_is_in(player)
+	local targetPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(player)
+	if PED.IS_PED_IN_ANY_VEHICLE(targetPed, false) then
+		return PED.GET_VEHICLE_PED_IS_IN(targetPed, false)
+	end
+	return 0
 end
 
 ---@param player Player

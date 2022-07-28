@@ -2556,7 +2556,7 @@ generate_features = function(pId)
 			local playerPos = ENTITY.GET_ENTITY_COORDS(targetPed, false)
 			for _, vehicle in ipairs(vehicles) do
 				local pos = ENTITY.GET_ENTITY_COORDS(vehicle, false)
-				if vehicle ~= PED.GET_VEHICLE_PED_IS_IN(targetPed, false) and request_control_once(vehicle) then
+				if PED.GET_VEHICLE_PED_IS_USING(targetPed) ~= vehicle and request_control_once(vehicle) then
 					local force = v3.new(pos)
 					force:sub(playerPos)
 					force:normalise()
@@ -2674,13 +2674,18 @@ generate_features = function(pId)
 		noWaypointFound = translate("Player - Vehicle", "No waypoint found")
 	}
 
+	---@param player Player
+	---@param pos v3
 	local function tp_player_vehicle(player, pos)
-		local vehicle = get_vehicle_player_is_in(player)
-		if not ENTITY.DOES_ENTITY_EXIST(vehicle) or ENTITY.IS_ENTITY_DEAD(vehicle, false) or
-		not VEHICLE.IS_VEHICLE_DRIVEABLE(vehicle, true) then
+		local targetPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(player)
+		if not PED.IS_PED_IN_ANY_VEHICLE(targetPed, false) then
 			return
 		end
-		if request_control(vehicle, 1000) then
+		local vehicle = PED.GET_VEHICLE_PED_IS_IN(targetPed, false)
+		if not ENTITY.DOES_ENTITY_EXIST(vehicle) or ENTITY.IS_ENTITY_DEAD(vehicle, false) or
+		not VEHICLE.IS_VEHICLE_DRIVEABLE(vehicle, false) then
+
+		elseif request_control(vehicle, 1000) then
 			ENTITY.SET_ENTITY_COORDS(vehicle, pos.x, pos.y, pos.z, 0, 0, 0, false)
 		else
 			notification:help(trans.failedToGetControl, HudColour.red)
@@ -2721,7 +2726,7 @@ generate_features = function(pId)
 
 	menu.action(acrobatics, translate("Vehicle - Acrobatics", "Ollie"), {"ollie"}, "", function()
 		local vehicle = get_vehicle_player_is_in(pId)
-		if vehicle ~= NULL and VEHICLE.IS_VEHICLE_ON_ALL_WHEELS(vehicle) and
+		if ENTITY.DOES_ENTITY_EXIST(vehicle) and VEHICLE.IS_VEHICLE_ON_ALL_WHEELS(vehicle) and
 		request_control(vehicle, 1000) then
 			ENTITY.APPLY_FORCE_TO_ENTITY(vehicle, 1, 0.0, 0.0, 10.0, 0.0, 0.0, 0.0, 1, false, true, true, true, true)
 		end
@@ -2729,7 +2734,7 @@ generate_features = function(pId)
 
 	menu.action(acrobatics, translate("Vehicle - Acrobatics", "Kick Flip"), {"kickflip"}, "", function()
 		local vehicle = get_vehicle_player_is_in(pId)
-		if vehicle ~= NULL and VEHICLE.IS_VEHICLE_ON_ALL_WHEELS(vehicle) and
+		if ENTITY.DOES_ENTITY_EXIST(vehicle) and VEHICLE.IS_VEHICLE_ON_ALL_WHEELS(vehicle) and
 		request_control(vehicle, 1000) then
 			ENTITY.APPLY_FORCE_TO_ENTITY(vehicle, 1, 0.0, 0.0, 10.71, 5.0, 0.0, 0.0, 1, false, true, true, true, true)
 		end
@@ -2737,7 +2742,7 @@ generate_features = function(pId)
 
 	menu.action(acrobatics, translate("Vehicle - Acrobatics", "Double Kick Flip"), {}, "", function()
 		local vehicle = get_vehicle_player_is_in(pId)
-		if vehicle ~= NULL and VEHICLE.IS_VEHICLE_ON_ALL_WHEELS(vehicle) and
+		if ENTITY.DOES_ENTITY_EXIST(vehicle) and VEHICLE.IS_VEHICLE_ON_ALL_WHEELS(vehicle) and
 		request_control(vehicle, 1000) then
 			ENTITY.APPLY_FORCE_TO_ENTITY(vehicle, 1, 0.0, 0.0, 21.43, 20.0, 0.0, 0.0, 1, false, true, true, true, true)
 		end
@@ -2745,7 +2750,7 @@ generate_features = function(pId)
 
 	menu.action(acrobatics, translate("Vehicle - Acrobatics", "Heel Flip"), {}, "", function()
 		local vehicle = get_vehicle_player_is_in(pId)
-		if vehicle ~= NULL and VEHICLE.IS_VEHICLE_ON_ALL_WHEELS(vehicle) and
+		if ENTITY.DOES_ENTITY_EXIST(vehicle) and VEHICLE.IS_VEHICLE_ON_ALL_WHEELS(vehicle) and
 		request_control(vehicle, 1000) then
 			ENTITY.APPLY_FORCE_TO_ENTITY(vehicle, 1, 0.0, 0.0, 10.71, -5.0, 0.0, 0.0, 1, false, true, true, true, true)
 		end
@@ -2757,7 +2762,7 @@ generate_features = function(pId)
 
 	menu.action(vehicleOpt, translate("Player - Vehicle", "Kill Engine"), {"killengine"}, "", function()
 		local vehicle = get_vehicle_player_is_in(pId)
-		if vehicle ~= NULL and request_control(vehicle, 1000) then
+		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
 			VEHICLE.SET_VEHICLE_ENGINE_HEALTH(vehicle, -4000)
 		end
 	end, nil, nil, COMMANDPERM_RUDE)
@@ -2768,7 +2773,7 @@ generate_features = function(pId)
 
 	menu.action(vehicleOpt, translate("Player - Vehicle", "Clean"), {"cleanveh"}, "", function()
 		local vehicle = get_vehicle_player_is_in(pId)
-		if vehicle ~= NULL and request_control(vehicle, 1000) then
+		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
 			VEHICLE.SET_VEHICLE_DIRT_LEVEL(vehicle, 0.0)
 		end
 	end, nil, nil, COMMANDPERM_FRIENDLY)
@@ -2779,7 +2784,7 @@ generate_features = function(pId)
 
 	menu.action(vehicleOpt, translate("Player - Vehicle", "Repair"), {"repairveh"}, "", function()
 		local vehicle = get_vehicle_player_is_in(pId)
-		if vehicle ~= NULL and request_control(vehicle, 1000) then
+		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
 			VEHICLE.SET_VEHICLE_FIXED(vehicle)
 			VEHICLE.SET_VEHICLE_DEFORMATION_FIXED(vehicle)
 			VEHICLE.SET_VEHICLE_DIRT_LEVEL(vehicle, 0.0)
@@ -2792,7 +2797,7 @@ generate_features = function(pId)
 
 	menu.action(vehicleOpt, translate("Player - Vehicle", "Upgrade"), {"upgradeveh"}, "", function()
 		local vehicle = get_vehicle_player_is_in(pId)
-		if vehicle ~= NULL and request_control(vehicle, 1000) then
+		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
 			VEHICLE.SET_VEHICLE_MOD_KIT(vehicle, 0)
 			for i = 0, 50 do VEHICLE.SET_VEHICLE_MOD(vehicle, i, VEHICLE.GET_NUM_VEHICLE_MODS(vehicle, i) - 1, false) end
 		end
@@ -2804,7 +2809,7 @@ generate_features = function(pId)
 
 	menu.action(vehicleOpt, translate("Player - Vehicle", "Apply Radom Paint"), {"randompaint"}, "", function()
 		local vehicle = get_vehicle_player_is_in(pId)
-		if vehicle ~= NULL and request_control(vehicle, 1000) then
+		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
 			local primary, secundary = get_random_colour(), get_random_colour()
 			VEHICLE.SET_VEHICLE_CUSTOM_PRIMARY_COLOUR(vehicle, primary.r, primary.g, primary.b)
 			VEHICLE.SET_VEHICLE_CUSTOM_SECONDARY_COLOUR(vehicle, secundary.r, secundary.g, secundary.b)
@@ -2817,7 +2822,7 @@ generate_features = function(pId)
 
 	menu.action(vehicleOpt, translate("Player - Vehicle", "Burst Tires"), {}, "", function()
 		local vehicle = get_vehicle_player_is_in(pId)
-		if vehicle ~= NULL and request_control(vehicle, 1000) then
+		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
 			VEHICLE.SET_VEHICLE_TYRES_CAN_BURST(vehicle, true)
 			for wheelId = 0, 7 do VEHICLE.SET_VEHICLE_TYRE_BURST(vehicle, wheelId, true, 1000.0) end
 		end
@@ -2829,7 +2834,7 @@ generate_features = function(pId)
 
 	menu.action(vehicleOpt, translate("Player - Vehicle", "Catapult"), {"catapult"}, "", function()
 		local vehicle = get_vehicle_player_is_in(pId)
-		if vehicle ~= NULL and VEHICLE.IS_VEHICLE_ON_ALL_WHEELS(vehicle) and
+		if ENTITY.DOES_ENTITY_EXIST(vehicle) and VEHICLE.IS_VEHICLE_ON_ALL_WHEELS(vehicle) and
 		request_control(vehicle, 1000) then
 			ENTITY.APPLY_FORCE_TO_ENTITY(vehicle, 1, 0.0, 0.0, 9999, 0.0, 0.0, 0.0, 1, false, true, true, true, true)
 		end
@@ -2841,7 +2846,7 @@ generate_features = function(pId)
 
 	menu.action(vehicleOpt, translate("Player - Vehicle", "Boost Forward"), {}, "", function()
 		local vehicle = get_vehicle_player_is_in(pId)
-		if vehicle ~= NULL and request_control(vehicle, 1000) then
+		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
 			local force = ENTITY.GET_ENTITY_FORWARD_VECTOR(vehicle)
 			force:mul(40.0)
 			AUDIO.SET_VEHICLE_BOOST_ACTIVE(vehicle, true)
@@ -2856,7 +2861,7 @@ generate_features = function(pId)
 
 	menu.toggle(vehicleOpt, translate("Player - Vehicle", "God Mode"), {"vehgodmode"}, "", function(on)
 		local vehicle = get_vehicle_player_is_in(pId)
-		if vehicle ~= NULL and request_control(vehicle, 1000) then
+		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
 			if on then
 				VEHICLE.SET_VEHICLE_ENVEFF_SCALE(vehicle, 0.0)
 				VEHICLE.SET_VEHICLE_BODY_HEALTH(vehicle, 1000.0)
@@ -2889,12 +2894,12 @@ generate_features = function(pId)
 			util.stop_thread()
 		end
 		local vehicle = get_vehicle_player_is_in(pId)
-		if vehicle ~= NULL and request_control_once(vehicle) then
+		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control_once(vehicle) then
 			ENTITY.SET_ENTITY_VISIBLE(vehicle, false, false)
 		end
 	end, function ()
 		local vehicle = get_vehicle_player_is_in(pId)
-		if vehicle ~= NULL and request_control(vehicle, 1000) then
+		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
 			ENTITY.SET_ENTITY_VISIBLE(vehicle, true, false)
 		end
 	end)
@@ -2908,12 +2913,12 @@ generate_features = function(pId)
 			util.stop_thread()
 		end
 		local vehicle = get_vehicle_player_is_in(pId)
-		if vehicle ~= NULL and request_control_once(vehicle) then
+		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control_once(vehicle) then
 			ENTITY.FREEZE_ENTITY_POSITION(vehicle, true)
 		end
 	end, function ()
 		local vehicle = get_vehicle_player_is_in(pId)
-		if vehicle ~= NULL and request_control(vehicle, 1000) then
+		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
 			ENTITY.FREEZE_ENTITY_POSITION(vehicle, false)
 		end
 	end)
@@ -2927,12 +2932,12 @@ generate_features = function(pId)
 			util.stop_thread()
 		end
 		local vehicle = get_vehicle_player_is_in(pId)
-		if vehicle ~= NULL and request_control_once(vehicle) then
+		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control_once(vehicle) then
 			VEHICLE.SET_VEHICLE_DOORS_LOCKED(vehicle, 4)
 		end
 	end, function ()
 		local vehicle = get_vehicle_player_is_in(pId)
-		if vehicle ~= NULL and request_control(vehicle, 1000) then
+		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
 			VEHICLE.SET_VEHICLE_DOORS_LOCKED(vehicle, 1)
 		end
 	end)
@@ -3074,8 +3079,7 @@ menu.toggle_loop(selfOpt, translate("Forcefield", "Forcefield"), {"forcefield"},
 		for _, entity in ipairs(entities) do
 			local entPos = ENTITY.GET_ENTITY_COORDS(entity, false)
 			if not PED.IS_PED_A_PLAYER(entity) and
-			PED.GET_VEHICLE_PED_IS_IN(players.user_ped(), false) ~= entity and
-			request_control_once(entity) then
+			PED.GET_VEHICLE_PED_IS_USING(players.user_ped()) ~= entity and request_control_once(entity) then
 				local force = v3.new(entPos)
 				force:sub(playerPos)
 				force:normalise()
@@ -3108,7 +3112,6 @@ local state = 0
 menu.toggle_loop(selfOpt, translate("Self", "Force"), {"jedimode"}, helpText, function()
 	if state == 0 then
 		notification:help(notif_format, HudColour.black, "INPUT_VEH_FLY_SELECT_TARGET_RIGHT", "INPUT_VEH_FLY_ROLL_RIGHT_ONLY")
-		local localPed = PLAYER.PLAYER_PED_ID()
 		local effect = Effect.new("scr_ie_tw", "scr_impexp_tw_take_zone")
 		local colour = {r = 0.5, g = 0.0, b = 0.5, a = 1.0}
 		request_fx_asset(effect.asset)
@@ -3125,15 +3128,15 @@ menu.toggle_loop(selfOpt, translate("Self", "Force"), {"jedimode"}, helpText, fu
 	elseif state == 1 then
 		local entities = get_ped_nearby_vehicles(players.user_ped())
 		for _, vehicle in ipairs(entities) do
-			if PED.GET_VEHICLE_PED_IS_IN(PLAYER.PLAYER_PED_ID() ,false) == vehicle then
-				goto LABEL_CONTINUE
+			if PED.IS_PED_IN_ANY_VEHICLE(players.user_ped(), false) and
+			PED.GET_VEHICLE_PED_IS_IN(players.user_ped(), false) == vehicle then
+				continue
 			end
 			if PAD.IS_CONTROL_PRESSED(0, 118) and request_control_once(vehicle) then
 				ENTITY.APPLY_FORCE_TO_ENTITY(vehicle, 1, 0, 0, 0.5, 0, 0, 0, 0, false, false, true, 0, 0)
 			elseif PAD.IS_CONTROL_PRESSED(0, 109) and request_control_once(vehicle) then
 				ENTITY.APPLY_FORCE_TO_ENTITY(vehicle, 1, 0, 0, -70, 0, 0, 0, 0, false, false, true, 0, 0)
 			end
-		::LABEL_CONTINUE::
 		end
 	end
 end, function()
@@ -3252,8 +3255,8 @@ menu.toggle_loop(trailsOpt, translate("Self - Trails", "Trails"), {"trails"}, ""
 		removeFxs(effects); effects = {}
 		timer.reset()
 	end
-	if PED.IS_PED_IN_ANY_VEHICLE(PLAYER.PLAYER_PED_ID(), true) then
-		local vehicle = PED.GET_VEHICLE_PED_IS_IN(PLAYER.PLAYER_PED_ID(), false)
+	if PED.IS_PED_IN_ANY_VEHICLE(players.user_ped(), true) then
+		local vehicle = PED.GET_VEHICLE_PED_IS_IN(players.user_ped(), false)
 		local minimum, maximum = v3.new(), v3.new()
 		MISC.GET_MODEL_DIMENSIONS(ENTITY.GET_ENTITY_MODEL(vehicle), minimum, maximum)
 		local offsets <const> = {v3(minimum.x, minimum.y, 0.0), v3(maximum.x, minimum.y, 0.0)}
@@ -3276,20 +3279,20 @@ menu.toggle_loop(trailsOpt, translate("Self - Trails", "Trails"), {"trails"}, ""
 			GRAPHICS.SET_PARTICLE_FX_LOOPED_COLOUR(fx, colour.r, colour.g, colour.b, 0)
 			table.insert(effects, fx)
 		end
-	elseif ENTITY.DOES_ENTITY_EXIST(PLAYER.PLAYER_PED_ID()) then
+	elseif ENTITY.DOES_ENTITY_EXIST(players.user_ped()) then
 		for _, boneId in ipairs(bones) do
 			GRAPHICS.USE_PARTICLE_FX_ASSET(effect.asset)
 			local fx =
 			GRAPHICS.START_NETWORKED_PARTICLE_FX_LOOPED_ON_ENTITY_BONE(
 				effect.name,
-				PLAYER.PLAYER_PED_ID(),
+				players.user_ped(),
 				0.0,
 				0.0,
 				0.0,
 				0.0,
 				0.0,
 				0.0,
-				PED.GET_PED_BONE_INDEX(PLAYER.PLAYER_PED_ID(), boneId),
+				PED.GET_PED_BONE_INDEX(players.user_ped(), boneId),
 				0.7, --scale
 				false, false, false,
 				0, 0, 0, 0
@@ -3518,8 +3521,9 @@ menu.toggle_loop(weaponOpt, translate("Weapon", "Magnet Gun"), {"magnetgun"}, ""
 	local vehicles <const> = get_vehicles_in_player_range(players.user(), 70.0)
 	rainbow_colour(colour)
 	GRAPHICS._DRAW_SPHERE(offset.x, offset.y, offset.z, 0.5, colour.r, colour.g, colour.b, 0.5)
+
 	for _, vehicle in ipairs(vehicles) do
-		if vehicle ~= PED.GET_VEHICLE_PED_IS_IN(PLAYER.PLAYER_PED_ID(), false) and
+		if PED.GET_VEHICLE_PED_IS_USING(players.user_ped()) ~= vehicle and
 		numVehicles < 20 and request_control_once(vehicle) then
 			numVehicles = numVehicles + 1
 			local vehiclePos = ENTITY.GET_ENTITY_COORDS(vehicle, false)
@@ -5242,30 +5246,33 @@ local effects <const> = {
 }
 local wheelBones <const> = {"wheel_lf", "wheel_lr", "wheel_rf", "wheel_rr"}
 local selectedOpt = 1
+local lastEffect <const> = newTimer()
 
 
 menu.toggle_loop(vehicleOptions, translate("Vehicle Effects", "Vehicle Effects"), {}, "", function ()
-	local vehicle = PED.GET_VEHICLE_PED_IS_IN(PLAYER.PLAYER_PED_ID(), true)
-	if vehicle == NULL then return end
 	local effect = effects[selectedOpt]
-	request_fx_asset(effect[1])
-	for _, bone in pairs(wheelBones) do
-		GRAPHICS.USE_PARTICLE_FX_ASSET(effect[1])
-		GRAPHICS._START_NETWORKED_PARTICLE_FX_NON_LOOPED_ON_ENTITY_BONE(
-			effect[2],
-			vehicle,
-			0.0,
-			0.0,
-			0.0,
-			0.0,
-			0.0,
-			0.0,
-			ENTITY.GET_ENTITY_BONE_INDEX_BY_NAME(vehicle, bone),
-			effect[3],
-			false, false, false
-		)
+	local vehicle = PED.GET_VEHICLE_PED_IS_IN(players.user_ped(), false)
+
+	if lastEffect.elapsed() > effect[4] and ENTITY.DOES_ENTITY_EXIST(vehicle) and
+	not ENTITY.IS_ENTITY_DEAD(vehicle, false) and VEHICLE.IS_VEHICLE_DRIVEABLE(vehicle, false) then
+		request_fx_asset(effect[1])
+		for _, bone in pairs(wheelBones) do
+			GRAPHICS.USE_PARTICLE_FX_ASSET(effect[1])
+			GRAPHICS._START_NETWORKED_PARTICLE_FX_NON_LOOPED_ON_ENTITY_BONE(
+				effect[2],
+				vehicle,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				0.0,
+				ENTITY.GET_ENTITY_BONE_INDEX_BY_NAME(vehicle, bone),
+				effect[3],
+				false, false, false)
+		end
+		lastEffect.reset()
 	end
-	util.yield(effect[4])
 end)
 
 local options <const> = {
@@ -5292,9 +5299,9 @@ local drivingStyle = 786988
 ---@param blip Blip
 local task_drive_to_blip = function(blip)
 	local vehicle = get_vehicle_player_is_in(players.user())
-	local pSequence = memory.alloc_int()
 	local pos = get_blip_coords(blip)
-	if vehicle ~= NULL and pos then
+	if ENTITY.DOES_ENTITY_EXIST(vehicle) and pos ~= nil then
+		local pSequence = memory.alloc_int()
 		PED.SET_DRIVER_ABILITY(PLAYER.PLAYER_PED_ID(), 1.0)
 		TASK.OPEN_SEQUENCE_TASK(pSequence)
 		TASK.TASK_VEHICLE_DRIVE_TO_COORD_LONGRANGE(
@@ -5415,8 +5422,8 @@ menu.slider(autopilot, translate("Vehicle - Autopilot", "Speed"), {"autopilotspe
 -------------------------------------
 
 menu.toggle_loop(vehicleOptions, translate("Vehicle", "Engine Always On"), {"alwayson"}, "", function()
-	local vehicle = PED.GET_VEHICLE_PED_IS_IN(PLAYER.PLAYER_PED_ID(), false)
-	if ENTITY.DOES_ENTITY_EXIST(vehicle) then
+	if PED.IS_PED_IN_ANY_VEHICLE(players.user_ped(), false) then
+		local vehicle = PED.GET_VEHICLE_PED_IS_IN(players.user_ped(), false)
 		VEHICLE.SET_VEHICLE_ENGINE_ON(vehicle, true, true, true)
 		VEHICLE.SET_VEHICLE_LIGHTS(vehicle, 0)
 		VEHICLE._SET_VEHICLE_LIGHTS_MODE(vehicle, 2)
