@@ -6,6 +6,8 @@ WiriScript is one of the top lua scripts for Stand and the first BIG script ever
 - Force & Forcefield, 
 - Vehicle Weapons,
 - Combustion Man,
+- Bodyguards,
+- Advanced Homing Missiles,
 - Carpet Ride and
 - UFO
 
