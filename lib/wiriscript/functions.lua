@@ -858,20 +858,30 @@ function add_ai_blip_for_ped(ped, forcedOn, hasCone, noticeRange, colour, sprite
 	return HUD._GET_AI_BLIP_2(ped)
 end
 
----Returns a random offset from an entity in range.
+
 ---@param entity Entity
 ---@param minDistance number
 ---@param maxDistance number
 ---@return v3
-function get_random_offset_in_range(entity, minDistance, maxDistance)
+function get_random_offset_from_entity_in_range(entity, minDistance, maxDistance)
+	local pos = ENTITY.GET_ENTITY_COORDS(entity, false)
+	return get_random_offset_in_range(pos, minDistance, maxDistance)
+end
+
+
+---@param coords v3
+---@param minDistance number
+---@param maxDistance number
+---@return v3
+function get_random_offset_in_range(coords, minDistance, maxDistance)
 	local radius = random_float(minDistance, maxDistance)
 	local angle = random_float(0, 2 * math.pi)
 	local delta = v3.new(math.cos(angle), math.sin(angle), 0.0)
 	delta:mul(radius)
-	local pos = ENTITY.GET_ENTITY_COORDS(entity, false)
-	pos:add(delta)
-	return pos
+	coords:add(delta)
+	return coords
 end
+
 
 ---@param entity Entity
 function set_entity_as_no_longer_needed(entity)

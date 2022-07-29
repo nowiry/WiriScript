@@ -1109,6 +1109,7 @@ util.log("Spoofing Profiles initialized")
 ---------------------
 ---------------------
 
+---@param pId Player
 generate_features = function(pId)
 	menu.divider(menu.player_root(pId), "WiriScript")
 
@@ -1180,21 +1181,27 @@ generate_features = function(pId)
 	end)
 
 	menu.toggle_loop(customExplosion, translate("Trolling - Custom Explosion", "Explosion Loop"), {}, "", function()
-		if not players.exists(pId) then util.stop_thread() end
+		if not players.exists(pId) then
+			util.stop_thread()
+		end
 		if lastExplosion.elapsed() > Explosion.speed then
-			Explosion:explodePlyr(pId); lastExplosion.reset()
+			Explosion:explodePlyr(pId) lastExplosion.reset()
 		end
 	end)
 
 	menu.toggle_loop(trollingOpt, translate("Trolling", "Water Loop"), {}, "", function()
-		if not players.exists(pId) then util.stop_thread()  end
+		if not players.exists(pId) then
+			util.stop_thread()
+		end
 		local pos = players.get_position(pId)
 		pos.z = pos.z - 1.0
 		FIRE.ADD_EXPLOSION(pos.x, pos.y, pos.z, 13, 1.0, true, false, 0, false)
 	end)
 
 	menu.toggle_loop(trollingOpt, translate("Trolling", "Flame Loop"), {}, "", function()
-		if not players.exists(pId) then util.stop_thread()  end
+		if not players.exists(pId) then
+			util.stop_thread()
+		end
 		local pos = players.get_position(pId)
 		pos.z = pos.z - 1.0
 		FIRE.ADD_EXPLOSION(pos.x, pos.y, pos.z, 12, 1.0, true, false, 0, false)
@@ -1211,16 +1218,33 @@ generate_features = function(pId)
 			notification:help(msg, HudColour.red)
 			return
 		elseif gUsingOrbitalCannon then
-			CAM.DO_SCREEN_FADE_OUT(800)
-			util.yield(500)
-			gCannonTarget = pId
-			util.yield(4000)
-			CAM.DO_SCREEN_FADE_IN(800)
+			if gCannonTarget == pId then
+				return
+			end
+
+			local timer = newTimer()
+			local state = 0
+
+			util.create_tick_handler(function ()
+				if  state == 0 then
+					CAM.DO_SCREEN_FADE_OUT(800)
+					state = 1
+					timer.reset()
+				elseif state == 1 and CAM.IS_SCREEN_FADED_OUT() then
+					gCannonTarget = pId
+					state = 2
+					timer.reset()
+				elseif state == 2 and timer.elapsed() > 2500 then
+					CAM.DO_SCREEN_FADE_IN(800)
+					return false
+				end
+			end)
+
 			return
 		end
+
 		gUsingOrbitalCannon = true
 		gCannonTarget = pId
-		local height
 		local cam = 0
 		local zoomLevel = 0.0
 		local scaleform = 0
@@ -1229,6 +1253,15 @@ generate_features = function(pId)
 		local camFov = maxFov
 		local zoomTimer <const> = newTimer()
 		local canZoom = false -- Used when not using keyboard
+		local State =
+		{
+			NonExisted = -1,
+			FadingIn = 0,
+			Spectating = 1,
+			Shooting = 2,
+			FadingOut = 3,
+			Destroying = 4,
+		}
 
 		---@param playSound boolean
 		local function dispatchZoomLevel(playSound)
@@ -1246,7 +1279,9 @@ generate_features = function(pId)
 				camFov = interpolate(fov, fovTarget, zoomTimer.elapsed() / 200)
 				CAM.SET_CAM_FOV(cam, camFov)
 				return
-			else Sounds.zoomOut:stop() end
+			else
+				Sounds.zoomOut:stop()
+			end
 
 			if PAD._IS_USING_KEYBOARD(2) then
 				if PAD.IS_DISABLED_CONTROL_JUST_PRESSED(2, 241) and zoomLevel < 1.0 then
@@ -1294,7 +1329,7 @@ generate_features = function(pId)
 		local countdown = 3 -- `seconds`
 		local isCounting = false
 		local countdownTimer <const> = newTimer()
-		local state = 0
+		local state = State.NonExisted
 		local chargeLvl = 1.0
 		local fadingTimer <const> = newTimer()
 		local didShoot = false
@@ -1303,9 +1338,7 @@ generate_features = function(pId)
 			util.yield()
 			if not GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(scaleform) then
 				scaleform = GRAPHICS.REQUEST_SCALEFORM_MOVIE("ORBITAL_CANNON_CAM")
-				while GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(scaleform) do
-					util.yield_once()
-				end
+				while not GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(scaleform) do util.yield_once() end
 			end
 
 			if not CAM.DOES_CAM_EXIST(cam) then
@@ -1319,12 +1352,9 @@ generate_features = function(pId)
 					Sounds.activating:play()
 
 					CAM.DESTROY_ALL_CAMS(true)
-					cam = CAM.CREATE_CAM("DEFAULT_SCRIPTED_CAMERA", false)
-					CAM.SET_CAM_ROT(cam, -90.0, 0.0, 0.0, 2)
-					CAM.SET_CAM_FOV(cam, camFov)
-					local pos = ENTITY.GET_ENTITY_COORDS(PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(gCannonTarget), false)
-					height = pos.z + 150
-					CAM.SET_CAM_COORD(cam, pos.x, pos.y, height)
+					local target = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(gCannonTarget)
+					local pos = ENTITY.GET_ENTITY_COORDS(target, false)
+					cam = CAM.CREATE_CAM_WITH_PARAMS("DEFAULT_SCRIPTED_CAMERA", pos.x, pos.y, pos.z + 150.0, -90.0, 0.0, 0.0, maxFov, false, 1)
 					CAM.SET_CAM_ACTIVE(cam, true)
 					CAM.RENDER_SCRIPT_CAMS(true, false, 0, true, false, 0)
 					GRAPHICS.ANIMPOSTFX_PLAY("MP_OrbitalCannon", 0, true)
@@ -1333,20 +1363,22 @@ generate_features = function(pId)
 
 					dispatchZoomLevel(false)
 					fadingTimer.reset()
+					state = State.FadingIn
 				end
-			elseif state == 0 and CAM.IS_SCREEN_FADED_OUT() then
+			elseif state == State.FadingIn and CAM.IS_SCREEN_FADED_OUT() then
 				if fadingTimer.elapsed() > 2000 then
 					CAM.DO_SCREEN_FADE_IN(500)
 
 					Sounds.activating:stop()
 					Sounds.backgroundLoop:play()
 					AUDIO.PLAY_SOUND_FRONTEND(-1, "cannon_active", "dlc_xm_orbital_cannon_sounds", true)
+					state = State.Spectating
 				end
 			else
 				local targetPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(gCannonTarget)
 				local pos = ENTITY.GET_ENTITY_COORDS(targetPed, false)
 				STREAMING.SET_FOCUS_POS_AND_VEL(pos.x, pos.y, pos.z, 5.0, 0.0, 0.0)
-				CAM.SET_CAM_COORD(cam, pos.x, pos.y, pos.z + 150)
+				CAM.SET_CAM_COORD(cam, pos.x, pos.y, pos.z + 150.0)
 				DisablePhone()
 				HudTimer.DisableThisFrame()
 
@@ -1368,10 +1400,10 @@ generate_features = function(pId)
 
 				if NETWORK.NETWORK_IS_IN_TRANSITION() or
 				not NETWORK.NETWORK_IS_PLAYER_ACTIVE(gCannonTarget)then
-					state = 3
+					state = State.Destroying
 				end
 
-				if state == 0 then
+				if state == State.Spectating then
 					if PAD.IS_DISABLED_CONTROL_PRESSED(0, 69) then
 						if not isCounting then
 							PAD.SET_PAD_SHAKE(0, 1000, 50)
@@ -1395,13 +1427,13 @@ generate_features = function(pId)
 					setCannonCamZoom()
 					if countdown == 0 then
 						Sounds.fireLoop:stop()
-						state = 1
+						state = State.Shooting
 					end
 					if PAD.IS_DISABLED_CONTROL_JUST_PRESSED(2, 202) then
 						fadingTimer.reset()
-						state = 2
+						state = State.FadingOut
 					end
-				elseif state == 1 then
+				elseif state == State.Shooting then
 					chargeLvl = 0.0
 					local effect = Effect.new("scr_xm_orbital", "scr_xm_orbital_blast")
 					STREAMING.REQUEST_NAMED_PTFX_ASSET(effect.asset)
@@ -1425,18 +1457,18 @@ generate_features = function(pId)
 					CAM.SHAKE_CAM(cam, "GAMEPLAY_EXPLOSION_SHAKE", 1.5)
 					PAD.SET_PAD_SHAKE(0, 500, 256)
 					fadingTimer.reset()
-					state = 2
+					state = State.FadingOut
 					didShoot = true
-				elseif state == 2 then
+				elseif state == State.FadingOut then
 					if CAM.IS_SCREEN_FADED_OUT() then
 						if fadingTimer.elapsed() > 1000 then
-							state = 3
+							state = State.Destroying
 						end
 					elseif not didShoot or fadingTimer.elapsed() > 1000 then
 						CAM.DO_SCREEN_FADE_OUT(800)
 						fadingTimer.reset()
 					end
-				elseif state == 3 then
+				elseif state == State.Destroying then
 					Sounds.backgroundLoop:stop()
 					Sounds.fireLoop:stop()
 					Sounds.zoomOut:stop()
@@ -1508,13 +1540,17 @@ generate_features = function(pId)
 	-- SHAKE CAMERA
 	-------------------------------------
 
+	local lastExplosion = newTimer()
+
 	menu.toggle_loop(trollingOpt, translate("Trolling", "Shake Camera"), {"shake"}, "", function()
 		if not players.exists(pId) then
 			util.stop_thread()
 		end
-		local pos = players.get_position(pId)
-		FIRE.ADD_OWNED_EXPLOSION(PLAYER.PLAYER_PED_ID(), pos.x, pos.y, pos.z, 0, 0, false, true, 80)
-		util.yield(150)
+		if lastExplosion.elapsed() > 150 then
+			local pos = players.get_position(pId)
+			FIRE.ADD_OWNED_EXPLOSION(PLAYER.PLAYER_PED_ID(), pos.x, pos.y, pos.z, 0, 0, false, true, 80)
+			lastExplosion.reset()
+		end
 	end)
 
 	-------------------------------------
@@ -1593,7 +1629,7 @@ generate_features = function(pId)
 		repeat
 			i = i + 1
 			local targetPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
-			local pos = get_random_offset_in_range(targetPed, 2.0, 4.0)
+			local pos = get_random_offset_from_entity_in_range(targetPed, 2.0, 4.0)
 			pos.z = pos.z - 1.0
 			local ped = entities.create_ped(0, modelHash, pos, 0.0)
 			NETWORK.SET_NETWORK_ID_EXISTS_ON_ALL_MACHINES(NETWORK.PED_TO_NET(ped), true)
@@ -1604,7 +1640,7 @@ generate_features = function(pId)
 			local weapon <const> = weaponList.selected or table.random(Weapons)
 			local weaponHash <const> = util.joaat(weapon)
 			make_attacker(ped, pId, weaponHash)
-			util.yield(200)
+			util.yield(150)
 		until count == i
 		STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(modelHash)
 	end, false)
@@ -1618,7 +1654,7 @@ generate_features = function(pId)
 		repeat
 			i = i + 1
 			local target = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
-			local pos = get_random_offset_in_range(target, 2.0, 4.0)
+			local pos = get_random_offset_from_entity_in_range(target, 2.0, 4.0)
 			pos.z = pos.z - 1.0
 			local clone = entities.create_ped(4, ENTITY.GET_ENTITY_MODEL(target), pos, 0)
 			NETWORK.SET_NETWORK_ID_EXISTS_ON_ALL_MACHINES(NETWORK.PED_TO_NET(clone), true)
@@ -1630,7 +1666,7 @@ generate_features = function(pId)
 			local weapon <const> = weaponList.selected or table.random(Weapons)
 			local weaponHash <const> = util.joaat(weapon)
 			make_attacker(clone, pId, weaponHash)
-			util.yield(200)
+			util.yield(150)
 		until count == i
 	end)
 
@@ -1648,7 +1684,7 @@ generate_features = function(pId)
 		repeat
 			i = i + 1
 			local target = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
-			local pos = get_random_offset_in_range(target, 2.0, 4.0)
+			local pos = get_random_offset_from_entity_in_range(target, 2.0, 4.0)
 			pos.z = pos.z - 1.0
 			local ped = entities.create_ped(28, pedHash, pos, CAM.GET_GAMEPLAY_CAM_ROT(0).z)
 			NETWORK.SET_NETWORK_ID_EXISTS_ON_ALL_MACHINES(NETWORK.PED_TO_NET(ped), true)
@@ -1657,7 +1693,7 @@ generate_features = function(pId)
 			ENTITY.SET_ENTITY_LOAD_COLLISION_FLAG(ped, true, 1)
 			set_entity_face_entity(ped, target, false)
 			make_attacker(ped, pId, util.joaat("weapon_animal"))
-			util.yield(200)
+			util.yield(150)
 		until count == i;
 		STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(pedHash)
 	end)
@@ -1671,7 +1707,7 @@ generate_features = function(pId)
 
 	menu.action(attackerOpt, translate("Trolling - Attacker Options", "Send Police Car"), {}, "", function()
 		local targetPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
-		local offset = get_random_offset_in_range(targetPed, 50.0, 60.0)
+		local offset = get_random_offset_from_entity_in_range(targetPed, 50.0, 60.0)
 		local outCoords = v3.new()
 		local outHeading = memory.alloc(4)
 		if PATHFIND.GET_CLOSEST_VEHICLE_NODE_WITH_HEADING(offset.x, offset.y, offset.z, outCoords, outHeading, 1, 3.0, 0) then
@@ -1899,7 +1935,7 @@ generate_features = function(pId)
 		NETWORK.SET_NETWORK_ID_ALWAYS_EXISTS_FOR_PLAYER(NETWORK.VEH_TO_NET(vehicle), PLAYER.PLAYER_ID(), true)
 		ENTITY.SET_ENTITY_LOAD_COLLISION_FLAG(vehicle, true, 1)
 		set_decor_flag(vehicle, DecorFlag_isEnemyVehicle)
-		local offset = get_random_offset_in_range(vehicle, 35.0, 50.0)
+		local offset = get_random_offset_from_entity_in_range(vehicle, 35.0, 50.0)
 		local outHeading = memory.alloc(4)
 		local outCoords = v3.new()
 		if PATHFIND.GET_CLOSEST_VEHICLE_NODE_WITH_HEADING(offset.x, offset.y, offset.z, outCoords, outHeading, 1, 3.0, 0) then
@@ -1976,7 +2012,7 @@ generate_features = function(pId)
 			NETWORK.SET_NETWORK_ID_ALWAYS_EXISTS_FOR_PLAYER(NETWORK.VEH_TO_NET(heli), PLAYER.PLAYER_ID(), true)
 			ENTITY.SET_ENTITY_LOAD_COLLISION_FLAG(heli, true, 1)
 			set_decor_flag(heli, DecorFlag_isEnemyVehicle)
-			local pos = get_random_offset_in_range(target, 20, 40)
+			local pos = get_random_offset_from_entity_in_range(target, 20, 40)
 			pos.z = pos.z + 20.0
 			ENTITY.SET_ENTITY_COORDS(heli, pos.x, pos.y, pos.z, false, false, false, false)
 			NETWORK.SET_NETWORK_ID_CAN_MIGRATE(NETWORK.VEH_TO_NET(heli), false)
@@ -2025,7 +2061,7 @@ generate_features = function(pId)
 		NETWORK.SET_NETWORK_ID_ALWAYS_EXISTS_FOR_PLAYER(NETWORK.VEH_TO_NET(jet), players.user(), true)
 		ENTITY.SET_ENTITY_LOAD_COLLISION_FLAG(jet, true, 1)
 			set_decor_flag(jet, DecorFlag_isEnemyVehicle)
-			local pos = get_random_offset_in_range(jet, 30, 80)
+			local pos = get_random_offset_from_entity_in_range(jet, 30, 80)
 			pos.z = pos.z + 500
 			ENTITY.SET_ENTITY_COORDS(jet, pos.x, pos.y, pos.z, 0, 0, 0, 0)
 			set_entity_face_entity(jet, target, false)
@@ -2055,7 +2091,7 @@ generate_features = function(pId)
 			elseif optName == "Minitank" then spawn_minitank(pId)
 			elseif optName == "Lazer" then spawn_lazer(pId) end
 			i = i + 1
-			util.yield(200)
+			util.yield(150)
 		until i == count;
 	end)
 
@@ -2268,7 +2304,7 @@ generate_features = function(pId)
 		for i = 0, 50 do
 			VEHICLE.SET_VEHICLE_MOD(vehicle, i, VEHICLE.GET_NUM_VEHICLE_MODS(vehicle, i) - 1, false)
 		end
-		local offset = get_random_offset_in_range(vehicle, 25.0, 25.0)
+		local offset = get_random_offset_from_entity_in_range(vehicle, 25.0, 25.0)
 		local outCoords = v3.new()
 		if PATHFIND.GET_CLOSEST_VEHICLE_NODE(offset.x, offset.y, offset.z, outCoords, 1, 3.0, 0) then
 			driver = entities.create_ped(5, pedHash, pos, 0.0)
@@ -2331,7 +2367,7 @@ generate_features = function(pId)
 				add_blip_for_entity(gokart, 748, 5)
 			end
 			i = i + 1
-			util.yield(200)
+			util.yield(150)
 		until i == count
 	end)
 
@@ -2463,7 +2499,7 @@ generate_features = function(pId)
 		local vehicleHash <const> = util.joaat(vehicleName)
 		request_model(vehicleHash)
 		local targetPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
-		local coord = get_random_offset_in_range(targetPed, 12.0, 12.0)
+		local coord = get_random_offset_from_entity_in_range(targetPed, 12.0, 12.0)
 		local vehicle = entities.create_vehicle(vehicleHash, coord, CAM.GET_GAMEPLAY_CAM_ROT(0).z)
 		set_entity_face_entity(vehicle, targetPed, false)
 		VEHICLE.SET_VEHICLE_DOORS_LOCKED(vehicle, 2)
@@ -2514,7 +2550,7 @@ generate_features = function(pId)
 		if not WEAPON.HAS_WEAPON_ASSET_LOADED(hash) then
 			WEAPON.REQUEST_WEAPON_ASSET(hash, 31, 0)
 		end
-		local pos = get_random_offset_in_range(target, 0.0, 6.0)
+		local pos = get_random_offset_from_entity_in_range(target, 0.0, 6.0)
 		pos.z = pos.z - 10.0
 		MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
 			pos.x, pos.y, pos.z+50, pos.x, pos.y, pos.z, 200, true, hash, ownerPed, true, false, 2500.0)
@@ -2582,7 +2618,7 @@ generate_features = function(pId)
 		local hash <const> = util.joaat(plane)
 		request_model(hash)
 		local targetPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
-		local pos = get_random_offset_in_range(targetPed, 20.0, 20.0)
+		local pos = get_random_offset_from_entity_in_range(targetPed, 20.0, 20.0)
 		pos.z = pos.z + 30.0
 		local plane = entities.create_vehicle(hash, pos, 0.0)
 		set_entity_face_entity(plane, targetPed, true)
@@ -2603,7 +2639,7 @@ generate_features = function(pId)
 		request_model(hash)
 		local player = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
 		local pos = ENTITY.GET_ENTITY_COORDS(player, false)
-		local coord = get_random_offset_in_range(player, 5.0, 8.0)
+		local coord = get_random_offset_from_entity_in_range(player, 5.0, 8.0)
 		coord.z = coord.z - 1.0
 		local ped = entities.create_ped(0, hash, coord, CAM.GET_GAMEPLAY_CAM_ROT(0).z)
 
@@ -4213,6 +4249,7 @@ local trans =
 	Notification = translate("Vehicle", "Airstrike Aircraft can be used in planes and helicopters"),
 	HelpText = translate("Vehicle", "Use any plane or helicopter to make airstrikes"),
 }
+local timer = newTimer()
 
 
 menu.toggle_loop(vehicleOptions, trans.MenuName, {"airstrikeplane"}, trans.HelpText, function ()
@@ -4227,24 +4264,25 @@ menu.toggle_loop(vehicleOptions, trans.MenuName, {"airstrikeplane"}, trans.HelpT
 		state = 1
 	end
 
-	if PED.IS_PED_IN_FLYING_VEHICLE(players.user_ped()) and PAD.IS_CONTROL_PRESSED(2, control) then
-		local start <const> = newTimer()
+	if PED.IS_PED_IN_FLYING_VEHICLE(players.user_ped()) and PAD.IS_CONTROL_PRESSED(2, control) and
+	timer.elapsed() > 800 then
 		local vehicle = PED.GET_VEHICLE_PED_IS_IN(players.user_ped(), false)
-		local pos = ENTITY.GET_ENTITY_COORDS(vehicle, false)
+		local vehPos = ENTITY.GET_ENTITY_COORDS(vehicle, false)
+		local groundZ = get_ground_z(vehPos)
+		local startTime = newTimer()
 
 		util.create_tick_handler(function()
 			util.yield(500)
-
-			local groundz = get_ground_z(pos)
-			pos.x = pos.x + random_float(-3, 3)
-			pos.y = pos.y + random_float(-3, 3)
-			if pos.z - groundz < 10.0 then return end
-
-			MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(pos.x, pos.y, pos.z-3.0, pos.x, pos.y, groundz, 200, true, hash, players.user(), true, false, 2500.0)
-			return start.elapsed() < 5000
+			if vehPos.z - groundZ < 10.0 then
+				return false
+			end
+			local pos = get_random_offset_in_range(vehPos, 0.0, 5.0)
+			MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
+				pos.x, pos.y, pos.z - 3.0, pos.x, pos.y, groundZ, 200, true, hash, players.user(), true, false, 1000.0)
+			return startTime.elapsed() < 5000
 		end)
 
-		util.yield(200)
+		timer.reset()
 	end
 end, function() state = 0 end)
 
@@ -4339,7 +4377,7 @@ local state = 0
 local timer <const> = newTimer()
 local msg = translate("Vehicle - Vehicle Weapons", "Press ~%s~ to use Vehicle Weapons")
 
-local vehicleWeapons =
+
 menu.toggle_loop(vehicleWeaponRoot, translate("Vehicle - Vehicle Weapons", "Vehicle Weapons"), {}, "", function()
 	local control = Config.controls.vehicleweapons
 
@@ -4998,7 +5036,7 @@ function HandlingEditor.new(parent, menuname, commands, helpTxt)
 	end, function ()
 		self.isOpen = false
 	end)
-	self.ref_vehicleName = menu.readonly(self.reference, translate("Handling Editor", "Vehicle"))
+	self.ref_vehicleName = menu.readonly(self.reference, translate("Handling Editor", "Vehicle"), "???")
 	local name <const> = translate("Handling Editor", "Save")
 	self.ref_save = menu.action(self.reference, name, {"savehandling"}, "", function ()
 		local ok, msg = self:save()
@@ -5436,7 +5474,10 @@ end)
 -- TARGET PASSENGERS
 -------------------------------------
 
-menu.toggle_loop(vehicleOptions, translate("Vehicle", "Target Passengers"), {"targetpassengers"}, "", function()
+local menuName = translate("Vehicle", "Target Passengers Ability")
+local helpText = translate("Vehicle", "Allows you to shoot other passengers inside the vehicle you're in")
+
+menu.toggle_loop(vehicleOptions, menuName, {"targetpassengers"}, helpText, function()
 	local localPed = PLAYER.PLAYER_PED_ID()
 	if not PED.IS_PED_IN_ANY_VEHICLE(localPed, false) then
 		return
@@ -5706,7 +5747,7 @@ end
 
 ---@param modelHash? Hash
 function Member:createMember(modelHash)
-	local pos = get_random_offset_in_range(players.user_ped(), 2.0, 3.0)
+	local pos = get_random_offset_from_entity_in_range(players.user_ped(), 2.0, 3.0)
 	pos.z = pos.z - 1.0
 	local ped = NULL
 	if modelHash then
@@ -5823,7 +5864,7 @@ function Member:tpToVehicle(vehicle)
 end
 
 function Member:tpToLeader()
-	local pos = get_random_offset_in_range(players.user_ped(), 2.0, 3.0)
+	local pos = get_random_offset_from_entity_in_range(players.user_ped(), 2.0, 3.0)
 	ENTITY.SET_ENTITY_COORDS(self.handle, pos.x, pos.y, pos.z - 1.0, 0, 0, 0, 0)
 	set_entity_face_entity(self.handle, players.user_ped(), false)
 end
@@ -6240,14 +6281,16 @@ local worldOptions <const> = menu.list(menu.my_root(), translate("World", "World
 -- JUMPING CARS
 -------------------------------------
 
+local lastJump = newTimer()
+
 menu.toggle_loop(worldOptions, translate("World", "Jumping Cars"), {}, "", function()
-	local entities = get_vehicles_in_player_range(PLAYER.PLAYER_ID(), 150)
-	for _, vehicle in ipairs(entities) do
-		if request_control_once(vehicle) then
+	if lastJump.elapsed() > 1500 then
+		for _, vehicle in ipairs(get_vehicles_in_player_range(players.user(), 150)) do
+			request_control_once(vehicle)
 			ENTITY.APPLY_FORCE_TO_ENTITY(vehicle, 1, 0, 0, 6.5, 0, 0, 0, 0, false, false, true, 0, 0)
 		end
+		lastJump.reset()
 	end
-	util.yield(1500)
 end)
 
 -------------------------------------
@@ -6331,7 +6374,7 @@ menu.toggle_loop(worldOptions, translate("World", "Angry Planes"), {}, "", funct
 			ENTITY._SET_ENTITY_CLEANUP_BY_ENGINE(plane, true)
 			local pilot = entities.create_ped(26, pedHash, pos, 0)
 			PED.SET_PED_INTO_VEHICLE(pilot, plane, -1)
-			pos = get_random_offset_in_range(PLAYER.PLAYER_PED_ID(), 50.0, 150.0)
+			pos = get_random_offset_from_entity_in_range(PLAYER.PLAYER_PED_ID(), 50.0, 150.0)
 			pos.z = pos.z + 75.0
 			ENTITY.SET_ENTITY_COORDS(plane, pos.x, pos.y, pos.z, 0, 0, 0, false)
 			local theta = random_float(0, 2 * math.pi)
@@ -6343,7 +6386,7 @@ menu.toggle_loop(worldOptions, translate("World", "Angry Planes"), {}, "", funct
 			TASK.TASK_PLANE_MISSION(pilot, plane, 0, PLAYER.PLAYER_PED_ID(), 0, 0, 0, 6, 100, 0, 0, 80, 50, 0)
 			numPlanes = numPlanes + 1
 		end
-		util.yield(250)
+		util.yield(200)
 	end
 end, function ()
 	for _, vehicle in ipairs(entities.get_all_vehicles_as_handles()) do
