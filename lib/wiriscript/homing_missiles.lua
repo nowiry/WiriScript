@@ -463,8 +463,12 @@ end
 
 
 local ShootMissiles = function()
-	local controlId = 69
+	local controlId = 68
+	if PED.IS_PED_IN_FLYING_VEHICLE(players.user_ped()) then
+		controlId = 114
+	end
 	local target = 0
+
 	if PAD.IS_DISABLED_CONTROL_PRESSED(2, controlId) or bits:IsBitSet(Bit_IsTargetShooting) then
 		if shotCount < 1 or shotCount > 6 then shotCount = 1 end
 		if bits:IsBitSet(Bit_IsRecharging) or lastShot.elapsed() < 300 then
@@ -598,9 +602,8 @@ end
 
 
 local DisableControlActions = function ()
-	PAD.DISABLE_CONTROL_ACTION(2, 106, true)
-	PAD.DISABLE_CONTROL_ACTION(2, 122, true)
-	PAD.DISABLE_CONTROL_ACTION(2, 135, true)
+	PAD.DISABLE_CONTROL_ACTION(2, 25, true)
+	PAD.DISABLE_CONTROL_ACTION(2, 91, true)
 	PAD.DISABLE_CONTROL_ACTION(2, 99, true)
 	PAD.DISABLE_CONTROL_ACTION(2, 115, true)
 	PAD.DISABLE_CONTROL_ACTION(2, 262, true)
