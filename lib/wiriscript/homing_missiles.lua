@@ -39,7 +39,7 @@ function Bitwise:reset()
 	self.bits = 0
 end
 
---- DEBUG
+---DEBUG
 Bitwise.__tostring = function(self, bits)
     bits = bits or 32
     local tbl = {}
@@ -80,6 +80,7 @@ local bits <const> = Bitwise.new()
 local trans = {
 	DisablingPassive = translate("Misc", "Disabling passive mode")
 }
+local NULL <const> = 0
 
 ---@type Timer[]
 local homingTimers <const> = {}
@@ -101,19 +102,14 @@ local Bit_IgnoreFriends <const> = 3
 
 ---@param position v3
 ---@param scale number
----@param hudColour HudColour
-local DrawLockOnSprite = function (position, scale, hudColour)
-	if GRAPHICS.HAS_STREAMED_TEXTURE_DICT_LOADED("helicopterhud") then
-		local colour = get_hud_colour(hudColour)
-		local txdSizeX = 0.010
-		local txdSizeY = 0.010 * GRAPHICS._GET_ASPECT_RATIO(0)
-
+---@param colour Colour
+local DrawLockOnSprite = function (position, scale, colour)
+	if GRAPHICS.HAS_STREAMED_TEXTURE_DICT_LOADED("mpsubmarine_periscope") then
+		local txdSizeX = scale * 0.042
+		local txdSizeY = scale * 0.042 * GRAPHICS._GET_ASPECT_RATIO(0)
 		GRAPHICS.SET_DRAW_ORIGIN(position.x, position.y, position.z, 0)
-		scale = (scale * 0.03)
-		GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner", -scale * 0.5, -scale, txdSizeX, txdSizeY, 0.0, colour.r, colour.g, colour.b, colour.a, true, 0)
-		GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner",  scale * 0.5, -scale, txdSizeX, txdSizeY, 90., colour.r, colour.g, colour.b, colour.a, true, 0)
-		GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner", -scale * 0.5,  scale, txdSizeX, txdSizeY, 270, colour.r, colour.g, colour.b, colour.a, true, 0)
-		GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner",  scale * 0.5,  scale, txdSizeX, txdSizeY, 180, colour.r, colour.g, colour.b, colour.a, true, 0)
+		GRAPHICS.DRAW_SPRITE(
+			"mpsubmarine_periscope", "target_default", 0.0, 0.0, txdSizeX, txdSizeY, 0.0, colour.r, colour.g, colour.b, colour.a, true, 0)
 		GRAPHICS.CLEAR_DRAW_ORIGIN()
 	end
 end
@@ -206,6 +202,21 @@ local GetDistanceBetweenEntities = function(entity, target)
 end
 
 
+---@param player Player
+---@return integer
+local GetPlayerWantedLevel = function (player)
+	local netPlayer = GetNetGamePlayer(player)
+	if netPlayer == NULL then
+		return 0
+	end
+	local playerInfo = memory.read_long(netPlayer + 0xA0)
+	if playerInfo == NULL then
+		return 0
+	end
+	return memory.read_uint(playerInfo + 0x0888)
+end
+
+
 ---@param entity Entity
 ---@return boolean
 local IsEntityTargetable = function(entity)
@@ -220,9 +231,14 @@ local IsEntityTargetable = function(entity)
 	not PED.IS_PED_IN_ANY_VEHICLE(entity, false) and players.user_ped() ~= entity and
 	IsPedTargetablePlayer(entity) then
 		return true
-	elseif ENTITY.IS_ENTITY_A_VEHICLE(entity) and entity ~= myVehicle and
-	(IsAnyPoliceVehicle(entity) or DoesVehicleHavePlayerDriver(entity)) then
-		return true
+	elseif ENTITY.IS_ENTITY_A_VEHICLE(entity) and entity ~= myVehicle then
+		if DoesVehicleHavePlayerDriver(entity) then
+			return true
+		end
+
+		if GetPlayerWantedLevel(players.user()) > 0 and IsAnyPoliceVehicle(entity) then
+			return true
+		end
 	end
 	return false
 end
@@ -373,12 +389,12 @@ local LockOnEnity = function (entity, count)
 		if not redSound:hasFinished() then redSound:stop() end
 	end
 
-	local colour = HudColour.orange
+	local hudColour = HudColour.orange
 	if lockOnBits:IsBitSet(bitPlace + 6) then
-		colour = HudColour.red
+		hudColour = HudColour.red
 	end
 	local pos = ENTITY.GET_ENTITY_COORDS(entity, true)
-	DrawLockOnSprite(pos, 1.0, colour)
+	DrawLockOnSprite(pos, 1.0, get_hud_colour(hudColour))
 end
 
 
@@ -386,7 +402,9 @@ local LockOnTargets = function()
     if numTargets == 0 and ENTITY.DOES_ENTITY_EXIST(myVehicle) and not ENTITY.IS_ENTITY_DEAD(myVehicle) and
 	VEHICLE.IS_VEHICLE_DRIVEABLE(myVehicle) then
         local coords = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(myVehicle, 0.0, 100.0, 0.0)
-        DrawLockOnSprite(coords, 0.8, HudColour.pureWhite)
+		local colour = get_hud_colour(HudColour.white)
+		colour.a = 160
+        DrawLockOnSprite(coords, 1.0, colour)
     end
     for i, target in ipairs(targetEnts) do LockOnEnity(target, i) end
 end
@@ -595,7 +613,7 @@ end
 
 
 self.reset = function()
-	set_streamed_texture_dict_as_no_longer_needed("helicopterhud")
+	set_streamed_texture_dict_as_no_longer_needed("mpsubmarine_periscope")
 	lockOnBits:reset()
 	targetEnts = {-1, -1, -1, -1, -1, -1}
 	entCount = 1
@@ -630,7 +648,7 @@ self.mainLoop = function ()
 
 			if not is_player_passive(players.user()) then
 				if state == State.Reseted then
-					request_streamed_texture_dict("helicopterhud")
+					request_streamed_texture_dict("mpsubmarine_periscope")
 					state = State.GettingNearbyEnts
 				end
 				myVehicle = vehicle
@@ -665,6 +683,5 @@ self.mainLoop = function ()
 		self.reset()
 	end
 end
-
 
 return self
