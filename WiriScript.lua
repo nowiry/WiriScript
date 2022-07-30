@@ -6337,11 +6337,10 @@ end)
 -- KILL ENEMIES
 -------------------------------------
 
-local function killEnemies()
-	local peds = get_peds_in_player_range(PLAYER.PLAYER_ID(), 500)
-	for _, ped in ipairs(peds) do
+local kill_enemies = function ()
+	for _, ped in ipairs(get_peds_in_player_range(players.user(), 500.0)) do
 		local rel = PED.GET_RELATIONSHIP_BETWEEN_PEDS(players.user_ped(), ped)
-		if not ENTITY.IS_ENTITY_DEAD(ped, 0) and
+		if not ENTITY.IS_ENTITY_DEAD(ped, false) and
 		(rel == 4 or rel == 5 or PED.IS_PED_IN_COMBAT(ped, players.user_ped())) then
 			local pos = ENTITY.GET_ENTITY_COORDS(ped, false)
 			FIRE.ADD_OWNED_EXPLOSION(players.user_ped(), pos.x, pos.y, pos.z, 1, 1.0, true, false, 0.0)
@@ -6350,19 +6349,19 @@ local function killEnemies()
 end
 
 menu.action(worldOptions, translate("World", "Kill Enemies"), {"killenemies"}, "", function()
-	local count = 0
 	local pos = players.get_position(players.user())
 	local timer = newTimer()
 	while PED.COUNT_PEDS_IN_COMBAT_WITH_TARGET_WITHIN_RADIUS(players.user_ped(), pos.x, pos.y, pos.z, 450.0) > 0 and
 	timer.elapsed() < 1000 do
-		killEnemies()
-		count = count + 1
-		util.yield()
+		kill_enemies(); util.yield()
 	end
 end)
 
 menu.toggle_loop(worldOptions, translate("World", "Auto Kill Enemies"), {"autokillenemies"}, "", function()
-	killEnemies()
+	local pos = players.get_position(players.user())
+	if  PED.COUNT_PEDS_IN_COMBAT_WITH_TARGET_WITHIN_RADIUS(players.user_ped(), pos.x, pos.y, pos.z, 450.0) > 0 then
+		kill_enemies()
+	end
 end)
 
 -------------------------------------
