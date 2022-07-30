@@ -407,8 +407,8 @@ if filesystem.exists(configFile) then
 end
 
 if Config.general.language ~= "english" then
-	local ok, err = load_translation(Config.general.language .. ".json")
-	if not ok then notification:help("Couldn't load tranlation: " .. err, HudColour.red) end
+	local ok, errmsg = load_translation(Config.general.language .. ".json")
+	if not ok then notification:help("Couldn't load tranlation: " .. errmsg, HudColour.red) end
 end
 
 -----------------------------------
@@ -675,8 +675,8 @@ function Crew.isValid(o)
 		rank = "string|nil"
 	}
 	for k, t in pairs(types) do
-		local ok, err = type_match(rawget(o, k), t)
-		if not ok then return false, "field " .. k .. ", " .. err end
+		local ok, errmsg = type_match(rawget(o, k), t)
+		if not ok then return false, "field " .. k .. ", " .. errmsg end
 	end
 	return true
 end
@@ -839,8 +839,8 @@ function Profile.isValid(obj)
 		ip = "string|nil",
 	}
 	for k, t in pairs(types) do
-		local ok, err = type_match(rawget(obj, k), t)
-		if not ok then return false, "field " .. k  .. ", ".. err end
+		local ok, errmsg = type_match(rawget(obj, k), t)
+		if not ok then return false, "field " .. k  .. ", ".. errmsg end
 	end
 	if type(obj.rid) == "string" and not tonumber(obj.rid) then
 		return false, "field rid is not string castable"
@@ -928,9 +928,9 @@ function ProfileManager.new(parent)
 		if not profile.name or not profile.rid then
 			return notification:help(trans.MissingData, HudColour.red)
 		end
-		local valid, err = Profile.isValid(profile)
+		local valid, errmsg = Profile.isValid(profile)
 		if not valid then
-			return notification:help("%s: %s", HudColour.red, trans.InvalidProfile, err)
+			return notification:help("%s: %s", HudColour.red, trans.InvalidProfile, errmsg)
 		end
 		local profile = Profile.new(profile)
 		if self:includes(profile) then
@@ -1074,7 +1074,7 @@ end
 function ProfileManager:load()
 	local count = 0
 	for _, path in ipairs(filesystem.list_files(self.dir)) do
-		local fileName, ext = string.match(path, '^.+\\(.+)%.(.+)$')
+		local filename, ext = string.match(path, '^.+\\(.+)%.(.+)$')
 		if ext ~= "json" then
 			os.remove(path)
 			goto LABEL_CONTINUE
@@ -1086,15 +1086,16 @@ function ProfileManager:load()
 			goto LABEL_CONTINUE
 		end
 
-		local valid, err = Profile.isValid(result)
+		local valid, errmsg = Profile.isValid(result)
 		if not valid then
-			notification:help(trans.InvalidProfile, HudColour.red, fileName, err)
+			notification:help(trans.InvalidProfile, HudColour.red, filename, errmsg)
 			goto LABEL_CONTINUE
 		end
 
 		local profile = Profile.new(result)
-		self:add(fileName, profile)
+		self:add(filename, profile)
 		count = count + 1
+
 	::LABEL_CONTINUE::
 	end
 	util.log("Spoofing Profiles loaded: %d", count)
@@ -1117,7 +1118,7 @@ generate_features = function(pId)
 	-- CREATE SPOOFING PROFILE
 	-------------------------------------
 
-	menu.action(menu.player_root(pId), translate("Player", "Create Spoofing Profile"), {}, "", function()
+	menu.action(menu.player_root(pId), translate("Player", "Create Spoofing Profile"), {}, "", function ()
 		local profile = Profile.get_profile_from_player(pId)
 		if profilesList:includes(profile) then
 			return notification:help(trans.AlreadyExists, HudColour.red)
@@ -1139,7 +1140,6 @@ generate_features = function(pId)
 	-------------------------------------
 
 	local customExplosion <const> = menu.list(trollingOpt, translate("Trolling", "Custom Explosion"), {}, "")
-	local lastExplosion = newTimer()
 	local Explosion = {
 		audible = true,
 		speed = 300,
@@ -1147,7 +1147,7 @@ generate_features = function(pId)
 		type = 0,
 		invisible = false
 	}
-	function Explosion:explodePlyr(pId)
+	function Explosion:explodePlayer(pId)
 		local pos = ENTITY.GET_ENTITY_COORDS(PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId), false)
 		pos.z = pos.z - 1.0
 		if self.owned then self:addOwnedExplosion(pos) else self:addExplosion(pos) end
@@ -1177,34 +1177,43 @@ generate_features = function(pId)
 		50, 1000, 300, 10, function(value) Explosion.speed = value end)
 
 	menu.action(customExplosion, translate("Trolling - Custom Explosion", "Explode"), {}, "", function ()
-		Explosion:explodePlyr(pId)
+		Explosion:explodePlayer(pId)
 	end)
 
-	menu.toggle_loop(customExplosion, translate("Trolling - Custom Explosion", "Explosion Loop"), {}, "", function()
-		if not players.exists(pId) then
-			util.stop_thread()
-		end
-		if lastExplosion.elapsed() > Explosion.speed then
-			Explosion:explodePlyr(pId) lastExplosion.reset()
+
+	local usingExplosionLoop = false
+	menu.toggle(customExplosion, translate("Trolling - Custom Explosion", "Explosion Loop"), {}, "", function(on)
+		usingExplosionLoop = on
+		while usingExplosionLoop and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		not util.is_session_transition_active() do
+			Explosion:explodePlayer(pId)
+			util.yield(Explosion.speed)
 		end
 	end)
 
-	menu.toggle_loop(trollingOpt, translate("Trolling", "Water Loop"), {}, "", function()
-		if not players.exists(pId) then
-			util.stop_thread()
+
+	local usingWaterLoop = false
+	menu.toggle(trollingOpt, translate("Trolling", "Water Loop"), {}, "", function(on)
+		usingWaterLoop = on
+		while usingWaterLoop and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		not util.is_session_transition_active() do
+			local pos = players.get_position(pId)
+			pos.z = pos.z - 1.0
+			FIRE.ADD_EXPLOSION(pos.x, pos.y, pos.z, 13, 1.0, true, false, 0, false)
+			util.yield_once()
 		end
-		local pos = players.get_position(pId)
-		pos.z = pos.z - 1.0
-		FIRE.ADD_EXPLOSION(pos.x, pos.y, pos.z, 13, 1.0, true, false, 0, false)
 	end)
 
-	menu.toggle_loop(trollingOpt, translate("Trolling", "Flame Loop"), {}, "", function()
-		if not players.exists(pId) then
-			util.stop_thread()
+	local usingFlameLoop = false
+	menu.toggle(trollingOpt, translate("Trolling", "Flame Loop"), {}, "", function(on)
+		usingFlameLoop = on
+		while usingFlameLoop and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		not util.is_session_transition_active() do
+			local pos = players.get_position(pId)
+			pos.z = pos.z - 1.0
+			FIRE.ADD_EXPLOSION(pos.x, pos.y, pos.z, 12, 1.0, true, false, 0, false)
+			util.yield_once()
 		end
-		local pos = players.get_position(pId)
-		pos.z = pos.z - 1.0
-		FIRE.ADD_EXPLOSION(pos.x, pos.y, pos.z, 12, 1.0, true, false, 0, false)
 	end)
 
 	-------------------------------------
@@ -1540,16 +1549,14 @@ generate_features = function(pId)
 	-- SHAKE CAMERA
 	-------------------------------------
 
-	local lastExplosion = newTimer()
-
-	menu.toggle_loop(trollingOpt, translate("Trolling", "Shake Camera"), {"shake"}, "", function()
-		if not players.exists(pId) then
-			util.stop_thread()
-		end
-		if lastExplosion.elapsed() > 150 then
+	local usingShakeCam = false
+	menu.toggle(trollingOpt, translate("Trolling", "Shake Camera"), {"shakecam"}, "", function(on)
+		usingShakeCam = on
+		while usingShakeCam and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		not util.is_session_transition_active() do
 			local pos = players.get_position(pId)
-			FIRE.ADD_OWNED_EXPLOSION(PLAYER.PLAYER_PED_ID(), pos.x, pos.y, pos.z, 0, 0, false, true, 80)
-			lastExplosion.reset()
+			FIRE.ADD_OWNED_EXPLOSION(players.user_ped(), pos.x, pos.y, pos.z, 0, 0, false, true, 80)
+			util.yield(150)
 		end
 	end)
 
@@ -1820,7 +1827,7 @@ generate_features = function(pId)
 	local cagePos
 	local timer <const> = newTimer()
 	menu.toggle_loop(cageOptions, translate("Trolling - Cage", "Automatic"), {"autocage"}, "", function()
-		if not players.exists(pId) then
+		if not NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) then
 			util.stop_thread()
 		end
 		if timer.elapsed() >= 1000 and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) then
@@ -1862,9 +1869,8 @@ generate_features = function(pId)
 		local rot_4 = ENTITY.GET_ENTITY_ROTATION(object[4], 2)
 		rot_4.z = -90.0
 		ENTITY.SET_ENTITY_ROTATION(object[4], rot_4.x, rot_4.y, rot_4.z, 1, true)
-		for _, obj in ipairs(object) do
-			ENTITY.FREEZE_ENTITY_POSITION(obj, true)
-		end
+
+		for i = 1, 4 do ENTITY.FREEZE_ENTITY_POSITION(object[i], true) end
 		STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(objHash)
 	end, nil, nil, COMMANDPERM_AGGRESSIVE)
 
@@ -1886,26 +1892,33 @@ generate_features = function(pId)
 	-- RAPE
 	-------------------------------------
 
+	local usingPiggyback = false
+	local usingRape = false
+
 	local helpText = translate("Trolling", "The player won't see you attached to them")
-	menu.toggle(trollingOpt, translate("Trolling", "Rape"), {}, helpText, function (toggle)
-		gUsingRape = toggle
+	menu.toggle(trollingOpt, translate("Trolling", "Rape"), {}, helpText, function (on)
+		usingRape = on
 		-- Otherwise the game would crash
-		if pId == PLAYER.PLAYER_ID() then return end
-		if gUsingRape then
-			gUsingPiggyback = false
-			local p = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
+		if pId == players.user() then
+			return
+		end
+
+		if usingRape then
+			usingPiggyback = false
+			local target = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
 			STREAMING.REQUEST_ANIM_DICT("rcmpaparazzo_2")
 			while not STREAMING.HAS_ANIM_DICT_LOADED("rcmpaparazzo_2") do
 				util.yield()
 			end
-			TASK.TASK_PLAY_ANIM(PLAYER.PLAYER_PED_ID(), "rcmpaparazzo_2", "shag_loop_a", 8, -8, -1, 1, 0, false, false, false)
-			ENTITY.ATTACH_ENTITY_TO_ENTITY(PLAYER.PLAYER_PED_ID(), p, 0, 0, -0.3, 0, 0, 0, 0, false, true, false, false, 0, true)
-			while gUsingRape do
+			TASK.TASK_PLAY_ANIM(players.user_ped(), "rcmpaparazzo_2", "shag_loop_a", 8, -8, -1, 1, 0, false, false, false)
+			ENTITY.ATTACH_ENTITY_TO_ENTITY(players.user_ped(), target, 0, 0, -0.3, 0, 0, 0, 0, false, true, false, false, 0, true)
+			while usingRape and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+			not util.is_session_transition_active() do
 				util.yield()
-				if not NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) then gUsingRape = false end
 			end
-			TASK.CLEAR_PED_TASKS_IMMEDIATELY(PLAYER.PLAYER_PED_ID())
-			ENTITY.DETACH_ENTITY(PLAYER.PLAYER_PED_ID(), true, false)
+			usingRape = false
+			TASK.CLEAR_PED_TASKS_IMMEDIATELY(players.user_ped())
+			ENTITY.DETACH_ENTITY(players.user_ped(), true, false)
 		end
 	end)
 
@@ -2084,15 +2097,18 @@ generate_features = function(pId)
 	end
 
 
-	menu.action_slider(enemyVehiclesOpt, translate("Trolling - Enemy Vehicles", "Send Enemy Vehicle"), {}, "", options, function(index, optName)
+	local name = translate("Trolling - Enemy Vehicles", "Send Enemy Vehicle")
+	menu.action_slider(enemyVehiclesOpt, name, {}, "", options, function(index, option)
 		local i = 0
-		repeat
-			if optName == "Buzzard" then spawn_buzzard(pId)
-			elseif optName == "Minitank" then spawn_minitank(pId)
-			elseif optName == "Lazer" then spawn_lazer(pId) end
+		while i < count and players.exists(pId) do
+			if option == "Minitank" then
+				spawn_minitank(pId)
+			elseif option == "Lazer" then
+				spawn_lazer(pId)
+			elseif option == "Buzzard" then spawn_buzzard(pId) end
 			i = i + 1
 			util.yield(150)
-		until i == count;
+		end
 	end)
 
 
@@ -2107,15 +2123,15 @@ generate_features = function(pId)
 		util.get_label_text("MINITANK_WEAP2"),
 		util.get_label_text("MINITANK_WEAP3"),
 	}
-	menu.slider_text(enemyVehiclesOpt, translate("Trolling - Enemy Vehicles", "Minitank Weapon"), {}, "", options, function(index)
+	local name = translate("Trolling - Enemy Vehicles", "Minitank Weapon")
+
+	menu.slider_text(enemyVehiclesOpt, name, {}, "", options, function(index)
 		if index == 1 then
 			weaponModId = minitankModIds.stockWeapon
 		elseif index == 2 then
 			weaponModId = minitankModIds.plasmaCannon
 		elseif index == 3 then
 			weaponModId = minitankModIds.rocket
-		else
-			error("got unexpected option")
 		end
 	end)
 
@@ -2136,11 +2152,10 @@ generate_features = function(pId)
 	local deleteVehiclePassengers = function(vehicle)
 		for seat = -1, VEHICLE.GET_VEHICLE_MAX_NUMBER_OF_PASSENGERS(vehicle) -1 do
 			if VEHICLE.IS_VEHICLE_SEAT_FREE(vehicle, seat, false) then
-				goto LABEL_CONTINUE
+				continue
 			end
 			local passenger = VEHICLE.GET_PED_IN_VEHICLE_SEAT(vehicle, seat, 0)
 			if request_control(passenger, 1000) then entities.delete_by_handle(passenger) end
-		::LABEL_CONTINUE::
 		end
 	end
 
@@ -2161,7 +2176,6 @@ generate_features = function(pId)
 	local helpText <const> =
 	translate("Trolling - Damage", "Choose the weapon and shoot 'em no matter where you are")
 	local damageOpt <const> = menu.list(trollingOpt, translate("Trolling", "Damage"), {}, helpText)
-	local lastStunGunShot = newTimer()
 
 	menu.toggle(damageOpt, translate("Trolling - Damage", "Spectate"), {}, "", function(toggle)
 		local reference = menu.ref_by_path("Players>" .. players.get_name_with_tags(pId) .. ">Spectate>Ninja Method", 33)
@@ -2171,11 +2185,12 @@ generate_features = function(pId)
 
 	menu.action(damageOpt, translate("Trolling - Damage", "Heavy Sniper"), {}, "", function()
 		local hash <const> = util.joaat("weapon_heavysniper")
-		local a = CAM.GET_GAMEPLAY_CAM_COORD()
-		local b = ENTITY.GET_ENTITY_COORDS(PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId), false)
+		local camPos = CAM.GET_GAMEPLAY_CAM_COORD()
+		local pos = ENTITY.GET_ENTITY_COORDS(PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId), false)
 		request_weapon_asset(hash)
 		WEAPON.GIVE_WEAPON_TO_PED(PLAYER.PLAYER_PED_ID(), hash, 120, 1, 0)
-		MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(a.x, a.y, a.z, b.x, b.y, b.z, 200, 0, hash, players.user_ped(), true, false, 2500.0)
+		MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
+		camPos.x, camPos.y, camPos.z, pos.x, pos.y, pos.z, 200, 0, hash, players.user_ped(), true, false, -1)
 	end)
 
 
@@ -2184,7 +2199,8 @@ generate_features = function(pId)
 		local hash <const> = util.joaat("weapon_firework")
 		request_weapon_asset(hash)
 		WEAPON.GIVE_WEAPON_TO_PED(PLAYER.PLAYER_PED_ID(), hash, 120, 1, 0)
-		MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(pos.x, pos.y, pos.z+3.0, pos.x, pos.y, pos.z-2.0, 200, 0, hash, 0, true, false, 2500.0)
+		MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
+		pos.x, pos.y, pos.z + 3.0, pos.x, pos.y, pos.z-2.0, 200, 0, hash, 0, true, false, 2500.0)
 	end)
 
 
@@ -2193,7 +2209,8 @@ generate_features = function(pId)
 		local hash <const> = util.joaat("weapon_raypistol")
 		request_weapon_asset(hash)
 		WEAPON.GIVE_WEAPON_TO_PED(PLAYER.PLAYER_PED_ID(), hash, 120, 1, 0)
-		MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(pos.x, pos.y, pos.z+3.0, pos.x, pos.y, pos.z-2.0, 200, 0, hash, 0, true, false, 2500.0)
+		MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
+		pos.x, pos.y, pos.z + 3.0, pos.x, pos.y, pos.z-2.0, 200, 0, hash, 0, true, false, 2500.0)
 	end)
 
 
@@ -2202,7 +2219,8 @@ generate_features = function(pId)
 		local hash <const> = util.joaat("weapon_molotov")
 		request_weapon_asset(hash)
 		WEAPON.GIVE_WEAPON_TO_PED(PLAYER.PLAYER_PED_ID(), hash, 120, true, false)
-		MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(pos.x, pos.y, pos.z, pos.x, pos.y, pos.z-2.0, 200, 0, hash, 0, true, false, 2500.0)
+		MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
+		pos.x, pos.y, pos.z, pos.x, pos.y, pos.z - 2.0, 200, 0, hash, 0, true, false, 2500.0)
 	end)
 
 
@@ -2211,20 +2229,26 @@ generate_features = function(pId)
 		local hash <const> = util.joaat("weapon_emplauncher")
 		request_weapon_asset(hash)
 		WEAPON.GIVE_WEAPON_TO_PED(PLAYER.PLAYER_PED_ID(), hash, 120, true, false)
-		MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(pos.x, pos.y, pos.z, pos.x, pos.y, pos.z-2.0, 200, 0, hash, 0, true, false, 2500.0)
+		MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
+		pos.x, pos.y, pos.z, pos.x, pos.y, pos.z - 2.0, 200, 0, hash, 0, true, false, 2500.0)
 	end)
 
 
-	menu.toggle_loop(damageOpt, translate("Trolling - Damage", "Taze"), {"taze"}, "", function ()
-		if not players.exists(pId) then
-			util.stop_thread()
-		end
-		local hash <const> = util.joaat("weapon_stungun")
-		request_weapon_asset(hash)
-		if lastStunGunShot.elapsed() > 2500 then
-			local pos = players.get_position(pId)
-			MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(pos.x, pos.y, pos.z + 2.0, pos.x, pos.y, pos.z, 0, 0, hash, players.user_ped(), true, false, -1)
-			lastStunGunShot.reset()
+	local usingTazer = false
+	local lastShot = newTimer()
+
+	menu.toggle(damageOpt, translate("Trolling - Damage", "Taze"), {"taze "}, "", function(on)
+		local weapon <const> = util.joaat("weapon_stungun")
+		usingTazer = on
+		while usingTazer and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		not util.is_session_transition_active() do
+			if not lastShot.isEnabled() or lastShot.elapsed() > 2500 then
+				local pos = players.get_position(pId)
+				MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
+				pos.x, pos.y, pos.z + 2.0, pos.x, pos.y, pos.z, 0, 0, weapon, players.user_ped(), true, false, -1)
+				lastShot.reset()
+			end
+			util.yield_once()
 		end
 	end)
 
@@ -2233,7 +2257,7 @@ generate_features = function(pId)
 	-------------------------------------
 
 	menu.toggle_loop(trollingOpt, translate("Trolling", "Hostile Peds"), {}, "", function()
-		if not players.exists(pId) then
+		if not NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) then
 			util.stop_thread()
 		end
 		local target = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
@@ -2266,7 +2290,7 @@ generate_features = function(pId)
 	-------------------------------------
 
 	menu.toggle_loop(trollingOpt, translate("Trolling", "Hostile Traffic"), {}, "", function()
-		if not players.exists(pId) then
+		if not NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) then
 			util.stop_thread()
 		end
 		local targetPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
@@ -2278,8 +2302,7 @@ generate_features = function(pId)
 					PED.SET_PED_MAX_HEALTH(driver, 300)
 					ENTITY.SET_ENTITY_HEALTH(driver, 300, 0)
 					PED.SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(driver, true)
-					TASK.TASK_VEHICLE_MISSION_PED_TARGET(
-						driver, vehicle, targetPed, 6, 100, 0, 0, 0, true)
+					TASK.TASK_VEHICLE_MISSION_PED_TARGET(driver, vehicle, targetPed, 6, 100, 0, 0, 0, true)
 				end
 			end
 		end
@@ -2380,8 +2403,6 @@ generate_features = function(pId)
 			return util.joaat("vehicle_weapon_mine_kinetic_rc")
 		elseif selectedMine == 2 then
 			return util.joaat("vehicle_weapon_mine_emp_rc")
-		else
-			error("unexpected mine index: " .. selectedMine)
 		end
 	end
 
@@ -2444,7 +2465,7 @@ generate_features = function(pId)
 			elseif request_control(bandito) and request_control(driver) then
 				TASK.CLEAR_PED_TASKS(driver)
 				TASK.TASK_VEHICLE_DRIVE_WANDER(driver, bandito, 10.0, 786603)
-				PED.SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(driver, false)
+				PED.SET_BLOCKING_OF_NON_TEMPORARY_EVENTS(driver, true)
 				remove_decor(bandito)
 				util.remove_blip(blip)
 				set_entity_as_no_longer_needed(bandito)
@@ -2463,8 +2484,6 @@ generate_features = function(pId)
 		elseif index == 2 then
 			attacktype = AttackType.dropMine
 			menu.set_visible(mineSlider, true)
-		else
-			error("got unexpected index: " .. index)
 		end
 	end)
 
@@ -2480,7 +2499,8 @@ generate_features = function(pId)
 	menu.action(trollyVehicles, translate("Trolling - Trolly Vehicles", "Delete"), {}, "", function()
 		for _, vehicle in ipairs(entities.get_all_vehicles_as_handles()) do
 			if is_decor_flag_set(vehicle, DecorFlag_isTrollyVehicle) then
-				entities.delete_by_handle(VEHICLE.GET_PED_IN_VEHICLE_SEAT(vehicle, -1, 0))
+				local driver = VEHICLE.GET_PED_IN_VEHICLE_SEAT(vehicle, -1, 0)
+				entities.delete_by_handle(driver)
 				entities.delete_by_handle(vehicle)
 			end
 		end
@@ -2511,27 +2531,27 @@ generate_features = function(pId)
 	-------------------------------------
 
 	local helpText = translate("Trolling", "The player won't see you attached to them")
-	menu.toggle(trollingOpt, translate("Trolling", "Piggy Back"), {}, helpText, function (toggle)
+	menu.toggle(trollingOpt, translate("Trolling", "Piggy Back"), {}, helpText, function (on)
 		if players.user() == pId then return end
-		gUsingPiggyback = toggle
-		if gUsingPiggyback then
-			gUsingRape = false
-			local ped = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
+		usingPiggyback = on
+		if usingPiggyback then
+			usingRape = false
+			local target = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
 			STREAMING.REQUEST_ANIM_DICT("rcmjosh2")
 			while not STREAMING.HAS_ANIM_DICT_LOADED("rcmjosh2") do
-				util.yield()
+				util.yield_once()
 			end
-			ENTITY.ATTACH_ENTITY_TO_ENTITY(PLAYER.PLAYER_PED_ID(), ped, PED.GET_PED_BONE_INDEX(ped, 0xDD1C), 0, -0.2, 0.65, 0, 0, 180, false, true, false, false, 0, true)
-			TASK.TASK_PLAY_ANIM(PLAYER.PLAYER_PED_ID(), "rcmjosh2", "josh_sitting_loop", 8, -8, -1, 1, 0, false, false, false)
-			while gUsingPiggyback do
-				util.yield()
-				if not NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) then
-					gUsingPiggyback = false
-					break
-				end
+			local boneId = PED.GET_PED_BONE_INDEX(target, 0xDD1C)
+			ENTITY.ATTACH_ENTITY_TO_ENTITY(players.user_ped(), target, boneId, 0, -0.2, 0.65, 0, 0, 180, false, true, false, false, 0, true)
+			TASK.TASK_PLAY_ANIM(players.user_ped(), "rcmjosh2", "josh_sitting_loop", 8, -8, -1, 1, 0, false, false, false)
+
+			while usingPiggyback and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+			not util.is_session_transition_active() do
+				util.yield_once()
 			end
-			TASK.CLEAR_PED_TASKS_IMMEDIATELY(PLAYER.PLAYER_PED_ID())
-			ENTITY.DETACH_ENTITY(PLAYER.PLAYER_PED_ID(), true, false)
+			usingPiggyback = false
+			TASK.CLEAR_PED_TASKS_IMMEDIATELY(players.user_ped())
+			ENTITY.DETACH_ENTITY(players.user_ped(), true, false)
 		end
 	end)
 
@@ -2539,39 +2559,39 @@ generate_features = function(pId)
 	-- RAIN ROCKETS
 	-------------------------------------
 
-	local lastOwnedShot = newTimer()
-	local lastShot = newTimer()
-
 	---@param pId Player
 	---@param ownerPed boolean
 	local function rain_rockets(pId, ownerPed)
-		local target = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
 		local hash <const> = util.joaat("weapon_airstrike_rocket")
 		if not WEAPON.HAS_WEAPON_ASSET_LOADED(hash) then
 			WEAPON.REQUEST_WEAPON_ASSET(hash, 31, 0)
 		end
+		local target = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
 		local pos = get_random_offset_from_entity_in_range(target, 0.0, 6.0)
 		pos.z = pos.z - 10.0
 		MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
-			pos.x, pos.y, pos.z+50, pos.x, pos.y, pos.z, 200, true, hash, ownerPed, true, false, 2500.0)
+		pos.x, pos.y, pos.z + 50, pos.x, pos.y, pos.z, 200, true, hash, ownerPed, true, false, 2500.0)
 	end
 
 
-	menu.toggle_loop(trollingOpt, translate("Trolling", "Rain Rockets"), {}, "", function()
-		if not players.exists(pId) then
-			util.stop_thread()
-		end
-		if lastShot.elapsed() > 500 then
-			rain_rockets(pId, 0); lastShot.reset()
+	local usingRocketRain = false
+	menu.toggle(trollingOpt, translate("Trolling", "Rain Rockets"), {}, "", function(on)
+		usingRocketRain = on
+		while usingRocketRain and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		not util.is_session_transition_active() do
+			rain_rockets(pId, NULL)
+			util.yield(600)
 		end
 	end)
 
-	menu.toggle_loop(trollingOpt, translate("Trolling", "Rain Rockets (owned)"), {}, "", function()
-		if not players.exists(pId) then
-			util.stop_thread()
-		end
-		if lastOwnedShot.elapsed() > 500 then
-			rain_rockets(pId, players.user()); lastOwnedShot.reset()
+
+	local usingOwnedRocketRain = false
+	menu.toggle(trollingOpt, translate("Trolling", "Rain Rockets (owned)"), {}, "", function(on)
+		usingOwnedRocketRain = on
+		while usingOwnedRocketRain and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		not util.is_session_transition_active() do
+			rain_rockets(pId, players.user_ped())
+			util.yield(600)
 		end
 	end)
 
@@ -2580,31 +2600,37 @@ generate_features = function(pId)
 	-------------------------------------
 
 	local selectedOpt = 1
-	local options <const> = {translate("Forcefield", "Push Out"), translate("Forcefield", "Destroy")}
+	local usingForcefield = false
 
-	menu.toggle_loop(trollingOpt, translate("Forcefield", "Forcefield"), {}, "", function ()
-		if not players.exists(pId) then
-			util.stop_thread()
-		end
-		if selectedOpt == 1 then
-			local vehicles = get_vehicles_in_player_range(pId, 10)
-			local targetPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
-			local playerPos = ENTITY.GET_ENTITY_COORDS(targetPed, false)
-			for _, vehicle in ipairs(vehicles) do
-				local pos = ENTITY.GET_ENTITY_COORDS(vehicle, false)
-				if PED.GET_VEHICLE_PED_IS_USING(targetPed) ~= vehicle and request_control_once(vehicle) then
-					local force = v3.new(pos)
-					force:sub(playerPos)
+	menu.toggle(trollingOpt, translate("Forcefield", "Forcefield"), {}, "", function(on)
+		usingForcefield = on
+		while usingForcefield and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		not util.is_session_transition_active() do
+			if  selectedOpt == 1 then
+				local target = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
+				local pos = ENTITY.GET_ENTITY_COORDS(target, false)
+				for _, vehicle in ipairs(get_vehicles_in_player_range(pId, 10)) do
+					if not request_control_once(vehicle) or
+					PED.GET_VEHICLE_PED_IS_USING(target) == vehicle then
+						continue
+					end
+					local vehPos = ENTITY.GET_ENTITY_COORDS(vehicle, false)
+					local force = v3.new(vehPos)
+					force:sub(pos)
 					force:normalise()
-					ENTITY.APPLY_FORCE_TO_ENTITY(vehicle, 1, force.x, force.y, force.z, 0, 0, 0.5, 0, false, false, true, 0, 0)
+					ENTITY.APPLY_FORCE_TO_ENTITY(
+					vehicle, 1, force.x, force.y, force.z, 0, 0, 0.5, 0, false, false, true, 0, 0)
 				end
+			elseif selectedOpt == 2 then
+				local pos = players.get_position(pId)
+				FIRE.ADD_EXPLOSION(pos.x, pos.y, pos.z, 29, 5.0, false, true, 0.0, true)
 			end
-		elseif selectedOpt == 2 then
-			local pos = players.get_position(pId)
-			FIRE.ADD_EXPLOSION(pos.x, pos.y, pos.z, 29, 5.0, false, true, 0.0, true)
+			util.yield_once()
 		end
 	end)
 
+
+	local options <const> = {translate("Forcefield", "Push Out"), translate("Forcefield", "Destroy")}
 	menu.slider_text(trollingOpt, translate("Forcefield", "Set Forcefield"), {}, "", options, function(index)
 		selectedOpt = index
 	end)
@@ -2720,7 +2746,7 @@ generate_features = function(pId)
 		local vehicle = PED.GET_VEHICLE_PED_IS_IN(targetPed, false)
 		if not ENTITY.DOES_ENTITY_EXIST(vehicle) or ENTITY.IS_ENTITY_DEAD(vehicle, false) or
 		not VEHICLE.IS_VEHICLE_DRIVEABLE(vehicle, false) then
-
+			-- nothing
 		elseif request_control(vehicle, 1000) then
 			ENTITY.SET_ENTITY_COORDS(vehicle, pos.x, pos.y, pos.z, 0, 0, 0, false)
 		else
@@ -2747,11 +2773,8 @@ generate_features = function(pId)
 
 	menu.action(tpVehicleOpt, translate("Vehicle - Teleport", "TP to Waypoint"), {}, "", function()
 		local blip = HUD.GET_FIRST_BLIP_INFO_ID(8)
-		if blip == 0 then
-			notification:help(trans.noWaypointFound, HudColour.red)
-		else
-			tp_player_vehicle(pId, get_blip_coords(blip))
-		end
+		if blip == 0 then return notification:help(trans.noWaypointFound, HudColour.red) end
+		tp_player_vehicle(pId, get_blip_coords(blip))
 	end)
 
 	-------------------------------------
@@ -2807,7 +2830,7 @@ generate_features = function(pId)
 	-- CLEAN
 	-------------------------------------
 
-	menu.action(vehicleOpt, translate("Player - Vehicle", "Clean"), {"cleanveh"}, "", function()
+	menu.action(vehicleOpt, translate("Player - Vehicle", "Clean"), {"cleanvehicle"}, "", function()
 		local vehicle = get_vehicle_player_is_in(pId)
 		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
 			VEHICLE.SET_VEHICLE_DIRT_LEVEL(vehicle, 0.0)
@@ -2818,7 +2841,7 @@ generate_features = function(pId)
 	-- REPAIR
 	-------------------------------------
 
-	menu.action(vehicleOpt, translate("Player - Vehicle", "Repair"), {"repairveh"}, "", function()
+	menu.action(vehicleOpt, translate("Player - Vehicle", "Repair"), {"repairvehicle"}, "", function()
 		local vehicle = get_vehicle_player_is_in(pId)
 		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
 			VEHICLE.SET_VEHICLE_FIXED(vehicle)
@@ -2831,7 +2854,7 @@ generate_features = function(pId)
 	-- UPGRADE
 	-------------------------------------
 
-	menu.action(vehicleOpt, translate("Player - Vehicle", "Upgrade"), {"upgradeveh"}, "", function()
+	menu.action(vehicleOpt, translate("Player - Vehicle", "Upgrade"), {"upgradevehicle"}, "", function()
 		local vehicle = get_vehicle_player_is_in(pId)
 		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
 			VEHICLE.SET_VEHICLE_MOD_KIT(vehicle, 0)
@@ -2895,7 +2918,7 @@ generate_features = function(pId)
 	-- GOD MODE
 	-------------------------------------
 
-	menu.toggle(vehicleOpt, translate("Player - Vehicle", "God Mode"), {"vehgodmode"}, "", function(on)
+	menu.toggle(vehicleOpt, translate("Player - Vehicle", "God Mode"), {"vehiclegodmodeS"}, "", function(on)
 		local vehicle = get_vehicle_player_is_in(pId)
 		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
 			if on then
@@ -2925,17 +2948,23 @@ generate_features = function(pId)
 	-- INVISIBLE
 	-------------------------------------
 
-	menu.toggle_loop(vehicleOpt, translate("Player - Vehicle", "Invisible"), {"invisibleveh"}, "", function()
-		if not players.exists(pId) then
-			util.stop_thread()
+	local usingVehInvisibility = false
+
+	menu.toggle(vehicleOpt, translate("Player - Vehicle", "Invisible"), {"invisiblevehicle"}, "", function(on)
+		usingVehInvisibility = on
+		if not usingVehInvisibility then return end
+
+		while usingVehInvisibility and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		not util.is_session_transition_active() do
+			local vehicle = get_vehicle_player_is_in(pId)
+			if  ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control_once(vehicle) then
+				ENTITY.SET_ENTITY_VISIBLE(vehicle, false, false)
+			end
+			util.yield_once()
 		end
+
 		local vehicle = get_vehicle_player_is_in(pId)
-		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control_once(vehicle) then
-			ENTITY.SET_ENTITY_VISIBLE(vehicle, false, false)
-		end
-	end, function ()
-		local vehicle = get_vehicle_player_is_in(pId)
-		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
+		if  ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
 			ENTITY.SET_ENTITY_VISIBLE(vehicle, true, false)
 		end
 	end)
@@ -2944,17 +2973,23 @@ generate_features = function(pId)
 	-- FREEZE
 	-------------------------------------
 
-	menu.toggle_loop(vehicleOpt, translate("Player - Vehicle", "Freeze"), {"freezeveh"}, "", function()
-		if not players.exists(pId) then
-			util.stop_thread()
+	local usingFreezeVehicle = false
+
+	menu.toggle(vehicleOpt, translate("Player - Vehicle", "Freeze"), {"freezevehicle"}, "", function(on)
+		usingFreezeVehicle = on
+		if not usingFreezeVehicle then return end
+
+		while usingFreezeVehicle and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		not util.is_session_transition_active() do
+			local vehicle = get_vehicle_player_is_in(pId)
+			if  ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control_once(vehicle) then
+				ENTITY.FREEZE_ENTITY_POSITION(vehicle, true)
+			end
+			util.yield_once()
 		end
+
 		local vehicle = get_vehicle_player_is_in(pId)
-		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control_once(vehicle) then
-			ENTITY.FREEZE_ENTITY_POSITION(vehicle, true)
-		end
-	end, function ()
-		local vehicle = get_vehicle_player_is_in(pId)
-		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
+		if  ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
 			ENTITY.FREEZE_ENTITY_POSITION(vehicle, false)
 		end
 	end)
@@ -2963,17 +2998,23 @@ generate_features = function(pId)
 	-- LOCK DOORS
 	-------------------------------------
 
-	menu.toggle_loop(vehicleOpt, translate("Player - Vehicle", "Child Lock"), {"lockveh"}, "", function()
-		if not players.exists(pId) then
-			util.stop_thread()
+	local usingChildLock = false
+
+	menu.toggle(vehicleOpt, translate("Player - Vehicle", "Child Lock"), {"lockvehicle"}, "", function(on)
+		usingChildLock = on
+		if not usingChildLock then return end
+
+		while usingChildLock and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		not util.is_session_transition_active() do
+			local vehicle = get_vehicle_player_is_in(pId)
+			if  ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control_once(vehicle) then
+				VEHICLE.SET_VEHICLE_DOORS_LOCKED(vehicle, 4)
+			end
+			util.yield_once()
 		end
+
 		local vehicle = get_vehicle_player_is_in(pId)
-		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control_once(vehicle) then
-			VEHICLE.SET_VEHICLE_DOORS_LOCKED(vehicle, 4)
-		end
-	end, function ()
-		local vehicle = get_vehicle_player_is_in(pId)
-		if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
+		if  ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control(vehicle, 1000) then
 			VEHICLE.SET_VEHICLE_DOORS_LOCKED(vehicle, 1)
 		end
 	end)
@@ -2993,7 +3034,7 @@ generate_features = function(pId)
 	local explodeKiller = false
 	local helpText = translate("Friendly Options", "Explodes the player's murderer")
 	menu.toggle_loop(friendlyOpt, translate("Friendly Options", "Kill Killers"), {"explokillers"}, helpText, function()
-		if not players.exists(pId) then
+		if not NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) then
 			util.stop_thread()
 		end
 		local playerPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
@@ -3034,7 +3075,6 @@ local SetEntityMaxHealth = function(entity, value)
 		return
 	end
 	PED.SET_PED_MAX_HEALTH(entity, value)
-	local health = ENTITY.GET_ENTITY_HEALTH(entity)
 	ENTITY.SET_ENTITY_HEALTH(entity, value, 0)
 end
 
@@ -5825,8 +5865,8 @@ function Member:createMgr(parent, name)
 	end)
 
 	menu.action(self.mgr, trans.Save, {}, "", function()
-		local ok, err = self:save()
-		if not ok then notification:help(err, HudColour.red) return end
+		local ok, errmsg = self:save()
+		if not ok then notification:help(errmsg, HudColour.red) return end
 		notification:normal(trans.BodyguardSaved)
 	end)
 
@@ -5902,9 +5942,9 @@ function Member:save()
 		util.yield(250)
 	end
 	local path = wiriDir .. "bodyguards\\" .. input .. ".json"
-	local file, err = io.open(path, "w")
+	local file, errmsg = io.open(path, "w")
 	if not file then
-		return false, err
+		return false, errmsg
 	end
 	file:write(json.stringify(self:getInfo(), nil, 0, false))
 	file:close()
@@ -6166,8 +6206,8 @@ function BodyguardMenu.new(parent, name, command_names)
 
 
 	saved:addSubOpt(translate("Bg Menu", "Delete"), function (name, ext, path)
-		local ok, err = os.remove(path)
-		if not ok then return notification:help(err, HudColour.red) end
+		local ok, errmsg = os.remove(path)
+		if not ok then return notification:help(errmsg, HudColour.red) end
 		saved:reload()
 	end)
 
