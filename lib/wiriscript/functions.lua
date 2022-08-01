@@ -863,7 +863,7 @@ end
 ---@param minDistance number
 ---@param maxDistance number
 ---@return v3
-function get_random_offset_from_entity_in_range(entity, minDistance, maxDistance)
+function get_random_offset_from_entity(entity, minDistance, maxDistance)
 	local pos = ENTITY.GET_ENTITY_COORDS(entity, false)
 	return get_random_offset_in_range(pos, minDistance, maxDistance)
 end
@@ -953,12 +953,6 @@ end
 function get_entity_owner(entity)
 	local net_obj = get_net_obj(entity)
 	return net_obj ~= NULL and memory.read_byte(net_obj + 0x49) or -1
-end
-
----@param ped Ped
----@return boolean
-function is_ped_an_animal(ped)
-	return PED.GET_PED_TYPE(ped) == 28
 end
 
 ---@param player Player

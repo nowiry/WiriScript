@@ -5,7 +5,7 @@ THIS FILE IS PART OF WIRISCRIPT
 --------------------------------
 ]]
 
----@diagnostic disable:param-type-mismatch
+---@diagnostic disable: exp-in-action, unknown-symbol, break-outside, code-after-break, miss-symbol, param-type-mismatch
 gVersion = 21
 local scriptStartTime = util.current_time_millis()
 
@@ -1636,7 +1636,7 @@ generate_features = function(pId)
 		repeat
 			i = i + 1
 			local targetPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
-			local pos = get_random_offset_from_entity_in_range(targetPed, 2.0, 4.0)
+			local pos = get_random_offset_from_entity(targetPed, 2.0, 4.0)
 			pos.z = pos.z - 1.0
 			local ped = entities.create_ped(0, modelHash, pos, 0.0)
 			NETWORK.SET_NETWORK_ID_EXISTS_ON_ALL_MACHINES(NETWORK.PED_TO_NET(ped), true)
@@ -1661,7 +1661,7 @@ generate_features = function(pId)
 		repeat
 			i = i + 1
 			local target = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
-			local pos = get_random_offset_from_entity_in_range(target, 2.0, 4.0)
+			local pos = get_random_offset_from_entity(target, 2.0, 4.0)
 			pos.z = pos.z - 1.0
 			local clone = entities.create_ped(4, ENTITY.GET_ENTITY_MODEL(target), pos, 0)
 			NETWORK.SET_NETWORK_ID_EXISTS_ON_ALL_MACHINES(NETWORK.PED_TO_NET(clone), true)
@@ -1691,7 +1691,7 @@ generate_features = function(pId)
 		repeat
 			i = i + 1
 			local target = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
-			local pos = get_random_offset_from_entity_in_range(target, 2.0, 4.0)
+			local pos = get_random_offset_from_entity(target, 2.0, 4.0)
 			pos.z = pos.z - 1.0
 			local ped = entities.create_ped(28, pedHash, pos, CAM.GET_GAMEPLAY_CAM_ROT(0).z)
 			NETWORK.SET_NETWORK_ID_EXISTS_ON_ALL_MACHINES(NETWORK.PED_TO_NET(ped), true)
@@ -1714,7 +1714,7 @@ generate_features = function(pId)
 
 	menu.action(attackerOpt, translate("Trolling - Attacker Options", "Send Police Car"), {}, "", function()
 		local targetPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
-		local offset = get_random_offset_from_entity_in_range(targetPed, 50.0, 60.0)
+		local offset = get_random_offset_from_entity(targetPed, 50.0, 60.0)
 		local outCoords = v3.new()
 		local outHeading = memory.alloc(4)
 		if PATHFIND.GET_CLOSEST_VEHICLE_NODE_WITH_HEADING(offset.x, offset.y, offset.z, outCoords, outHeading, 1, 3.0, 0) then
@@ -1948,7 +1948,7 @@ generate_features = function(pId)
 		NETWORK.SET_NETWORK_ID_ALWAYS_EXISTS_FOR_PLAYER(NETWORK.VEH_TO_NET(vehicle), PLAYER.PLAYER_ID(), true)
 		ENTITY.SET_ENTITY_LOAD_COLLISION_FLAG(vehicle, true, 1)
 		set_decor_flag(vehicle, DecorFlag_isEnemyVehicle)
-		local offset = get_random_offset_from_entity_in_range(vehicle, 35.0, 50.0)
+		local offset = get_random_offset_from_entity(vehicle, 35.0, 50.0)
 		local outHeading = memory.alloc(4)
 		local outCoords = v3.new()
 		if PATHFIND.GET_CLOSEST_VEHICLE_NODE_WITH_HEADING(offset.x, offset.y, offset.z, outCoords, outHeading, 1, 3.0, 0) then
@@ -2025,7 +2025,7 @@ generate_features = function(pId)
 			NETWORK.SET_NETWORK_ID_ALWAYS_EXISTS_FOR_PLAYER(NETWORK.VEH_TO_NET(heli), PLAYER.PLAYER_ID(), true)
 			ENTITY.SET_ENTITY_LOAD_COLLISION_FLAG(heli, true, 1)
 			set_decor_flag(heli, DecorFlag_isEnemyVehicle)
-			local pos = get_random_offset_from_entity_in_range(target, 20, 40)
+			local pos = get_random_offset_from_entity(target, 20, 40)
 			pos.z = pos.z + 20.0
 			ENTITY.SET_ENTITY_COORDS(heli, pos.x, pos.y, pos.z, false, false, false, false)
 			NETWORK.SET_NETWORK_ID_CAN_MIGRATE(NETWORK.VEH_TO_NET(heli), false)
@@ -2074,7 +2074,7 @@ generate_features = function(pId)
 		NETWORK.SET_NETWORK_ID_ALWAYS_EXISTS_FOR_PLAYER(NETWORK.VEH_TO_NET(jet), players.user(), true)
 		ENTITY.SET_ENTITY_LOAD_COLLISION_FLAG(jet, true, 1)
 			set_decor_flag(jet, DecorFlag_isEnemyVehicle)
-			local pos = get_random_offset_from_entity_in_range(jet, 30, 80)
+			local pos = get_random_offset_from_entity(jet, 30, 80)
 			pos.z = pos.z + 500
 			ENTITY.SET_ENTITY_COORDS(jet, pos.x, pos.y, pos.z, 0, 0, 0, 0)
 			set_entity_face_entity(jet, target, false)
@@ -2327,7 +2327,7 @@ generate_features = function(pId)
 		for i = 0, 50 do
 			VEHICLE.SET_VEHICLE_MOD(vehicle, i, VEHICLE.GET_NUM_VEHICLE_MODS(vehicle, i) - 1, false)
 		end
-		local offset = get_random_offset_from_entity_in_range(vehicle, 25.0, 25.0)
+		local offset = get_random_offset_from_entity(vehicle, 25.0, 25.0)
 		local outCoords = v3.new()
 		if PATHFIND.GET_CLOSEST_VEHICLE_NODE(offset.x, offset.y, offset.z, outCoords, 1, 3.0, 0) then
 			driver = entities.create_ped(5, pedHash, pos, 0.0)
@@ -2519,7 +2519,7 @@ generate_features = function(pId)
 		local vehicleHash <const> = util.joaat(vehicleName)
 		request_model(vehicleHash)
 		local targetPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
-		local coord = get_random_offset_from_entity_in_range(targetPed, 12.0, 12.0)
+		local coord = get_random_offset_from_entity(targetPed, 12.0, 12.0)
 		local vehicle = entities.create_vehicle(vehicleHash, coord, CAM.GET_GAMEPLAY_CAM_ROT(0).z)
 		set_entity_face_entity(vehicle, targetPed, false)
 		VEHICLE.SET_VEHICLE_DOORS_LOCKED(vehicle, 2)
@@ -2567,7 +2567,7 @@ generate_features = function(pId)
 			WEAPON.REQUEST_WEAPON_ASSET(hash, 31, 0)
 		end
 		local target = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
-		local pos = get_random_offset_from_entity_in_range(target, 0.0, 6.0)
+		local pos = get_random_offset_from_entity(target, 0.0, 6.0)
 		pos.z = pos.z - 10.0
 		MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
 		pos.x, pos.y, pos.z + 50, pos.x, pos.y, pos.z, 200, true, hash, ownerPed, true, false, 2500.0)
@@ -2644,7 +2644,7 @@ generate_features = function(pId)
 		local hash <const> = util.joaat(plane)
 		request_model(hash)
 		local targetPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
-		local pos = get_random_offset_from_entity_in_range(targetPed, 20.0, 20.0)
+		local pos = get_random_offset_from_entity(targetPed, 20.0, 20.0)
 		pos.z = pos.z + 30.0
 		local plane = entities.create_vehicle(hash, pos, 0.0)
 		set_entity_face_entity(plane, targetPed, true)
@@ -2665,7 +2665,7 @@ generate_features = function(pId)
 		request_model(hash)
 		local player = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
 		local pos = ENTITY.GET_ENTITY_COORDS(player, false)
-		local coord = get_random_offset_from_entity_in_range(player, 5.0, 8.0)
+		local coord = get_random_offset_from_entity(player, 5.0, 8.0)
 		coord.z = coord.z - 1.0
 		local ped = entities.create_ped(0, hash, coord, CAM.GET_GAMEPLAY_CAM_ROT(0).z)
 
@@ -4964,7 +4964,7 @@ function FilesList.new(parent, name, directory, ext)
 	self.ext = ext
 	self.subOpts, self.fileOpts = {}, {}
 	self.reference = menu.list(parent, name, {}, "", function ()
-		self.isOpen = true; self:load()
+		self.isOpen = true; self:reload()
 	end, function ()
 		self.isOpen = false; self:clear()
 	end)
@@ -5744,6 +5744,72 @@ end
 -- MEMBER
 -------------------------------------
 
+---@diagnostic disable:undefined-global
+---@param ped Ped
+local IsPedAnyAnimal  = function(ped)
+	local modelHash = ENTITY.GET_ENTITY_MODEL(ped)
+	pluto_switch int_to_uint(modelHash) do
+		case 0xC2D06F53:
+		case 0xCE5FF074:
+		case 0x573201B8:
+		case 0xFCFA9E1E:
+		case 0x644AC75E:
+		case 0xD86B5A95:
+		case 0x4E8F95A2:
+		case 0x1250D7BA:
+		case 0xB11BAB56:
+		case 0x431D501C:
+		case 0x6D362854:
+		case 0xDFB55C81:
+		case 0x349F33E1:
+		case 0x9563221D:
+		case 0x431FC24C:
+		case 0xAD7844BB:
+		case 0xAAB71F62:
+		case 0x56E29962:
+		case 0x18012A9F:
+		case 0x6AF51FAF:
+		case 0x06A20728:
+		case 0xD3939DFD:
+		case 0x8BBAB455:
+		case 0x2FD800B7:
+		case 0x8D8AC8B9:
+		case 0x3C831724:
+		case 0x06C3F072:
+		case 0xA148614D:
+		case 0x14EC17EA:
+		case 0x471BE4B2:
+			return true
+	end
+	return false
+end
+
+---@param ped Ped
+local IsPedFromAnyArmedForce = function (ped)
+	local modelHash = ENTITY.GET_ENTITY_MODEL(ped)
+	pluto_switch int_to_uint(modelHash) do
+		case 0x15F8700D:
+		case 0x625D6958:
+		case 0xEDBC7546:
+		case 0xB353629E:
+		case 0x5E3DA4A4:
+		case 0xB6B1EDA8:
+		case 0x8D8F1B10:
+		case 0xF2DAA2ED:
+		case 0x65793043:
+		case 0x58D696FE:
+		case 0x72C0CAD2:
+		case 0xF0259D83:
+		case 0xB3F3EE34:
+		case 0x7A05FA59:
+		case 0x62CC28E2:
+		case 0xCA0050E9:
+			return true
+	end
+	return false
+end
+
+
 ---@class Member
 Member =
 {
@@ -5762,22 +5828,37 @@ Member =
 }
 Member.__index = Member
 
+
 ---@param ped Ped
 ---@return Member
 function Member.new(ped)
 	local self = setmetatable({}, Member)
 	self.handle = ped
+	TASK.CLEAR_PED_TASKS(ped)
 	PED.SET_PED_HIGHLY_PERCEPTIVE(ped, true)
 	PED.SET_PED_SEEING_RANGE(ped, 100.0)
 	PED.SET_PED_CAN_PLAY_AMBIENT_ANIMS(ped, false)
 	PED.SET_PED_CAN_PLAY_AMBIENT_BASE_ANIMS(ped, false)
 	PED.SET_PED_CONFIG_FLAG(ped, 208, true)
+	PED.SET_COMBAT_FLOAT(ped, 12, 1.0)
 	PED.SET_RAGDOLL_BLOCKING_FLAGS(ped, 1)
 	PED.SET_RAGDOLL_BLOCKING_FLAGS(ped, 4)
-	--PED.SET_PED_SHOOT_RATE(ped, 1000)
 	PED.SET_PED_COMBAT_ATTRIBUTES(ped, 5, true)
+	PED.SET_PED_COMBAT_ATTRIBUTES(ped, 1, true)
 	PED.SET_PED_COMBAT_ATTRIBUTES(ped, 0, false)
 	PED.SET_PED_COMBAT_ATTRIBUTES(ped, 46, true)
+	PED.SET_PED_ALLOW_VEHICLES_OVERRIDE(ped, true)
+	PED.FORCE_PED_AI_AND_ANIMATION_UPDATE(ped, false, false)
+	--PED.SET_PED_CONFIG_FLAG(ped, 220, true)
+
+	if IsPedFromAnyArmedForce(ped) then
+		PED.SET_PED_CONFIG_FLAG(ped, 400, true)
+	elseif IsPedAnyAnimal(ped) then
+		WEAPON.SET_PED_DROPS_WEAPONS_WHEN_DEAD(ped, false)
+		PED.SET_PED_FLEE_ATTRIBUTES(ped, 16384, true)
+		PED.SET_PED_COMBAT_ATTRIBUTES(ped, 58, true)
+		PED.SET_PED_FLEE_ATTRIBUTES(ped, 1024, true)
+	end
 
 	local blip = add_ai_blip_for_ped(ped, true, false, 100.0, 2, -1)
 	set_blip_name(blip, "blip_9rt4uwu", true) -- a random collision for 0xED0C8764
@@ -5785,25 +5866,29 @@ function Member.new(ped)
 	return self
 end
 
+---@diagnostic enable:undefined-global
 ---@param modelHash? Hash
 function Member:createMember(modelHash)
-	local pos = get_random_offset_from_entity_in_range(players.user_ped(), 2.0, 3.0)
+	local pos = get_random_offset_from_entity(players.user_ped(), 2.0, 3.0)
 	pos.z = pos.z - 1.0
 	local ped = NULL
-	if modelHash then
+	modelHash = modelHash and int_to_uint(modelHash) or 0
+	if modelHash ~= 0 then
 		ped = entities.create_ped(4, modelHash, pos, 0.0)
 	else
-		local modelHash <const> = ENTITY.GET_ENTITY_MODEL(players.user_ped())
+		modelHash = ENTITY.GET_ENTITY_MODEL(players.user_ped())
 		ped = entities.create_ped(4, modelHash, pos, 0)
 	end
 	NETWORK.SET_NETWORK_ID_EXISTS_ON_ALL_MACHINES(NETWORK.PED_TO_NET(ped), true)
 	ENTITY.SET_ENTITY_AS_MISSION_ENTITY(ped, false, true)
 	NETWORK.SET_NETWORK_ID_ALWAYS_EXISTS_FOR_PLAYER(NETWORK.PED_TO_NET(ped), PLAYER.PLAYER_ID(), true)
 	ENTITY.SET_ENTITY_LOAD_COLLISION_FLAG(ped, true, 1)
-	if not modelHash then PED.CLONE_PED_TO_TARGET(players.user_ped(), ped) end
+
+	if modelHash ~= 0 then PED.CLONE_PED_TO_TARGET(players.user_ped(), ped) end
 	set_entity_face_entity(ped, players.user_ped(), false)
 	return Member.new(ped)
 end
+
 
 function Member:removeMgr()
 	if self.mgr == 0 then return end
@@ -5841,7 +5926,7 @@ function Member:createMgr(parent, name)
 	end)
 
 	self.references = {}
-	if not is_ped_an_animal(self.handle) then
+	if not IsPedAnyAnimal(self.handle) then
 		WeaponList.new(self.mgr, trans.Weapon, "", "", function (caption, model)
 			local hash <const> = util.joaat(model)
 			self:giveWeapon(hash); self.weaponHash = hash
@@ -5877,6 +5962,7 @@ function Member:createMgr(parent, name)
 	end)
 end
 
+
 ---@param value boolean
 function Member:setInvincible(value)
 	assert(self.references.invincible ~= 0, "bodyguard manager not found")
@@ -5885,7 +5971,7 @@ end
 
 ---@param weaponHash Hash
 function Member:giveWeapon(weaponHash)
-	WEAPON.REMOVE_ALL_PED_WEAPONS(self.handle, 1)
+	WEAPON.REMOVE_ALL_PED_WEAPONS(self.handle, true)
 	WEAPON.GIVE_WEAPON_TO_PED(self.handle, weaponHash, 9999, true, true)
 	WEAPON.SET_CURRENT_PED_WEAPON(self.handle, weaponHash, false)
 end
@@ -5904,7 +5990,7 @@ function Member:tpToVehicle(vehicle)
 end
 
 function Member:tpToLeader()
-	local pos = get_random_offset_from_entity_in_range(players.user_ped(), 2.0, 3.0)
+	local pos = get_random_offset_from_entity(players.user_ped(), 2.0, 3.0)
 	ENTITY.SET_ENTITY_COORDS(self.handle, pos.x, pos.y, pos.z - 1.0, 0, 0, 0, 0)
 	set_entity_face_entity(self.handle, players.user_ped(), false)
 end
@@ -5913,7 +5999,6 @@ function Member:tp()
 	assert(self.references.teleport ~= 0, "bodyguard manager not found")
 	menu.trigger_command(self.references.teleport, "")
 end
-
 
 function Member:getInfo()
 	local pWeaponHash = memory.alloc_int()
@@ -5925,7 +6010,6 @@ function Member:getInfo()
 	}
 	return tbl
 end
-
 
 ---@return boolean
 ---@return string? errmsg
@@ -5951,7 +6035,6 @@ function Member:save()
 	return true
 end
 
-
 ---@param obj Outfit
 ---@return boolean
 ---@return string? errmsg
@@ -5967,15 +6050,15 @@ function Member:setOutfit(obj)
 	end
 
 	for componentId, tbl in pairs(obj.components) do
-		if tonumber(componentId) and math.type(tbl.drawableId) == "integer" and
-		math.type(tbl.textureId) == "integer" and request_control(self.handle) then
+		if tonumber(componentId) and type(tbl.drawableId) == "number" and
+		type(tbl.textureId) == "number" and request_control(self.handle) then
         	PED.SET_PED_COMPONENT_VARIATION(self.handle, componentId, tbl.drawableId, tbl.textureId, 2)
 		end
 	end
 
 	for propId, tbl in pairs(obj.props) do
-		if tonumber(propId) and math.type(tbl.drawableId) == "integer" and
-		math.type(tbl.textureId) == "integer" and request_control(self.handle) then
+		if tonumber(propId) and type(tbl.drawableId) == "number" and
+		type(tbl.textureId) == "number" and request_control(self.handle) then
 			PED.SET_PED_PROP_INDEX(self.handle, propId, tbl.drawableId, tbl.textureId, true)
 		end
 	end
@@ -6042,6 +6125,11 @@ function Group:pushMember(member)
 		PED.SET_PED_NEVER_LEAVES_GROUP(member.handle, true)
 	end
 	PED.SET_PED_RELATIONSHIP_GROUP_HASH(member.handle, self.rg)
+
+	local myRg = PED.GET_PED_RELATIONSHIP_GROUP_HASH(players.user_ped())
+	PED.SET_RELATIONSHIP_BETWEEN_GROUPS(0, self.rg, myRg)
+	PED.SET_RELATIONSHIP_BETWEEN_GROUPS(0, myRg, self.rg)
+
 	PED.SET_GROUP_SEPARATION_RANGE(self.getID(), 9999.0)
 	PED.SET_GROUP_FORMATION_SPACING(self.getID(), 1.0, 0.9, 3.0)
 	PED.SET_GROUP_FORMATION(self.getID(), self.formation)
@@ -6051,19 +6139,27 @@ end
 
 ---@param rgHash Hash
 function Group:setRelationshipGrp(rgHash)
-	self.rg = rgHash
 	for num = 0, 6, 1 do
 		local ped = PED.GET_PED_AS_GROUP_MEMBER(self.getID(), num)
 		if ENTITY.DOES_ENTITY_EXIST(ped) and
 		request_control(ped, 1000) then PED.SET_PED_RELATIONSHIP_GROUP_HASH(ped, rgHash) end
 	end
+	local myRg = PED.GET_PED_RELATIONSHIP_GROUP_HASH(players.user_ped())
+	PED.SET_RELATIONSHIP_BETWEEN_GROUPS(0, rgHash, myRg)
+	PED.SET_RELATIONSHIP_BETWEEN_GROUPS(0, myRg, rgHash)
+	self.rg = rgHash
 end
 
+
 function Group:onTick()
-	if self.numMembers == 0 then return end
+	if self.numMembers == 0 then
+		return
+	end
+
 	for i = self.numMembers, 1, -1 do
 		local member = self.members[i]
 		local ped = member.handle
+
 		if not ENTITY.DOES_ENTITY_EXIST(ped) or PED.IS_PED_INJURED(ped) then
 			self.numMembers = self.numMembers - 1
 			member:removeMgr()
@@ -6071,15 +6167,19 @@ function Group:onTick()
 			set_entity_as_no_longer_needed(ped)
 			goto LABEL_CONTINUE
 		end
-		if member.isMgrOpen and menu.is_open() then
-			draw_box_esp(ped, {r = 255, g = 255, b = 255, a = 255})
-		end
+
 		if not PED.IS_PED_IN_GROUP(ped) then
 			PED.SET_PED_AS_GROUP_MEMBER(ped, self.getID())
+			PED.SET_PED_NEVER_LEAVES_GROUP(ped, true)
+		end
+
+		if member.isMgrOpen and menu.is_open() then
+			draw_box_esp(ped, {r = 255, g = 255, b = 255, a = 255})
 		end
 	::LABEL_CONTINUE::
 	end
 end
+
 
 ---@param formation integer
 function Group:setFormation(formation)
@@ -6150,7 +6250,7 @@ function BodyguardMenu.new(parent, name, command_names)
 		local member = Member:createMember(modelHash)
 		self.group:pushMember(member)
 		local weaponHash = self.group.defaults.weaponHash
-		if is_ped_an_animal(member.handle) then
+		if IsPedAnyAnimal(member.handle) then
 			weaponHash = util.joaat("weapon_animal")
 		end
 		member:giveWeapon(weaponHash)
@@ -6165,14 +6265,13 @@ function BodyguardMenu.new(parent, name, command_names)
 		local member = Member:createMember()
 		self.group:pushMember(member)
 		local weaponHash = self.group.defaults.weaponHash
-		if is_ped_an_animal(member.handle) then
+		if IsPedAnyAnimal(member.handle) then
 			weaponHash = util.joaat("weapon_animal")
 		end
 		member:giveWeapon(weaponHash)
 		member:createMgr(self.ref, trans.Clone)
 		if self.group.defaults.invincible then member:setInvincible(true) end
 	end)
-
 
 	local saved = FilesList.new(self.ref, translate("Bg Menu", "Saved"), wiriDir .. "bodyguards", "json")
 
@@ -6189,7 +6288,7 @@ function BodyguardMenu.new(parent, name, command_names)
 		self.group:pushMember(member)
 
 		local weaponHash = result.WeaponHash
-		if is_ped_an_animal(member.handle) and
+		if IsPedAnyAnimal(member.handle) and
 		weaponHash ~= util.joaat("weapon_animal") then
 			weaponHash = util.joaat("weapon_animal")
 		end
@@ -6204,8 +6303,7 @@ function BodyguardMenu.new(parent, name, command_names)
 		if self.group.defaults.invincible then member:setInvincible(true) end
 	end)
 
-
-	saved:addSubOpt(translate("Bg Menu", "Delete"), function (name, ext, path)
+	saved:addSubOpt(translate("Bg Menu", "Delete File"), function (name, ext, path)
 		local ok, errmsg = os.remove(path)
 		if not ok then return notification:help(errmsg, HudColour.red) end
 		saved:reload()
@@ -6272,8 +6370,6 @@ function BodyguardMenu:createCommands(parent)
 			rg = util.joaat("rgFM_AiHatePlyrLikeCops")
 		elseif opt == 7 then
 			rg = util.joaat("rgFM_HateEveryOne")
-		else
-			error("got unexpected option")
 		end
 		self.group:setRelationshipGrp(rg)
 	end)
@@ -6413,7 +6509,7 @@ menu.toggle_loop(worldOptions, translate("World", "Angry Planes"), {}, "", funct
 			ENTITY._SET_ENTITY_CLEANUP_BY_ENGINE(plane, true)
 			local pilot = entities.create_ped(26, pedHash, pos, 0)
 			PED.SET_PED_INTO_VEHICLE(pilot, plane, -1)
-			pos = get_random_offset_from_entity_in_range(PLAYER.PLAYER_PED_ID(), 50.0, 150.0)
+			pos = get_random_offset_from_entity(PLAYER.PLAYER_PED_ID(), 50.0, 150.0)
 			pos.z = pos.z + 75.0
 			ENTITY.SET_ENTITY_COORDS(plane, pos.x, pos.y, pos.z, 0, 0, 0, false)
 			local theta = random_float(0, 2 * math.pi)
