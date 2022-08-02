@@ -35,6 +35,10 @@ function Bitwise:ClearBit(place)
 	self.bits = self.bits & ~(1 << place)
 end
 
+function Bitwise:ToggleBit(place, on)
+	if on then self:SetBit(place) else self:ClearBit(place) end
+end
+
 function Bitwise:reset()
 	self.bits = 0
 end
@@ -67,6 +71,7 @@ local targetEnts = {-1, -1, -1, -1, -1, -1}
 ---@type integer[]
 local nearbyEntities = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}
 local numTargets = 0
+local maxTargets = 6
 local lastShot <const> = newTimer()
 local rechargeTimer <const> = newTimer()
 local entCount = 1
@@ -98,6 +103,8 @@ local Bit_IsTargetShooting <const> = 0
 local Bit_IsRecharging <const> = 1
 local Bit_IsCamPointingInFront <const> = 2
 local Bit_IgnoreFriends <const> = 3
+local Bit_IgnoreOrgMembers <const> = 4
+local Bit_IgnoreCrewMembers <const> = 5
 
 
 ---@param position v3
@@ -109,7 +116,7 @@ local DrawLockOnSprite = function (position, scale, colour)
 		local txdSizeY = scale * 0.042 * GRAPHICS._GET_ASPECT_RATIO(0)
 		GRAPHICS.SET_DRAW_ORIGIN(position.x, position.y, position.z, 0)
 		GRAPHICS.DRAW_SPRITE(
-			"mpsubmarine_periscope", "target_default", 0.0, 0.0, txdSizeX, txdSizeY, 0.0, colour.r, colour.g, colour.b, colour.a, true, 0)
+		"mpsubmarine_periscope", "target_default", 0.0, 0.0, txdSizeX, txdSizeY, 0.0, colour.r, colour.g, colour.b, colour.a, true, 0)
 		GRAPHICS.CLEAR_DRAW_ORIGIN()
 	end
 end
@@ -119,8 +126,7 @@ end
 ---@return boolean
 local IsAnyPoliceVehicle = function(vehicle)
 	local modelHash = ENTITY.GET_ENTITY_MODEL(vehicle)
-	modelHash = int_to_uint(modelHash)
-	pluto_switch modelHash do
+	pluto_switch int_to_uint(modelHash)do
 		case 0x79FBB0C5:
 		case 0x9F05F101:
 		case 0x71FA16EA:
@@ -160,6 +166,50 @@ end
 
 
 ---@param player Player
+---@return integer
+local GetPlayerOrgSlot = function (player)
+	if player ~= -1 then
+		local address = memory.script_global(1892703 + (player * 599 + 1) + 10)
+		if address ~= 0 then return memory.read_int(address) end
+	end
+	return -1
+end
+
+
+---@param player0 Player
+---@param player1 Player
+---@return boolean
+local ArePlayersInTheSameOrg = function (player0, player1)
+	local slot0 = GetPlayerOrgSlot(player0)
+	return slot0 ~= -1 and slot0 == GetPlayerOrgSlot(player1)
+end
+
+
+---@param player0 Player
+---@param player1 Player
+---@return boolean
+local ArePlayersInTheSameCrew = function (player0, player1)
+	if NETWORK.NETWORK_CLAN_SERVICE_IS_VALID() then
+		local pHandle0 = memory.alloc(104)
+		local pHandle1 = memory.alloc(104)
+		NETWORK.NETWORK_HANDLE_FROM_PLAYER(player0, pHandle0, 13)
+		NETWORK.NETWORK_HANDLE_FROM_PLAYER(player1, pHandle1, 13)
+
+		if NETWORK.NETWORK_CLAN_PLAYER_IS_ACTIVE(pHandle0) and
+		NETWORK.NETWORK_CLAN_PLAYER_IS_ACTIVE(pHandle1) then
+			local pClanDesc0 = memory.alloc(280)
+			local pClanDesc1 = memory.alloc(280)
+			NETWORK.NETWORK_CLAN_PLAYER_GET_DESC(pClanDesc0, 35, pHandle0)
+			NETWORK.NETWORK_CLAN_PLAYER_GET_DESC(pClanDesc1, 35, pHandle0)
+			return memory.read_int(pClanDesc0 + 0x0) == memory.read_int(pClanDesc1 + 0x0)
+		end
+
+	end
+	return false
+end
+
+
+---@param player Player
 local IsPedTargetablePlayer = function (ped)
 	local player = NETWORK.NETWORK_GET_PLAYER_INDEX_FROM_PED(ped)
 	if player == -1 or not players.exists(player) then
@@ -167,8 +217,13 @@ local IsPedTargetablePlayer = function (ped)
 	end
 	if is_player_passive(player) then
 		return false
-	end
-	if bits:IsBitSet(Bit_IgnoreFriends) and is_player_friend(player) then
+	elseif bits:IsBitSet(Bit_IgnoreFriends) and is_player_friend(player) then
+		return false
+	elseif bits:IsBitSet(Bit_IgnoreOrgMembers) and
+	ArePlayersInTheSameOrg(players.user(), player) then
+		return false
+	elseif bits:IsBitSet(Bit_IgnoreCrewMembers) and
+	ArePlayersInTheSameCrew(players.user(), player) then
 		return false
 	end
 	return true
@@ -234,9 +289,7 @@ local IsEntityTargetable = function(entity)
 	elseif ENTITY.IS_ENTITY_A_VEHICLE(entity) and entity ~= myVehicle then
 		if DoesVehicleHavePlayerDriver(entity) then
 			return true
-		end
-
-		if GetPlayerWantedLevel(players.user()) > 0 and IsAnyPoliceVehicle(entity) then
+		elseif GetPlayerWantedLevel(players.user()) > 0 and IsAnyPoliceVehicle(entity) then
 			return true
 		end
 	end
@@ -279,9 +332,9 @@ end
 ---@return integer
 local GetFartherTargetIndex = function()
 	local lastDistance = 0.0
-	local myPos = ENTITY.GET_ENTITY_COORDS(players.user_ped(), true)
 	local index = -1
-	for i = 1, 6 do
+	local myPos = ENTITY.GET_ENTITY_COORDS(players.user_ped(), true)
+	for i = 1, maxTargets do
 		local pos = ENTITY.GET_ENTITY_COORDS(targetEnts[i], true)
 		local distance = myPos:distance(pos)
 		if distance > lastDistance then
@@ -309,31 +362,36 @@ local SetTargetEntities = function()
 	if entCount < 1 or entCount > 20 then
         entCount = 1
     end
-
 	local entity = nearbyEntities[entCount]
-    local flag <const> = TraceFlag.world | TraceFlag.vehicles
 
-	if entity and ENTITY.DOES_ENTITY_EXIST(entity) and not ENTITY.IS_ENTITY_DEAD(entity, false) and
-	ENTITY.HAS_ENTITY_CLEAR_LOS_TO_ENTITY(myVehicle, entity, flag) then
-		if numTargets < 6 and TargetEntitiesInsert(entity) then
+	if ENTITY.DOES_ENTITY_EXIST(entity) and not ENTITY.IS_ENTITY_DEAD(entity, false) and
+	ENTITY.HAS_ENTITY_CLEAR_LOS_TO_ENTITY(myVehicle, entity, 511) then
+		if numTargets < maxTargets then
+			if TargetEntitiesInsert(entity) then
+				nearbyEntities[entCount] = -1
+				entCount = entCount + 1
+			end
+		else
+			local targetId = GetFartherTargetIndex()
+			local target = targetEnts[targetId]
+
+			if targetId >= 1 and target then
+				local entityPos = ENTITY.GET_ENTITY_COORDS(entity, true)
+				local myPos = ENTITY.GET_ENTITY_COORDS(players.user_ped(), true)
+				local targetPos = ENTITY.GET_ENTITY_COORDS(target, true)
+				local targetDist = targetPos:distance(myPos)
+				local entDist = entityPos:distance(myPos)
+				if targetDist > entDist then targetEnts[targetId] = entity end
+			end
+
 			nearbyEntities[entCount] = -1
 			entCount = entCount + 1
-		elseif numTargets >= 6 then
-			local targetId = GetFartherTargetIndex()
-			local entityPos = ENTITY.GET_ENTITY_COORDS(entity, true)
-			local myPos = ENTITY.GET_ENTITY_COORDS(players.user_ped(), true)
-			local target = targetEnts[targetId]
-			if target and
-			ENTITY.GET_ENTITY_COORDS(target, true):distance(myPos) > myPos:distance(entityPos) then
-				targetEnts[targetId] = entity
-				entCount = entCount + 1
-				nearbyEntities[entCount] = -1
-			end
 		end
 	else
 		nearbyEntities[entCount] = -1
 		entCount = entCount + 1
 	end
+
 	if entCount >= 20 then
 		state = State.GettingNearbyEnts
 		entCount = 1
@@ -412,16 +470,22 @@ end
 
 local UpdateTargetEntities = function()
 	local count = 0
-	for i, entity in ipairs(targetEnts) do
-		if not ENTITY.DOES_ENTITY_EXIST(entity) or ENTITY.IS_ENTITY_DEAD(entity, false) or
+	for i = 1, 6 do
+		local entity = targetEnts[i]
+		if entity == -1 or not ENTITY.DOES_ENTITY_EXIST(entity) or ENTITY.IS_ENTITY_DEAD(entity, false) or
 		not IsEntityInSaveScreenPos(entity) or not bits:IsBitSet(Bit_IsCamPointingInFront) or not
-        ENTITY.HAS_ENTITY_CLEAR_LOS_TO_ENTITY(entity, myVehicle, TraceFlag.world | TraceFlag.vehicles) or
+		ENTITY.HAS_ENTITY_CLEAR_LOS_TO_ENTITY(entity, myVehicle, 511) or
 		not IsEntityTargetable(entity) then
 			targetEnts[i] = -1
-			if numTargets > 0 then numTargets -= 1 end
-        else
-			count = count + 1
-        end
+			if numTargets > 0 then numTargets = numTargets - 1 end
+		else
+			if i > maxTargets then
+				targetEnts[i] = -1
+				if numTargets > 0 then numTargets = numTargets - 1 end
+			else
+				count = count + 1
+			end
+		end
 	end
 	if count ~= numTargets then
 		numTargets = count
@@ -451,8 +515,6 @@ local ShootFromVehicle = function (vehicle, damage, weaponHash, ownerPed, isAudi
 	elseif position == 1 then
 		local offset = {x = max.x - 0.3, y = max.y - 0.15, z = 0.3}
 		a = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(vehicle, offset.x, offset.y, offset.z)
-	else
-		error("got unexpected position: " ..position)
 	end
 
 	local b = v3.new(direction)
@@ -580,7 +642,6 @@ local DrawChargingMeter = function ()
 	local safeRight = 0.95
 	local maxWidth = 0.119
 	local width = interpolate(0.0, maxWidth, chargeLevel / 100)
-	local hudColour = chargeLevel == 100 and HudColour.green or HudColour.red
 	local colour = {r = 0, g = 153, b = 51, a = 255}
 	if chargeLevel < 100 then
 		colour = {r = 153, g = 0, b = 0, a = 255}
@@ -592,7 +653,7 @@ local DrawChargingMeter = function ()
 	local textColour = get_hud_colour(HudColour.white)
 	Print.setupdraw(4, {x = 0.55, y = 0.55}, true, false, false, textColour)
 	local textPosX = 0.85 + maxWidth/2
-	local text = chargeLevel == 100 and "DRONE_READY" or "DRONE_CHARGING"
+	local text = (chargeLevel == 100) and "DRONE_READY" or "DRONE_CHARGING"
 	Print.drawstring(text, textPosX, 0.55 - 0.019)
 
 	GRAPHICS.DRAW_RECT(0.85 + maxWidth/2, 0.496, maxWidth, 0.06, 156, 156, 156, 80)
@@ -631,12 +692,23 @@ end
 
 
 ---@param ignore boolean
-self.ignoreFriends = function(ignore)
-	if not ignore then
-		bits:ClearBit(Bit_IgnoreFriends)
-	else
-		bits:SetBit(Bit_IgnoreFriends)
-	end
+self.SetIgnoreFriends = function(ignore)
+	bits:ToggleBit(Bit_IgnoreFriends, ignore)
+end
+
+---@param ignore boolean
+self.SetIgnoreOrgMembers = function (ignore)
+	bits:ToggleBit(Bit_IgnoreOrgMembers, ignore)
+end
+
+---@param ignore boolean
+self.SetIgnoreCrewMembers = function (ignore)
+	bits:ToggleBit(Bit_IgnoreCrewMembers, ignore)
+end
+
+---@param value integer
+self.SetMaxTargets = function (value)
+	maxTargets = value
 end
 
 

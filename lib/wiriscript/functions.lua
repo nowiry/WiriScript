@@ -961,7 +961,7 @@ function is_player_passive(player)
 		local address = memory.script_global(1574582)
 		if address ~= 0 then return memory.read_int(address) == 1 end
 	else
-		local address = memory.script_global(1893551 + (player * 599 + 1) + 8)
+		local address = memory.script_global(1892703 + (player * 599 + 1) + 8)
 		if address ~= 0 then return memory.read_byte(address) == 1 end
 	end
 	return false

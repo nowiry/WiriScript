@@ -4440,12 +4440,12 @@ menu.toggle_loop(vehicleWeaponRoot, translate("Vehicle - Vehicle Weapons", "Vehi
 	timer.elapsed() < selectedWeapon.timeBetweenShots then
 		return
 	elseif get_vehicle_cam_relative_heading(vehicle) < 95.0 then
-		shoot_from_vehicle(vehicle, 200, weaponHash, players.user_ped(), true, true, 2000.0, 0, 0)
-		shoot_from_vehicle(vehicle, 200, weaponHash, players.user_ped(), true, true, 2000.0, 0, 2)
+		shoot_from_vehicle(vehicle, 200, weaponHash, players.user_ped(), true, true, 1000.0, 0, 0)
+		shoot_from_vehicle(vehicle, 200, weaponHash, players.user_ped(), true, true, 1000.0, 0, 2)
 		timer.reset()
 	else
-		shoot_from_vehicle(vehicle, 200, weaponHash, players.user_ped(), true, true, 2000.0, 0, 1)
-		shoot_from_vehicle(vehicle, 200, weaponHash, players.user_ped(), true, true, 2000.0, 0, 3)
+		shoot_from_vehicle(vehicle, 200, weaponHash, players.user_ped(), true, true, 1000.0, 0, 1)
+		shoot_from_vehicle(vehicle, 200, weaponHash, players.user_ped(), true, true, 1000.0, 0, 3)
 		timer.reset()
 	end
 end, function () state = 0 end)
@@ -4458,28 +4458,35 @@ menu.list_select(vehicleWeaponRoot, translate("Vehicle - Vehicle Weapons", "Set 
 -- VEHICLE HOMING MISSILE
 -------------------------------------
 
-local reference
-local name = translate("Vehicle - Vehicle Weapons", "Advanced Homing Missiles")
-local helpText =
-translate("Vehicle - Vehicle Weapons", "Allows you to use homing missiles on any vehicle and " ..
-"shoot up to six targets at once")
+local trans =
+{
+	HomingMissiles = translate("Vehicle - Vehicle Weapons", "Advanced Homing Missiles"),
+	HelpText = translate("Vehicle - Vehicle Weapons", "Allows you to use homing missiles on any vehicle and " ..
+	"shoot up to six targets at once"),
+	Whitelist = translate("Homing Missiles - Whitelist", "Whitelist"),
+	Friends = translate("Homing Missiles - Whitelist", "Friends"),
+	OrgMembers = translate("Homing Missiles - Whitelist", "Organization Members"),
+	Crew = translate("Homing Missiles - Whitelist", "Crew Members"),
+	MaxTargets = translate("Homing Missiles - Whitelist", "Max Number Of Targets")
+}
 
-reference =
-menu.toggle_loop(vehicleWeaponRoot, name, {"homingmissiles"}, helpText, function ()
-	if UFO.exists() or GuidedMissile.exists() then
-		menu.set_value(reference, false)
-	else
+local list_homingMissiles = menu.list(vehicleWeaponRoot, trans.HomingMissiles, {}, trans.HelpText)
+local toggle
+
+toggle = menu.toggle_loop(list_homingMissiles, trans.HomingMissiles, {"homingmissiles"}, "", function ()
+	if not UFO.exists() and not GuidedMissile.exists() then
 		homingMissiles.mainLoop()
-	end
-end, function () homingMissiles.reset() end)
+	else menu.set_value(toggle, false) end
+end, homingMissiles.reset)
 
 
-local name = translate("Vehicle - Vehicle Weapons", "Homing Missiles: Ignore Friends")
-local helpText =
-translate("Vehicle - Vehicle Weapons", "Makes the Advanced Homing Missiles to ignores friends")
-menu.toggle(vehicleWeaponRoot, name, {}, helpText, function (on)
-	homingMissiles.ignoreFriends(on)
-end)
+local whiteList = menu.list(list_homingMissiles, trans.Whitelist, {}, "")
+menu.toggle(whiteList, trans.Friends, {}, "", homingMissiles.SetIgnoreFriends)
+menu.toggle(whiteList, trans.OrgMembers, {}, "", homingMissiles.SetIgnoreOrgMembers)
+menu.toggle(whiteList, trans.Crew, {}, "", homingMissiles.SetIgnoreCrewMembers)
+
+
+menu.slider(list_homingMissiles, trans.MaxTargets , {}, "", 1, 6, 6, 1, homingMissiles.SetMaxTargets)
 
 -------------------------------------
 -- VEHICLE HANDLING EDITOR
@@ -4791,11 +4798,10 @@ local function get_vehicle_sub_handling(pVehicle)
 		local subHandlingData = memory.read_long(subHandlingArray + i*8)
 		if subHandlingData ~= NULL then
 			local GetSubhandlingType_addr = get_vtable_entry_pointer(subHandlingData, 2)
-			local result =
+			local type =
 			util.call_foreign_function(GetSubhandlingType_addr, subHandlingData)
-			if table.find(HandlingType, result) then
-				tbl[#tbl+1] = {type = result, address = subHandlingData}
-			end
+			local doesTableInclude = table.find(HandlingType, type)
+			if doesTableInclude then tbl[#tbl+1] = {type = type, address = subHandlingData} end
 		end
 	end
 	return tbl
@@ -5115,7 +5121,6 @@ function HandlingEditor:removeSubHandlingData()
 	self.subHandlingData = {}
 end
 
-
 function HandlingEditor:onTick()
 	local vehicle = entities.get_user_vehicle_as_handle()
 	if self.isOpen and ENTITY.DOES_ENTITY_EXIST(vehicle) and not ENTITY.IS_ENTITY_DEAD(vehicle, false) then
@@ -5333,8 +5338,8 @@ menu.toggle_loop(vehicleOptions, translate("Vehicle Effects", "Vehicle Effects")
 	local effect = effects[selectedOpt]
 	local vehicle = PED.GET_VEHICLE_PED_IS_IN(players.user_ped(), false)
 
-	if lastEffect.elapsed() > effect[4] and ENTITY.DOES_ENTITY_EXIST(vehicle) and
-	not ENTITY.IS_ENTITY_DEAD(vehicle, false) and VEHICLE.IS_VEHICLE_DRIVEABLE(vehicle, false) then
+	if ENTITY.DOES_ENTITY_EXIST(vehicle) and not ENTITY.IS_ENTITY_DEAD(vehicle, false) and
+	VEHICLE.IS_VEHICLE_DRIVEABLE(vehicle, false) and lastEffect.elapsed() > effect[4] then
 		request_fx_asset(effect[1])
 		for _, bone in pairs(wheelBones) do
 			GRAPHICS.USE_PARTICLE_FX_ASSET(effect[1])
@@ -6125,11 +6130,6 @@ function Group:pushMember(member)
 		PED.SET_PED_NEVER_LEAVES_GROUP(member.handle, true)
 	end
 	PED.SET_PED_RELATIONSHIP_GROUP_HASH(member.handle, self.rg)
-
-	local myRg = PED.GET_PED_RELATIONSHIP_GROUP_HASH(players.user_ped())
-	PED.SET_RELATIONSHIP_BETWEEN_GROUPS(0, self.rg, myRg)
-	PED.SET_RELATIONSHIP_BETWEEN_GROUPS(0, myRg, self.rg)
-
 	PED.SET_GROUP_SEPARATION_RANGE(self.getID(), 9999.0)
 	PED.SET_GROUP_FORMATION_SPACING(self.getID(), 1.0, 0.9, 3.0)
 	PED.SET_GROUP_FORMATION(self.getID(), self.formation)
@@ -6144,9 +6144,6 @@ function Group:setRelationshipGrp(rgHash)
 		if ENTITY.DOES_ENTITY_EXIST(ped) and
 		request_control(ped, 1000) then PED.SET_PED_RELATIONSHIP_GROUP_HASH(ped, rgHash) end
 	end
-	local myRg = PED.GET_PED_RELATIONSHIP_GROUP_HASH(players.user_ped())
-	PED.SET_RELATIONSHIP_BETWEEN_GROUPS(0, rgHash, myRg)
-	PED.SET_RELATIONSHIP_BETWEEN_GROUPS(0, myRg, rgHash)
 	self.rg = rgHash
 end
 
