@@ -43,14 +43,14 @@ local countdown = 3 -- `seconds`
 local isCounting = false
 local lastCountdown <const> = newTimer()
 local state = State.NonExistent
-local chargeLevel = 1.0
+local chargeLevel = 0.0
 local timer <const> = newTimer()
 local didShoot = false
 local NULL <const> = 0
 local becomeOrbitalCannon = menu.ref_by_path("Online>Become The Orbital Cannon", 38)
 local orbitalBlast = Effect.new("scr_xm_orbital", "scr_xm_orbital_blast")
-local smothFadeOut = true
-local lastSceneStart = newTimer()
+local newSceneStart = newTimer()
+local chargeTimer = newTimer()
 
 self.exists = function ()
     return state ~= State.NonExistent
@@ -238,18 +238,16 @@ Destroy = function ()
     STREAMING.CLEAR_FOCUS()
     NETWORK.NETWORK_SET_IN_FREE_CAM_MODE(false)
     
-
     local pScaleform = memory.alloc_int()
     memory.write_int(pScaleform, scaleform)
     GRAPHICS.SET_SCALEFORM_MOVIE_AS_NO_LONGER_NEEDED(pScaleform)
     scaleform = 0
 
     zoomLevel = 0.0
-    chargeLevel = 1.0
+    chargeLevel = 0.0
     didShoot = false
     targetId = -1
     camFov = maxFov
-    smothFadeOut = true
 end
 
 
@@ -272,8 +270,9 @@ end
 ---@param player Player
 ---@return boolean
 local IsPlayerTargetable = function (player)
+    local ped = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(player)
     if player ~= -1 and PLAYER.IS_PLAYER_PLAYING(player) and not is_player_passive(player) 
-    and not players.is_in_interior(player) then
+    and not INTERIOR.GET_INTERIOR_FROM_ENTITY(ped) == 0 then
         return true
     end
     return false
@@ -291,8 +290,7 @@ self.mainLoop = function ()
         -- Do nothing
     elseif state == State.FadingOut then
         if not CAM.IS_SCREEN_FADED_OUT() then
-            local duration = smothFadeOut and 800 or 0
-            CAM.DO_SCREEN_FADE_OUT(duration)
+            CAM.DO_SCREEN_FADE_OUT(800)
         else
             state = State.CreatingCam
         end
@@ -319,17 +317,17 @@ self.mainLoop = function ()
         state = State.LoadingScene
 
     elseif state == State.LoadingScene then
-        local pos =players.get_position(targetId)
+        local pos = players.get_position(targetId)
         STREAMING.NEW_LOAD_SCENE_START_SPHERE(pos.x, pos.y, pos.z, 300.0, false)
         STREAMING.SET_FOCUS_POS_AND_VEL(pos.x, pos.y, pos.z, 5.0, 0.0, 0.0)
         NETWORK.NETWORK_SET_IN_FREE_CAM_MODE(true)
         timer.disable()
-        lastSceneStart.reset()
+        newSceneStart.reset()
         state = State.FadingIn
 
     elseif state == State.FadingIn then
         if not timer.isEnabled() then
-            if STREAMING.IS_NEW_LOAD_SCENE_LOADED() or lastSceneStart.elapsed() > 10000 then
+            if STREAMING.IS_NEW_LOAD_SCENE_LOADED() or newSceneStart.elapsed() > 10000 then
                 STREAMING.NEW_LOAD_SCENE_STOP()
                 timer.reset()
             end
@@ -355,7 +353,15 @@ self.mainLoop = function ()
         GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
 
         if state == State.Spectating then
-            if PAD.IS_DISABLED_CONTROL_PRESSED(0, 69) then
+            if not chargeTimer.isEnabled() then
+                chargeTimer.reset()
+            elseif chargeTimer.elapsed() < 3000 then
+                chargeLevel = interpolate(0.0, 100.0, chargeTimer.elapsed() / 3000)
+            else
+                chargeLevel = 100.0
+            end
+
+            if PAD.IS_DISABLED_CONTROL_PRESSED(0, 69) and chargeLevel == 100.0 then
                 if not isCounting then
                     PAD.SET_PAD_SHAKE(0, 1000, 50)
                     sounds.fireLoop:play()
@@ -372,7 +378,7 @@ self.mainLoop = function ()
                 GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_INT(countdown)
                 GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
 
-            elseif isCounting then
+            elseif isCounting and chargeLevel == 100.0 then
                 AUDIO.SET_VARIABLE_ON_SOUND(sounds.fireLoop.Id, "Firing", 0.0)
                 sounds.fireLoop:stop()
                 countdown = 3
@@ -465,14 +471,12 @@ self.destroy = function ()
 end
 
 
-self.create = function (player)
-    if player == targetId then
+---@param target Player
+self.create = function (target)
+    if target == targetId then
         return
     end
-    if self.exists() then
-        smothFadeOut = false
-    end
-    targetId = player
+    targetId = target
     state = State.FadingOut
 end
 
