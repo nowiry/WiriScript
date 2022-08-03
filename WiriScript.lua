@@ -19,7 +19,8 @@ local required <const> = {
 	"lib/pretty/json/parser.lua",
 	"lib/pretty/json/serializer.lua",
 	"lib/wiriscript/ped_list.lua",
-	"lib/wiriscript/homing_missiles.lua"
+	"lib/wiriscript/homing_missiles.lua",
+	"lib/wiriscript/orbital_cannon.lua"
 }
 local scriptdir <const> = filesystem.scripts_dir()
 for _, file in ipairs(required) do
@@ -32,6 +33,7 @@ local UFO = require "wiriscript.ufo"
 local GuidedMissile = require "wiriscript.guided_missile"
 local pedList <const> = require "wiriscript.ped_list"
 local homingMissiles = require "wiriscript.homing_missiles"
+local orbitalCannon = require "wiriscript.orbital_cannon"
 
 if filesystem.exists(filesystem.resources_dir() .. "WiriTextures.ytd") then
 	util.register_file(filesystem.resources_dir() .. "WiriTextures.ytd")
@@ -1220,328 +1222,19 @@ generate_features = function(pId)
 	-- KILL AS THE ORBITAL CANNON
 	-------------------------------------
 
-	local msg = translate("Trolling", "The player is in interior")
+	local trans =
+	{
+		InInterior = translate("Trolling", "The player is in interior"),
+		Passive = translate("Trolling", "The player is in passive mode")
+	}
 
 	menu.action(trollingOpt, translate("Trolling", "Kill With Orbital Cannon"), {"orbital"}, "", function()
 		if players.is_in_interior(pId) then
-			notification:help(msg, HudColour.red)
-			return
-		elseif gUsingOrbitalCannon then
-			if gCannonTarget == pId then
-				return
-			end
-
-			local timer = newTimer()
-			local state = 0
-
-			util.create_tick_handler(function ()
-				if  state == 0 then
-					CAM.DO_SCREEN_FADE_OUT(800)
-					state = 1
-					timer.reset()
-				elseif state == 1 and CAM.IS_SCREEN_FADED_OUT() then
-					gCannonTarget = pId
-					state = 2
-					timer.reset()
-				elseif state == 2 and timer.elapsed() > 2500 then
-					CAM.DO_SCREEN_FADE_IN(800)
-					return false
-				end
-			end)
-
-			return
-		end
-
-		gUsingOrbitalCannon = true
-		gCannonTarget = pId
-		local cam = 0
-		local zoomLevel = 0.0
-		local scaleform = 0
-		local maxFov <const> = 110
-		local minFov <const> = 25
-		local camFov = maxFov
-		local zoomTimer <const> = newTimer()
-		local canZoom = false -- Used when not using keyboard
-		local State =
-		{
-			NonExisted = -1,
-			FadingIn = 0,
-			Spectating = 1,
-			Shooting = 2,
-			FadingOut = 3,
-			Destroying = 4,
-		}
-
-		---@param playSound boolean
-		local function dispatchZoomLevel(playSound)
-			if playSound then Sounds.zoomOut:play() end
-			GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_ZOOM_LEVEL")
-			GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(zoomLevel)
-			GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
-			zoomTimer.reset()
-		end
-
-		local setCannonCamZoom = function ()
-			local fovTarget = interpolate(maxFov, minFov, zoomLevel)
-			local fov = CAM.GET_CAM_FOV(CAM.GET_RENDERING_CAM())
-			if fovTarget ~= fov then
-				camFov = interpolate(fov, fovTarget, zoomTimer.elapsed() / 200)
-				CAM.SET_CAM_FOV(cam, camFov)
-				return
-			else
-				Sounds.zoomOut:stop()
-			end
-
-			if PAD._IS_USING_KEYBOARD(2) then
-				if PAD.IS_DISABLED_CONTROL_JUST_PRESSED(2, 241) and zoomLevel < 1.0 then
-					zoomLevel = zoomLevel + 0.25
-					dispatchZoomLevel(true)
-				elseif PAD.IS_DISABLED_CONTROL_JUST_PRESSED(2, 242) and
-				zoomLevel > 0.0 then
-					zoomLevel = zoomLevel - 0.25
-					dispatchZoomLevel(true)
-				end
-			elseif canZoom then
-				local controlNormal = PAD.GET_CONTROL_NORMAL(2, 221)
-				if controlNormal > 0.3 and canZoom and zoomLevel < 1.0 then
-					zoomLevel = zoomLevel + 0.25
-					dispatchZoomLevel(true)
-					canZoom = false
-				elseif controlNormal < -0.3 and canZoom and zoomLevel > 0.0 then
-					zoomLevel = zoomLevel - 0.25
-					dispatchZoomLevel(true)
-					canZoom = false
-				end
-			elseif PAD.GET_CONTROL_NORMAL(2, 221) == 0 then
-				canZoom = true
-			end
-		end
-
-		---@param pos Vector3
-		---@param size number
-		---@param hudColour integer
-		local drawLockonSprite = function (pos, size, hudColour)
-			if GRAPHICS.HAS_STREAMED_TEXTURE_DICT_LOADED("helicopterhud") then
-				local colour = get_hud_colour(hudColour)
-				local txdSizeX = 0.013
-				local txdSizeY = 0.013 * GRAPHICS._GET_ASPECT_RATIO(0)
-				GRAPHICS.SET_DRAW_ORIGIN(pos.x, pos.y, pos.z, 0)
-				size = (size * 0.03)
-				GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner", -size * 0.5, -size, txdSizeX, txdSizeY, 0.0, colour.r, colour.g, colour.b, colour.a, true, 0)
-				GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner",  size * 0.5, -size, txdSizeX, txdSizeY, 90., colour.r, colour.g, colour.b, colour.a, true, 0)
-				GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner", -size * 0.5,  size, txdSizeX, txdSizeY, 270, colour.r, colour.g, colour.b, colour.a, true, 0)
-				GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner",  size * 0.5,  size, txdSizeX, txdSizeY, 180, colour.r, colour.g, colour.b, colour.a, true, 0)
-				GRAPHICS.CLEAR_DRAW_ORIGIN()
-			end
-		end
-
-		local countdown = 3 -- `seconds`
-		local isCounting = false
-		local countdownTimer <const> = newTimer()
-		local state = State.NonExisted
-		local chargeLvl = 1.0
-		local fadingTimer <const> = newTimer()
-		local didShoot = false
-
-		while true do
-			util.yield()
-			if not GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(scaleform) then
-				scaleform = GRAPHICS.REQUEST_SCALEFORM_MOVIE("ORBITAL_CANNON_CAM")
-				while not GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(scaleform) do util.yield_once() end
-			end
-
-			if not CAM.DOES_CAM_EXIST(cam) then
-				if not CAM.IS_SCREEN_FADED_OUT() then
-					CAM.DO_SCREEN_FADE_OUT(800)
-				else
-					ENTITY.FREEZE_ENTITY_POSITION(PLAYER.PLAYER_PED_ID(), true)
-					AUDIO.REQUEST_SCRIPT_AUDIO_BANK("DLC_CHRISTMAS2017/XM_ION_CANNON", false, -1)
-					AUDIO.START_AUDIO_SCENE("dlc_xm_orbital_cannon_camera_active_scene")
-					request_streamed_texture_dict("helicopterhud")
-					Sounds.activating:play()
-
-					CAM.DESTROY_ALL_CAMS(true)
-					local target = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(gCannonTarget)
-					local pos = ENTITY.GET_ENTITY_COORDS(target, false)
-					cam = CAM.CREATE_CAM_WITH_PARAMS("DEFAULT_SCRIPTED_CAMERA", pos.x, pos.y, pos.z + 150.0, -90.0, 0.0, 0.0, maxFov, false, 1)
-					CAM.SET_CAM_ACTIVE(cam, true)
-					CAM.RENDER_SCRIPT_CAMS(true, false, 0, true, false, 0)
-					GRAPHICS.ANIMPOSTFX_PLAY("MP_OrbitalCannon", 0, true)
-					STREAMING.SET_FOCUS_POS_AND_VEL(pos.x, pos.y, pos.z, 5.0, 0.0, 0.0)
-					menu.trigger_commands("becomeorbitalcannon on")
-
-					dispatchZoomLevel(false)
-					fadingTimer.reset()
-					state = State.FadingIn
-				end
-			elseif state == State.FadingIn and CAM.IS_SCREEN_FADED_OUT() then
-				if fadingTimer.elapsed() > 2000 then
-					CAM.DO_SCREEN_FADE_IN(500)
-
-					Sounds.activating:stop()
-					Sounds.backgroundLoop:play()
-					AUDIO.PLAY_SOUND_FRONTEND(-1, "cannon_active", "dlc_xm_orbital_cannon_sounds", true)
-					state = State.Spectating
-				end
-			else
-				local targetPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(gCannonTarget)
-				local pos = ENTITY.GET_ENTITY_COORDS(targetPed, false)
-				STREAMING.SET_FOCUS_POS_AND_VEL(pos.x, pos.y, pos.z, 5.0, 0.0, 0.0)
-				CAM.SET_CAM_COORD(cam, pos.x, pos.y, pos.z + 150.0)
-				DisablePhone()
-				HudTimer.DisableThisFrame()
-
-				for _, player in ipairs(players.list()) do
-					if not players.is_in_interior(player) and player ~= gCannonTarget then
-						local playerPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(player)
-						local pos = ENTITY.GET_ENTITY_COORDS(playerPed, false)
-						local txdSize = interpolate(1.0, 0.5, camFov / maxFov)
-						drawLockonSprite(pos, txdSize, HudColour.green)
-					end
-				end
-				-- To prevent user ped falling through the map
-				local myPos = ENTITY.GET_ENTITY_COORDS(players.user_ped(), false)
-            	STREAMING.REQUEST_COLLISION_AT_COORD(myPos.x, myPos.y, myPos.z)
-
-				GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_STATE")
-				GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_INT(4)
-				GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
-
-				if NETWORK.NETWORK_IS_IN_TRANSITION() or
-				not NETWORK.NETWORK_IS_PLAYER_ACTIVE(gCannonTarget)then
-					state = State.Destroying
-				end
-
-				if state == State.Spectating then
-					if PAD.IS_DISABLED_CONTROL_PRESSED(0, 69) then
-						if not isCounting then
-							PAD.SET_PAD_SHAKE(0, 1000, 50)
-							countdownTimer.reset()
-							Sounds.fireLoop:play()
-							isCounting = true
-						end
-						if countdownTimer.elapsed() > 1000 and countdown > 0 then
-							countdown = countdown - 1
-							countdownTimer.reset()
-						end
-						GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_COUNTDOWN")
-						GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_INT(countdown)
-						GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
-					elseif isCounting then
-						AUDIO.SET_VARIABLE_ON_SOUND(Sounds.fireLoop.Id, "Firing", 0.0)
-						Sounds.fireLoop:stop()
-						isCounting = false
-						countdown = 3
-					end
-					setCannonCamZoom()
-					if countdown == 0 then
-						Sounds.fireLoop:stop()
-						state = State.Shooting
-					end
-					if PAD.IS_DISABLED_CONTROL_JUST_PRESSED(2, 202) then
-						fadingTimer.reset()
-						state = State.FadingOut
-					end
-				elseif state == State.Shooting then
-					chargeLvl = 0.0
-					local effect = Effect.new("scr_xm_orbital", "scr_xm_orbital_blast")
-					STREAMING.REQUEST_NAMED_PTFX_ASSET(effect.asset)
-					while not STREAMING.HAS_NAMED_PTFX_ASSET_LOADED(effect.asset) do
-						util.yield()
-					end
-					FIRE.ADD_OWNED_EXPLOSION(PLAYER.PLAYER_PED_ID(), pos.x, pos.y, pos.z, 59, 1.0, true, false, 1.0)
-					GRAPHICS.USE_PARTICLE_FX_ASSET(effect.asset)
-					GRAPHICS.START_NETWORKED_PARTICLE_FX_NON_LOOPED_AT_COORD(
-						effect.name,
-						pos.x,
-						pos.y,
-						pos.z,
-						0.0,
-						0.0,
-						0.0,
-						1.0,
-						false, false, false, true
-					)
-					AUDIO.PLAY_SOUND_FROM_COORD(-1, "DLC_XM_Explosions_Orbital_Cannon", pos.x, pos.y, pos.z, 0, true, 0, false)
-					CAM.SHAKE_CAM(cam, "GAMEPLAY_EXPLOSION_SHAKE", 1.5)
-					PAD.SET_PAD_SHAKE(0, 500, 256)
-					fadingTimer.reset()
-					state = State.FadingOut
-					didShoot = true
-				elseif state == State.FadingOut then
-					if CAM.IS_SCREEN_FADED_OUT() then
-						if fadingTimer.elapsed() > 1000 then
-							state = State.Destroying
-						end
-					elseif not didShoot or fadingTimer.elapsed() > 1000 then
-						CAM.DO_SCREEN_FADE_OUT(800)
-						fadingTimer.reset()
-					end
-				elseif state == State.Destroying then
-					Sounds.backgroundLoop:stop()
-					Sounds.fireLoop:stop()
-					Sounds.zoomOut:stop()
-					Sounds.activating:stop()
-
-					ENTITY.FREEZE_ENTITY_POSITION(PLAYER.PLAYER_PED_ID(), false)
-					PLAYER.DISABLE_PLAYER_FIRING(PLAYER.PLAYER_ID(), false)
-					menu.trigger_commands("becomeorbitalcannon off")
-
-					GRAPHICS.ANIMPOSTFX_STOP("MP_OrbitalCannon")
-					AUDIO.STOP_AUDIO_SCENE("dlc_xm_orbital_cannon_camera_active_scene")
-					AUDIO.RELEASE_NAMED_SCRIPT_AUDIO_BANK("DLC_CHRISTMAS2017/XM_ION_CANNON")
-					set_streamed_texture_dict_as_no_longer_needed("helicopterhud")
-
-					CAM.RENDER_SCRIPT_CAMS(false, false, 0, true, false, 0)
-					CAM.SET_CAM_ACTIVE(cam, false)
-					CAM.DESTROY_CAM(cam, false)
-					STREAMING.CLEAR_FOCUS()
-
-					local pScaleform = memory.alloc_int()
-					memory.write_int(pScaleform, scaleform)
-					GRAPHICS.SET_SCALEFORM_MOVIE_AS_NO_LONGER_NEEDED(pScaleform)
-
-					util.yield(800)
-					CAM.DO_SCREEN_FADE_IN(800)
-					gUsingOrbitalCannon = false
-					break
-				end
-
-				if Instructional:begin() then
-					Instructional.add_control(202, "HUD_INPUT3")
-					if PAD._IS_USING_KEYBOARD(0) then
-						Instructional.add_control(242, "ORB_CAN_ZOOMO")
-						Instructional.add_control(241, "ORB_CAN_ZOOMI")
-					else
-						Instructional.add_control(221, "ORB_CAN_ZOOM")
-					end
-					Instructional.add_control(24, "ORB_CAN_FIRE")
-        			Instructional:set_background_colour(0, 0, 0, 80)
-        			Instructional:draw()
-				end
-
-				PAD.DISABLE_CONTROL_ACTION(0, 24, true)
-				PAD.DISABLE_CONTROL_ACTION(0, 257, true)
-				PAD.DISABLE_CONTROL_ACTION(0, 84, true)
-				PAD.DISABLE_CONTROL_ACTION(0, 85, true)
-				PAD.DISABLE_CONTROL_ACTION(0, 142, true)
-				PAD.DISABLE_CONTROL_ACTION(0, 141, true)
-				PAD.DISABLE_CONTROL_ACTION(0, 140, true)
-				PAD.DISABLE_CONTROL_ACTION(0, 263, true)
-				PAD.DISABLE_CONTROL_ACTION(0, 264, true)
-				PAD.DISABLE_CONTROL_ACTION(0, 143, true)
-				PAD.DISABLE_CONTROL_ACTION(2, 200, true)
-				HUD._HUD_WEAPON_WHEEL_IGNORE_SELECTION()
-				HUD.HIDE_HUD_AND_RADAR_THIS_FRAME()
-
-				GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_CHARGING_LEVEL")
-				GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(chargeLvl)
-				GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
-
-				GRAPHICS.SET_SCRIPT_GFX_DRAW_ORDER(0)
-				GRAPHICS.DRAW_SCALEFORM_MOVIE_FULLSCREEN(scaleform, 255, 255, 255, 255, 0)
-				GRAPHICS.RESET_SCRIPT_GFX_ALIGN()
-			end
+			notification:help(trans.InInterior, HudColour.red)
+		elseif is_player_passive(pId) then
+			notification:help(trans.Passive, HudColour.red)
+		elseif not orbitalCannon.exists() then
+			orbitalCannon.create(pId)
 		end
 	end)
 
@@ -7066,23 +6759,8 @@ util.on_stop(function()
 		util.log("Active spoofing profile disabled due to script stop")
 	end
 
-	if gUsingOrbitalCannon then
-		ENTITY.FREEZE_ENTITY_POSITION(PLAYER.PLAYER_PED_ID(), false)
-		menu.trigger_commands("becomeorbitalcannon off")
-		GRAPHICS.ANIMPOSTFX_STOP("MP_OrbitalCannon")
-		set_streamed_texture_dict_as_no_longer_needed("helicopterhud")
-
-		HUD.DISPLAY_RADAR(true)
-		CAM.RENDER_SCRIPT_CAMS(false, false, 0, true, false, 0)
-		STREAMING.CLEAR_FOCUS()
-		CAM.DESTROY_ALL_CAMS(true)
-		CAM.DO_SCREEN_FADE_IN(0)
-
-		AUDIO.STOP_AUDIO_SCENE("dlc_xm_orbital_cannon_camera_active_scene")
-		Sounds.activating:stop()
-		Sounds.backgroundLoop:stop()
-		Sounds.fireLoop:stop()
-		Sounds.zoomOut:stop()
+	if orbitalCannon.exists() then
+		orbitalCannon.destroy()
 	end
 
 	if gIsShowingCredits then
@@ -7102,6 +6780,7 @@ while true do
 	bodyguardMenu:onTick()
 	GuidedMissile.mainLoop()
 	UFO.mainLoop()
+	orbitalCannon.mainLoop()
 	handlingEditor:onTick()
-	util.yield()
+	util.yield_once()
 end

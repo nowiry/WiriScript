@@ -598,7 +598,6 @@ local LockOnManager = function ()
 		end
 		UpdateTargetEntities()
 	end
-
 	LockOnTargets()
 end
 
