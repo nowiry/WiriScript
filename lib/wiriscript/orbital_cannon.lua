@@ -419,6 +419,7 @@ self.mainLoop  = function ()
 
             local pos = players.get_position(targetId)
             CAM.SET_CAM_COORD(cam, pos.x, pos.y, pos.z + 300.0)
+            SetCannonCamZoom()
 
         elseif state == State.Spectating then
             local camPos = CAM.GET_CAM_COORD(cam)
