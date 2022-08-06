@@ -167,7 +167,7 @@ end
 
 ---@param player Player
 ---@return integer
-local GetPlayerOrgSlot = function (player)
+local GetPlayerOrgBoss = function (player)
 	if player ~= -1 then
 		local address = memory.script_global(1892703 + (player * 599 + 1) + 10)
 		if address ~= 0 then return memory.read_int(address) end
@@ -180,8 +180,8 @@ end
 ---@param player1 Player
 ---@return boolean
 local ArePlayersInTheSameOrg = function (player0, player1)
-	local slot0 = GetPlayerOrgSlot(player0)
-	return slot0 ~= -1 and slot0 == GetPlayerOrgSlot(player1)
+	local slot0 = GetPlayerOrgBoss(player0)
+	return slot0 ~= -1 and slot0 == GetPlayerOrgBoss(player1)
 end
 
 
