@@ -342,7 +342,7 @@ function Sound:play()
 end
 
 function Sound:stop()
-	if self.Id ~= -1 then
+	if not AUDIO.HAS_SOUND_FINISHED(self.Id) then
         AUDIO.STOP_SOUND(self.Id)
         AUDIO.RELEASE_SOUND_ID(self.Id)
         self.Id = -1
@@ -956,13 +956,24 @@ function get_entity_owner(entity)
 end
 
 ---@param player Player
+---@return boolean
 function is_player_passive(player)
-	if player == players.user() then
-		local address = memory.script_global(1574582)
-		if address ~= 0 then return memory.read_int(address) == 1 end
-	else
+	if player ~= players.user() then
 		local address = memory.script_global(1892703 + (player * 599 + 1) + 8)
-		if address ~= 0 then return memory.read_byte(address) == 1 end
+		if address ~= NULL then return memory.read_byte(address) == 1 end
+	else
+		local address = memory.script_global(1574582)
+		if address ~= NULL then return memory.read_int(address) == 1 end
+	end
+	return false
+end
+
+---@param player Player
+---@return boolean
+function is_player_in_any_interior(player)
+	local address = memory.script_global(2689235 + (player * 453 + 1) + 243)
+	if address ~= NULL then
+		return memory.read_int(address) ~= 0
 	end
 	return false
 end
@@ -1123,6 +1134,25 @@ end
 function set_streamed_texture_dict_as_no_longer_needed(textureDict)
 	util.spoof_script("main_persistent", function()
 		GRAPHICS.SET_STREAMED_TEXTURE_DICT_AS_NO_LONGER_NEEDED(textureDict)
+	end)
+end
+
+---@param name string
+---@return integer
+function request_scaleform_movie(name)
+	local handle
+	util.spoof_script("main_persistent", function ()
+		handle = GRAPHICS.REQUEST_SCALEFORM_MOVIE(name)
+	end)
+	return handle
+end
+
+---@param handle integer
+function set_scaleform_movie_as_no_longer_needed(handle)
+	util.spoof_script("main_persistent", function ()
+		local ptr = memory.alloc_int()
+		memory.write_int(ptr, handle)
+		GRAPHICS.SET_SCALEFORM_MOVIE_AS_NO_LONGER_NEEDED(ptr)
 	end)
 end
 

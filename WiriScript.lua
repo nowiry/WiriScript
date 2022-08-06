@@ -1229,11 +1229,11 @@ generate_features = function(pId)
 	}
 
 	menu.action(trollingOpt, translate("Trolling", "Kill With Orbital Cannon"), {"orbital"}, "", function()
-		if players.is_in_interior(pId) then
+		if is_player_in_any_interior(pId) then
 			notification:help(trans.InInterior, HudColour.red)
 		elseif is_player_passive(pId) then
 			notification:help(trans.Passive, HudColour.red)
-		elseif not orbitalCannon.exists() then
+		elseif not orbitalCannon.exists() and PLAYER.IS_PLAYER_PLAYING(pId) then
 			orbitalCannon.create(pId)
 		end
 	end)
