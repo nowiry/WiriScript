@@ -354,11 +354,10 @@ function Sound:hasFinished()
 end
 
 function Sound:playFromEntity(entity)
-	if self.Id ~= -1 then
-		return
+	if self.Id == -1 then
+		self.Id = AUDIO.GET_SOUND_ID()
+		AUDIO.PLAY_SOUND_FROM_ENTITY(self.Id, self.name, entity, self.reference, true, 0)
 	end
-	self.Id = AUDIO.GET_SOUND_ID()
-	AUDIO.PLAY_SOUND_FROM_ENTITY(self.Id, self.name, entity, self.reference, true, 0)
 end
 
 --------------------------

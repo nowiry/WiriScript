@@ -473,15 +473,15 @@ local GetCrosshairPosition = function ()
 	local frontPos = v3.new(vehDir)
 	frontPos:mul(100)
 	frontPos:add(vehPos)
+
+	local handle =
+	SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(vehPos.x, vehPos.y, vehPos.z, frontPos.x, frontPos.y, frontPos.z, 511, myVehicle, 7)
+
 	local pHit = memory.alloc(1)
 	local endCoords = v3.new()
 	local normal = v3.new()
 	local pHitEntity = memory.alloc_int()
-
-	local handle =
-	SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(vehPos.x, vehPos.y, vehPos.z, frontPos.x, frontPos.y, frontPos.z, 511, myVehicle, 7)
 	local result = SHAPETEST.GET_SHAPE_TEST_RESULT(handle, pHit, endCoords, normal, pHitEntity)
-	
 	return memory.read_int(pHit) == 1 and endCoords or frontPos
 end
 
@@ -615,11 +615,13 @@ end
 
 
 local StopHomingSounds = function()
-	for _, sound in ipairs(redHomingSounds) do
-		if not sound:hasFinished() then sound:stop() end
-	end
-	for _, sound in ipairs(amberHomingSounds) do
-		if not sound:hasFinished() then sound:stop() end
+	for i = 1, 6 do
+		if not redHomingSounds[i]:hasFinished() then
+			redHomingSounds[i]:stop()
+		end
+		if not amberHomingSounds[i]:hasFinished() then
+			amberHomingSounds[i]:stop()
+		end
 	end
 end
 

@@ -3082,40 +3082,57 @@ menu.rainbow(trailColour)
 -- COMBUSTION MAN
 -------------------------------------
 
-local state = 0
 local hash <const> = util.joaat("VEHICLE_WEAPON_PLAYER_LAZER")
+local showNotification = true
+local lastShot = newTimer()
 local msg = translate("Self", "Press ~%s~ to use Combustion Man")
+local sound = Sound.new("Fire_Loop", "DLC_IE_VV_Gun_Player_Sounds")
+
+
+local DisableControlActions = function()
+	PAD.DISABLE_CONTROL_ACTION(0, 106, true)
+	PAD.DISABLE_CONTROL_ACTION(0, 122, true)
+	PAD.DISABLE_CONTROL_ACTION(0, 135, true)
+	PAD.DISABLE_CONTROL_ACTION(0, 140, true)
+	PAD.DISABLE_CONTROL_ACTION(0, 141, true)
+	PAD.DISABLE_CONTROL_ACTION(0, 142, true)
+	PAD.DISABLE_CONTROL_ACTION(0, 263, true)
+	PAD.DISABLE_CONTROL_ACTION(0, 264, true)
+end
+
 
 menu.toggle_loop(selfOpt, translate("Self", "Combustion Man"), {"combustionman"}, "", function()
-	if state == 0 then
+	if showNotification then
 		notification:help(msg, HudColour.black, "INPUT_ATTACK")
-		state = 1
+		showNotification = false
 	end
-	PAD.DISABLE_CONTROL_ACTION(2, 106, true)
-	PAD.DISABLE_CONTROL_ACTION(2, 122, true)
-	PAD.DISABLE_CONTROL_ACTION(2, 135, true)
-	HUD.DISPLAY_SNIPER_SCOPE_THIS_FRAME()
 
-	WEAPON.REQUEST_WEAPON_ASSET(hash, 31, 26)
-	if PAD.IS_DISABLED_CONTROL_PRESSED(2, 24) then
-		local pos = players.get_position(players.user())
+	HUD.DISPLAY_SNIPER_SCOPE_THIS_FRAME()
+	DisableControlActions()
+	if not WEAPON.HAS_WEAPON_ASSET_LOADED(hash) then
+		WEAPON.REQUEST_WEAPON_ASSET(hash, 31, 26)
+	end
+
+	if not PAD.IS_DISABLED_CONTROL_PRESSED(0, 24) then
+		if not sound:hasFinished() then
+			sound:stop()
+		end
+	elseif lastShot.elapsed() > 100 then
+		local pos = PED.GET_PED_BONE_COORDS(players.user_ped(), 0x322C, 0., 0., 0.)
 		local offset = get_offset_from_cam(80)
+		if sound:hasFinished() then
+			sound:playFromEntity(players.user_ped())
+			AUDIO.SET_VARIABLE_ON_SOUND(sound.Id, "fireRate", 10.0)
+		end
 		MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
-			pos.x,
-			pos.y,
-			pos.z,
-			offset.x,
-			offset.y,
-			offset.z,
-			200,
-			true,
-			hash,
-			PLAYER.PLAYER_PED_ID(),
-			true, true, -1.0
-		)
+			pos.x, pos.y, pos.z, offset.x, offset.y, offset.z, 200, true, hash, players.user_ped(), true, true, -1.0)
+		lastShot.reset()
 	end
 end, function()
-	state = 0
+	if not sound:hasFinished() then
+		sound:stop()
+	end
+	showNotification = true
 end)
 
 -------------------------------------
