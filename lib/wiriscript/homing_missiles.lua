@@ -86,18 +86,21 @@ local trans = {
 	DisablingPassive = translate("Misc", "Disabling passive mode")
 }
 local NULL <const> = 0
-
 ---@type Timer[]
 local homingTimers <const> = {}
-for i = 1, 6 do homingTimers[i] = newTimer() end
-
---- @type Sound[]
+---@type Sound[]
 local amberHomingSounds <const> = {}
-for i = 1, 6 do amberHomingSounds[i] = Sound.new("VULKAN_LOCK_ON_AMBER", 0) end
-
---- @type Sound[]
+---@type Sound[]
 local redHomingSounds <const> = {}
-for i = 1, 6 do redHomingSounds[i] = Sound.new("VULKAN_LOCK_ON_RED", 0) end
+---@type Timer[]
+local lostTargetTimers <const> = {}
+
+for i = 1, 6 do
+	homingTimers[i] = newTimer()
+	lostTargetTimers[i] = newTimer()
+	amberHomingSounds[i] = Sound.new("VULKAN_LOCK_ON_AMBER", NULL)
+	redHomingSounds[i] = Sound.new("VULKAN_LOCK_ON_RED", NULL)
+end
 
 local Bit_IsTargetShooting <const> = 0
 local Bit_IsRecharging <const> = 1
@@ -110,10 +113,10 @@ local Bit_IgnoreCrewMembers <const> = 5
 ---@param position v3
 ---@param scale number
 ---@param colour Colour
-local DrawLockOnSprite = function (position, scale, colour)
+local DrawLockonSprite = function (position, scale, colour)
 	if GRAPHICS.HAS_STREAMED_TEXTURE_DICT_LOADED("mpsubmarine_periscope") then
 		local txdSizeX = scale * 0.042
-		local txdSizeY = scale * 0.042 * GRAPHICS._GET_ASPECT_RATIO(0)
+		local txdSizeY = scale * 0.042 * GRAPHICS._GET_ASPECT_RATIO(false)
 		GRAPHICS.SET_DRAW_ORIGIN(position.x, position.y, position.z, 0)
 		GRAPHICS.DRAW_SPRITE(
 		"mpsubmarine_periscope", "target_default", 0.0, 0.0, txdSizeX, txdSizeY, 0.0, colour.r, colour.g, colour.b, colour.a, true, 0)
@@ -185,37 +188,44 @@ local ArePlayersInTheSameOrg = function (player0, player1)
 end
 
 
+---@param player Player
+---@return integer
+local GetHandleFromPlayer = function (player)
+	local handle = memory.alloc(104)
+	NETWORK.NETWORK_HANDLE_FROM_PLAYER(player, handle, 13)
+	return handle
+end
+
+
 ---@param player0 Player
 ---@param player1 Player
 ---@return boolean
 local ArePlayersInTheSameCrew = function (player0, player1)
 	if NETWORK.NETWORK_CLAN_SERVICE_IS_VALID() then
-		local pHandle0 = memory.alloc(104)
-		local pHandle1 = memory.alloc(104)
-		NETWORK.NETWORK_HANDLE_FROM_PLAYER(player0, pHandle0, 13)
-		NETWORK.NETWORK_HANDLE_FROM_PLAYER(player1, pHandle1, 13)
+		local handle0 = GetHandleFromPlayer(player0)
+		local handle1 = GetHandleFromPlayer(player1)
 
-		if NETWORK.NETWORK_CLAN_PLAYER_IS_ACTIVE(pHandle0) and
-		NETWORK.NETWORK_CLAN_PLAYER_IS_ACTIVE(pHandle1) then
-			local pClanDesc0 = memory.alloc(280)
-			local pClanDesc1 = memory.alloc(280)
-			NETWORK.NETWORK_CLAN_PLAYER_GET_DESC(pClanDesc0, 35, pHandle0)
-			NETWORK.NETWORK_CLAN_PLAYER_GET_DESC(pClanDesc1, 35, pHandle0)
-			return memory.read_int(pClanDesc0 + 0x0) == memory.read_int(pClanDesc1 + 0x0)
+		if NETWORK.NETWORK_CLAN_PLAYER_IS_ACTIVE(handle0) and
+		NETWORK.NETWORK_CLAN_PLAYER_IS_ACTIVE(handle1) then
+			local clanDesc0, clanDesc1 = memory.alloc(280), memory.alloc(280)
+			NETWORK.NETWORK_CLAN_PLAYER_GET_DESC(clanDesc0, 35, handle0)
+			NETWORK.NETWORK_CLAN_PLAYER_GET_DESC(clanDesc1, 35, handle0)
+			return memory.read_int(clanDesc0 + 0x0) == memory.read_int(clanDesc1 + 0x0)
 		end
-
 	end
 	return false
 end
 
 
 ---@param player Player
-local IsPedTargetablePlayer = function (ped)
+local IsPedAnyTargetablePlayer = function (ped)
 	local player = NETWORK.NETWORK_GET_PLAYER_INDEX_FROM_PED(ped)
-	if player == -1 or not players.exists(player) then
+	if player == -1 or not NETWORK.NETWORK_IS_PLAYER_CONNECTED(player) then
 		return false
 	end
-	if is_player_passive(player) then
+
+	if players.is_in_interior(player) or is_player_passive(player) or
+	NETWORK._IS_ENTITY_GHOSTED_TO_LOCAL_PLAYER(ped) then
 		return false
 	elseif bits:IsBitSet(Bit_IgnoreFriends) and is_player_friend(player) then
 		return false
@@ -238,7 +248,7 @@ local DoesVehicleHavePlayerDriver = function(vehicle)
 	end
 	local driver = VEHICLE.GET_PED_IN_VEHICLE_SEAT(vehicle, -1, false)
 	if not ENTITY.DOES_ENTITY_EXIST(driver) or not PED.IS_PED_A_PLAYER(driver) or
-	not IsPedTargetablePlayer(driver) then
+	not IsPedAnyTargetablePlayer(driver) then
 		return false
 	end
 	return true
@@ -283,8 +293,8 @@ local IsEntityTargetable = function(entity)
 		return false
 	end
 	if ENTITY.IS_ENTITY_A_PED(entity) and PED.IS_PED_A_PLAYER(entity) and
-	not PED.IS_PED_IN_ANY_VEHICLE(entity, false) and players.user_ped() ~= entity and
-	IsPedTargetablePlayer(entity) then
+	players.user_ped() ~= entity and not PED.IS_PED_IN_ANY_VEHICLE(entity, false) and
+	IsPedAnyTargetablePlayer(entity) then
 		return true
 	elseif ENTITY.IS_ENTITY_A_VEHICLE(entity) and entity ~= myVehicle then
 		if DoesVehicleHavePlayerDriver(entity) then
@@ -305,8 +315,9 @@ local SetNearbyEntities = function()
 	end
 	for _, entity in ipairs(entities) do
 		if count == 20 then break end
-		if IsEntityTargetable(entity) and not table.find(targetEnts, entity) and
-		not table.find(nearbyEntities, entity) and IsEntityInSaveScreenPos(entity) then
+		if bits:IsBitSet(Bit_IsCamPointingInFront) and IsEntityTargetable(entity) and
+		not table.find(targetEnts, entity) and not table.find(nearbyEntities, entity) and
+		IsEntityInSaveScreenPos(entity) then
 			nearbyEntities[count] = entity
 			count = count + 1
 		end
@@ -365,7 +376,7 @@ local SetTargetEntities = function()
 	local entity = nearbyEntities[entCount]
 
 	if ENTITY.DOES_ENTITY_EXIST(entity) and not ENTITY.IS_ENTITY_DEAD(entity, false) and
-	ENTITY.HAS_ENTITY_CLEAR_LOS_TO_ENTITY(myVehicle, entity, 511) then
+	ENTITY.HAS_ENTITY_CLEAR_LOS_TO_ENTITY(myVehicle, entity, 287) then
 		if numTargets < maxTargets then
 			if TargetEntitiesInsert(entity) then
 				nearbyEntities[entCount] = -1
@@ -413,7 +424,7 @@ end
 
 ---@param entity Entity
 ---@param count integer
-local LockOnEnity = function (entity, count)
+local LockonEntity = function (entity, count)
 	local redSound = redHomingSounds[count]
 	local bitPlace = count - 1
 	local lockOnTimer = homingTimers[count]
@@ -452,41 +463,76 @@ local LockOnEnity = function (entity, count)
 		hudColour = HudColour.red
 	end
 	local pos = ENTITY.GET_ENTITY_COORDS(entity, true)
-	DrawLockOnSprite(pos, 1.0, get_hud_colour(hudColour))
+	DrawLockonSprite(pos, 1.0, get_hud_colour(hudColour))
 end
 
 
-local LockOnTargets = function()
-    if numTargets == 0 and ENTITY.DOES_ENTITY_EXIST(myVehicle) and not ENTITY.IS_ENTITY_DEAD(myVehicle) and
-	VEHICLE.IS_VEHICLE_DRIVEABLE(myVehicle) then
-        local coords = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(myVehicle, 0.0, 100.0, 0.0)
+local GetCrosshairPosition = function ()
+	local vehPos = ENTITY.GET_ENTITY_COORDS(myVehicle, true)
+	local vehDir = ENTITY.GET_ENTITY_ROTATION(myVehicle, 2):toDir()
+	local frontPos = v3.new(vehDir)
+	frontPos:mul(100)
+	frontPos:add(vehPos)
+	local pHit = memory.alloc(1)
+	local endCoords = v3.new()
+	local normal = v3.new()
+	local pHitEntity = memory.alloc_int()
+
+	local handle =
+	SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(vehPos.x, vehPos.y, vehPos.z, frontPos.x, frontPos.y, frontPos.z, 511, myVehicle, 7)
+	local result = SHAPETEST.GET_SHAPE_TEST_RESULT(handle, pHit, endCoords, normal, pHitEntity)
+	
+	return memory.read_int(pHit) == 1 and endCoords or frontPos
+end
+
+
+local LockonTargets = function()
+    if numTargets == 0 and ENTITY.DOES_ENTITY_EXIST(myVehicle) and not ENTITY.IS_ENTITY_DEAD(myVehicle, false) and
+	VEHICLE.IS_VEHICLE_DRIVEABLE(myVehicle, false) then
+		local pos = GetCrosshairPosition()
 		local colour = get_hud_colour(HudColour.white)
 		colour.a = 160
-        DrawLockOnSprite(coords, 1.0, colour)
+        DrawLockonSprite(pos, 1.0, colour)
     end
-    for i, target in ipairs(targetEnts) do LockOnEnity(target, i) end
+    for i, target in ipairs(targetEnts) do LockonEntity(target, i) end
 end
 
 
-local UpdateTargetEntities = function()
+local UpdateTargetEntities = function ()
 	local count = 0
 	for i = 1, 6 do
-		local entity = targetEnts[i]
-		if entity == -1 or not ENTITY.DOES_ENTITY_EXIST(entity) or ENTITY.IS_ENTITY_DEAD(entity, false) or
-		not IsEntityInSaveScreenPos(entity) or not bits:IsBitSet(Bit_IsCamPointingInFront) or not
-		ENTITY.HAS_ENTITY_CLEAR_LOS_TO_ENTITY(entity, myVehicle, 511) or
-		not IsEntityTargetable(entity) then
-			targetEnts[i] = -1
-			if numTargets > 0 then numTargets = numTargets - 1 end
-		else
+		if ENTITY.DOES_ENTITY_EXIST(targetEnts[i]) then
+			local timer = lostTargetTimers[i]
+			local entity = targetEnts[i]
+
 			if i > maxTargets then
 				targetEnts[i] = -1
-				if numTargets > 0 then numTargets = numTargets - 1 end
-			else
-				count = count + 1
-			end
+				numTargets = numTargets - 1
+				timer.disable()
+
+			elseif not IsEntityInSaveScreenPos(entity) or not IsEntityTargetable(entity) or
+			not bits:IsBitSet(Bit_IsCamPointingInFront) then
+				targetEnts[i] = -1
+			  	numTargets = numTargets - 1
+			  	timer.disable()
+
+			elseif not ENTITY.HAS_ENTITY_CLEAR_LOS_TO_ENTITY(myVehicle, entity, 287) then
+				if not timer.isEnabled() then
+					timer.reset()
+				elseif timer.elapsed() > 1000 then
+					targetEnts[i] = -1
+					numTargets = numTargets - 1
+					timer.disable()
+				end
+
+			else timer.disable() end
+		end
+
+		if ENTITY.DOES_ENTITY_EXIST(targetEnts[i]) then
+			count = count + 1
 		end
 	end
+
 	if count ~= numTargets then
 		numTargets = count
 	end
@@ -501,7 +547,7 @@ end
 ---@param isVisible boolean
 ---@param speed number
 ---@param target Ped
----@param position integer
+---@param position integer #right: 0, left: 1
 local ShootFromVehicle = function (vehicle, damage, weaponHash, ownerPed, isAudible, isVisible, speed, target, position)
 	local pos = ENTITY.GET_ENTITY_COORDS(vehicle, true)
 	local min, max = v3.new(), v3.new()
@@ -515,11 +561,13 @@ local ShootFromVehicle = function (vehicle, damage, weaponHash, ownerPed, isAudi
 	elseif position == 1 then
 		local offset = {x = max.x - 0.3, y = max.y - 0.15, z = 0.3}
 		a = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(vehicle, offset.x, offset.y, offset.z)
+	else
+		error("got unexpected position")
 	end
 
 	local b = v3.new(direction)
 	b:mul(5.0); b:add(a)
-	MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS_IGNORE_ENTITY_NEW(a.x, a.y, a.z, b.x, b.y, b.z, damage, true, weaponHash, ownerPed, isAudible, not isVisible, speed, vehicle, 0, 0, target, 0, 0, 0, 0)
+	MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS_IGNORE_ENTITY_NEW(a.x, a.y, a.z, b.x, b.y, b.z, damage, true, weaponHash, ownerPed, isAudible, not isVisible, speed, vehicle, false, false, target, false, 0, 0, 0)
 	AUDIO.PLAY_SOUND_FROM_COORD(-1, "Fire", pos.x, pos.y, pos.z, "DLC_BTL_Terrobyte_Turret_Sounds", true, 120, true)
 end
 
@@ -576,7 +624,7 @@ local StopHomingSounds = function()
 end
 
 
-local LockOnManager = function ()
+local LockonManager = function ()
 	if bits:IsBitSet(Bit_IsRecharging) then
 		if rechargeTimer.elapsed() < 3000 then
 			chargeLevel = 100 * rechargeTimer.elapsed() / 3000
@@ -598,19 +646,19 @@ local LockOnManager = function ()
 		end
 		UpdateTargetEntities()
 	end
-	LockOnTargets()
+	LockonTargets()
 end
 
 
 Print = {}
 
 ---@param font integer
----@param scale v2
+---@param scale v3
 ---@param centred boolean
 ---@param rightJustified boolean
 ---@param outline boolean
 ---@param colour? Colour
----@param wrap? v2
+---@param wrap? v3
 Print.setupdraw = function(font, scale, centred, rightJustified, outline, colour, wrap)
     HUD.SET_TEXT_FONT(font)
     HUD.SET_TEXT_SCALE(scale.x, scale.y)
@@ -638,7 +686,6 @@ end
 
 
 local DrawChargingMeter = function ()
-	local safeRight = 0.95
 	local maxWidth = 0.119
 	local width = interpolate(0.0, maxWidth, chargeLevel / 100)
 	local colour = {r = 0, g = 153, b = 51, a = 255}
@@ -646,8 +693,8 @@ local DrawChargingMeter = function ()
 		colour = {r = 153, g = 0, b = 0, a = 255}
 	end
 	local height = 0.035
-	local rectPosX = 0.85 + width /2
-	GRAPHICS.DRAW_RECT(rectPosX, 0.55, width, height, colour.r, colour.g, colour.b, colour.a)
+	local rectPosX = 0.85 + width/2
+	GRAPHICS.DRAW_RECT(rectPosX, 0.55, width, height, colour.r, colour.g, colour.b, colour.a, true)
 
 	local textColour = get_hud_colour(HudColour.white)
 	Print.setupdraw(4, {x = 0.55, y = 0.55}, true, false, false, textColour)
@@ -655,7 +702,7 @@ local DrawChargingMeter = function ()
 	local text = (chargeLevel == 100) and "DRONE_READY" or "DRONE_CHARGING"
 	Print.drawstring(text, textPosX, 0.55 - 0.019)
 
-	GRAPHICS.DRAW_RECT(0.85 + maxWidth/2, 0.496, maxWidth, 0.06, 156, 156, 156, 80)
+	GRAPHICS.DRAW_RECT(0.85 + maxWidth/2, 0.496, maxWidth, 0.06, 156, 156, 156, 80, true)
 	Print.setupdraw(4, {x = 0.65, y = 0.65}, true, false, false, textColour)
 	Print.drawstring("DRONE_MISSILE", textPosX + 0.001, 0.495 - 0.02)
 end
@@ -686,6 +733,7 @@ self.reset = function()
 	myVehicle = 0
 	StopHomingSounds()
 	nearbyEntities = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}
+	for i = 1, 6 do lostTargetTimers[i].disable() end
 	state = State.Reseted
 end
 
@@ -732,7 +780,7 @@ self.mainLoop = function ()
 					bits:ClearBit(Bit_IsCamPointingInFront)
 				end
 
-				LockOnManager()
+				LockonManager()
 				ShootMissiles()
 				DrawChargingMeter()
 				DisablePhone()

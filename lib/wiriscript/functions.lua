@@ -324,8 +324,8 @@ end
 Sound = {Id = -1, name = "", reference = ""}
 Sound.__index = Sound
 
----@param name string
----@param reference string
+---@param name string|0
+---@param reference string|0
 ---@return Sound
 function Sound.new(name, reference)
 	local inst = setmetatable({}, Sound)

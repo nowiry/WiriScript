@@ -4050,13 +4050,14 @@ local shoot_from_vehicle = function (vehicle, damage, weaponHash, ownerPed, isAu
 	end
 	local a = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(vehicle, offset.x, offset.y, offset.z)
 	local direction = ENTITY.GET_ENTITY_ROTATION(vehicle, 2):toDir()
-	local b = v3.new(direction)
 	if get_vehicle_cam_relative_heading(vehicle) > 95.0 then
-		b:mul(-1)
+		direction:mul(-1)
 	end
+	local b = v3.new(direction)
 	b:mul(300.0); b:add(a)
+
 	MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS_IGNORE_ENTITY_NEW(a.x, a.y, a.z, b.x, b.y, b.z,
-			damage, true, weaponHash, ownerPed, isAudible, not isVisible, speed, vehicle, 0, 0, target, 0, 0, 0, 0)
+		damage, true, weaponHash, ownerPed, isAudible, not isVisible, speed, vehicle, 0, 0, target, 0, 0, 0, 0)
 end
 
 -------------------------------------
@@ -4160,7 +4161,7 @@ local trans =
 	Friends = translate("Homing Missiles - Whitelist", "Friends"),
 	OrgMembers = translate("Homing Missiles - Whitelist", "Organization Members"),
 	Crew = translate("Homing Missiles - Whitelist", "Crew Members"),
-	MaxTargets = translate("Homing Missiles - Whitelist", "Max Number Of Targets")
+	MaxTargets = translate("Vehicle - Vehicle Weapons", "Max Number Of Targets")
 }
 
 local list_homingMissiles = menu.list(vehicleWeaponRoot, trans.HomingMissiles, {}, trans.HelpText)
@@ -6331,6 +6332,7 @@ local cageModels <const> =
 	"stt_prop_stunt_tube_s",
 	"stt_prop_stunt_tube_end",
 	"prop_jetski_ramp_01",
+	"stt_prop_stunt_tube_xs"
 }
 local lastMsg = ""
 local lastNotification <const> = newTimer()
@@ -6361,13 +6363,13 @@ menu.toggle_loop(protectionOpt, translate("Protections", "Anticage"), {"anticage
 		end
 		local ownerId = get_entity_owner(obj)
 		local msg = string.format(format, PLAYER.GET_PLAYER_NAME(ownerId))
-		if  NETWORK.NETWORK_IS_PLAYER_CONNECTED(ownerId) and
+		if ownerId ~= players.user() and NETWORK.NETWORK_IS_PLAYER_CONNECTED(ownerId) and
 		(lastMsg ~= msg or lastNotification.elapsed() >= 15000) then
 			notification:normal(msg, HudColour.purpleDark)
 			lastMsg = msg
 			lastNotification.reset()
 		end
-		request_control(obj, 1000)
+		request_control(obj, 1500)
 		entities.delete_by_handle(obj)
 	::LABEL_CONTINUE::
 	end
@@ -6754,7 +6756,7 @@ end]]
 -- This function (along with some others on_stop functions) allow us to do 
 -- some cleanup when the script stops
 util.on_stop(function()
-	if profilesList:isAnyProfileEnabled() then
+	if  profilesList:isAnyProfileEnabled() then
 		profilesList:disableSpoofing()
 		util.log("Active spoofing profile disabled due to script stop")
 	end
