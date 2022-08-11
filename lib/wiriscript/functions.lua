@@ -890,15 +890,16 @@ function set_entity_as_no_longer_needed(entity)
 	ENTITY.SET_ENTITY_AS_NO_LONGER_NEEDED(pHandle)
 end
 
----@param ped Ped
----@param hash Hash
----@return boolean
-function is_ped_task_active(ped, hash)
-	if ENTITY.DOES_ENTITY_EXIST(ped) and not PED.IS_PED_INJURED(ped) then
-		local status = TASK.GET_SCRIPT_TASK_STATUS(ped, hash)
-		return status == 1 or status == 0
+
+---@param entity Entity
+---@param target Entity
+---@return number
+function get_distance_between_entities(entity, target)
+	if not ENTITY.DOES_ENTITY_EXIST(entity) or not ENTITY.DOES_ENTITY_EXIST(target) then
+		return 0.0
 	end
-	return false
+	local pos = ENTITY.GET_ENTITY_COORDS(entity, true)
+	return ENTITY.GET_ENTITY_COORDS(target, true):distance(pos)
 end
 
 --------------------------
@@ -944,7 +945,7 @@ end
 ---@return integer address
 function get_net_obj(entity)
 	local pEntity = entities.handle_to_pointer(entity)
-	return pEntity ~= NULL and memory.read_long(pEntity + 0x00D0) or NULL
+	return pEntity ~= NULL and memory.read_long(pEntity + 0xD0) or NULL
 end
 
 ---@param entity Entity
@@ -971,8 +972,22 @@ end
 ---@return boolean
 function is_player_in_any_interior(player)
 	local address = memory.script_global(2689235 + (player * 453 + 1) + 243)
-	if address ~= NULL then
-		return memory.read_int(address) ~= 0
+	return address ~= NULL and memory.read_int(address) ~= 0
+end
+
+---@param player Player
+---@return boolean
+function is_player_in_interior(player)
+	if player == -1 then
+		return false
+	end
+	local bits = read_global.int(1853348 + (player * 834 + 1) + 267 + 30)
+	if (bits & (1 << 0)) ~= 0 then
+		return true
+	elseif (bits & (1 << 1)) ~= 0 then
+		return true
+	elseif read_global.int(2689235 + (player * 453 + 1) + 318 + 6) ~= -1 then
+		return true
 	end
 	return false
 end

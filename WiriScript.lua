@@ -5,9 +5,11 @@ THIS FILE IS PART OF WIRISCRIPT
 --------------------------------
 ]]
 
----@diagnostic disable: exp-in-action, unknown-symbol, break-outside, code-after-break, miss-symbol, param-type-mismatch
-gVersion = 21
+
+---@diagnostic disable: param-type-mismatch
 local scriptStartTime = util.current_time_millis()
+gVersion = 21
+util.require_natives(1651208000)
 
 local required <const> = {
 	"lib/natives-1651208000.lua",
@@ -27,7 +29,6 @@ for _, file in ipairs(required) do
 	assert(filesystem.exists(scriptdir .. file), "required file not found: " .. file)
 end
 
-util.require_natives(1651208000)
 local Functions = require "wiriscript.functions"
 local UFO = require "wiriscript.ufo"
 local GuidedMissile = require "wiriscript.guided_missile"
@@ -372,13 +373,6 @@ local Imputs <const> = {
 	INPUT_VEH_HORN = {"E; L3", 86},
 	INPUT_VEH_CINEMATIC_UP_ONLY = {"Numpad +; none", 96},
 	INPUT_VEH_CINEMATIC_DOWN_ONLY = {"Numpad -; none", 97}
-}
-
-local Sounds <const> = {
-	zoomOut = Sound.new("zoom_out_loop", "dlc_xm_orbital_cannon_sounds"),
-	activating = Sound.new("cannon_activating_loop", "dlc_xm_orbital_cannon_sounds"),
-	backgroundLoop = Sound.new("background_loop", "dlc_xm_orbital_cannon_sounds"),
-	fireLoop = Sound.new("cannon_charge_fire_loop", "dlc_xm_orbital_cannon_sounds")
 }
 
 local NULL <const> = 0
@@ -1222,10 +1216,9 @@ generate_features = function(pId)
 	-- KILL AS THE ORBITAL CANNON
 	-------------------------------------
 
-	local trans =
-	{
-		InInterior = translate("Trolling", "The player is in interior"),
-		Passive = translate("Trolling", "The player is in passive mode")
+	local trans = {
+		Passive = translate("Trolling", "The player is in passive mode"),
+		InInterior = translate("Trolling", "The player is in interior")
 	}
 
 	menu.action(trollingOpt, translate("Trolling", "Kill With Orbital Cannon"), {"orbital"}, "", function()
@@ -2314,6 +2307,7 @@ generate_features = function(pId)
 					ENTITY.APPLY_FORCE_TO_ENTITY(
 					vehicle, 1, force.x, force.y, force.z, 0, 0, 0.5, 0, false, false, true, 0, 0)
 				end
+
 			elseif selectedOpt == 2 then
 				local pos = players.get_position(pId)
 				FIRE.ADD_EXPLOSION(pos.x, pos.y, pos.z, 29, 5.0, false, true, 0.0, true)
@@ -2409,6 +2403,43 @@ generate_features = function(pId)
 			end
 		end)
 	end, nil, nil, COMMANDPERM_RUDE)
+
+	-------------------------------------
+	-- SEND MUGGER
+	-------------------------------------
+
+	menu.action(trollingOpt, translate("Trolling", "Send Mugger"), {}, "", function(index)
+		if NETWORK.NETWORK_IS_SESSION_STARTED() and NETWORK.NETWORK_IS_PLAYER_ACTIVE(pId) and
+		not PED.IS_PED_INJURED(PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)) and not is_player_in_interior(pId) then
+
+			if not NETWORK.NETWORK_IS_SCRIPT_ACTIVE("am_gang_call", 0, true, 0) then
+				local bits_addr = memory.script_global(1853348 + (players.user() * 834 + 1) + 140)
+				memory.write_int(bits_addr, memory.read_int(bits_addr) | (1 << 0))
+				write_global.int(1853348 + (players.user() * 834 + 1) + 141, pId)
+			else
+				notification:help(translate("Trolling", "A mugger is already active"), HudColour.red)
+			end
+		end
+	end)
+
+	-------------------------------------
+	-- SEND MERCENARIES
+	-------------------------------------
+
+	menu.action(trollingOpt, translate("Trolling", "Send Mercenaries"), {}, "", function()
+		if NETWORK.NETWORK_IS_SESSION_STARTED() and NETWORK.NETWORK_IS_PLAYER_ACTIVE(pId) and
+		not PED.IS_PED_INJURED(PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)) and not is_player_in_interior(pId) then
+
+			if not NETWORK.NETWORK_IS_SCRIPT_ACTIVE("am_gang_call", 1, true, 0) then
+				local bits_addr = memory.script_global(1853348 + (players.user() * 834 + 1) + 140)
+				memory.write_int(bits_addr, memory.read_int(bits_addr) | (1 << 1))
+				write_global.int(1853348 + (players.user() * 834 + 1) + 141, pId)
+			else
+				local msg = translate("Trolling", "Mercenaries are already active")
+				notification:help(msg, HudColour.red)
+			end
+		end
+	end)
 
 	---------------------
 	---------------------
@@ -3194,7 +3225,7 @@ menu.toggle_loop(selfOpt, translate("Self", "God Finger"), {"godfinger"}, helpTx
 		lastStop.reset()
 		targetEntity = NULL
 	elseif explosionProof and lastStop.elapsed() > 500 then
-		-- No need to worry about disabling any proof if Stand's godmode is on because
+		-- No need to worry about disabling any proof if Stand's godmode is on, because
 		-- it'll turn them back on anyways
 		explosionProof = false
 		set_explosion_proof(players.user_ped(), false)
@@ -3269,7 +3300,6 @@ menu.toggle_loop(weaponOpt, translate("Weapon - Shooting Effect", "Shooting Effe
 	if PED.IS_PED_SHOOTING(PLAYER.PLAYER_PED_ID()) then
 		local weapon = WEAPON.GET_CURRENT_PED_WEAPON_ENTITY_INDEX(PLAYER.PLAYER_PED_ID(), false)
 		local boneId = ENTITY.GET_ENTITY_BONE_INDEX_BY_NAME(weapon, "gun_muzzle")
-
 		GRAPHICS.USE_PARTICLE_FX_ASSET(effect.asset)
 		GRAPHICS._START_NETWORKED_PARTICLE_FX_NON_LOOPED_ON_ENTITY_BONE(
 			effect.name,
@@ -5460,7 +5490,8 @@ end
 -- MEMBER
 -------------------------------------
 
----@diagnostic disable:undefined-global
+---@diagnostic disable: exp-in-action, unknown-symbol, break-outside, code-after-break, miss-symbol
+---@diagnostic disable: undefined-global
 ---@param ped Ped
 local IsPedAnyAnimal  = function(ped)
 	local modelHash = ENTITY.GET_ENTITY_MODEL(ped)
@@ -5525,7 +5556,7 @@ local IsPedFromAnyArmedForce = function (ped)
 	return false
 end
 
-
+---@diagnostic enable: exp-in-action, unknown-symbol, break-outside, code-after-break, miss-symbol
 ---@class Member
 Member =
 {
@@ -6121,6 +6152,22 @@ util.log("Bodyguards Menu initialized")
 
 local worldOptions <const> = menu.list(menu.my_root(), translate("World", "World"), {}, "")
 
+menu.toggle_loop(worldOptions, translate("World", "Highlight Muggers"), {}, "", function ()
+	if not NETWORK.NETWORK_IS_SESSION_ACTIVE() or
+	not NETWORK.NETWORK_IS_SCRIPT_ACTIVE("am_gang_call", 0, true, 0) then
+		return
+	end
+	util.spoof_script("am_gang_call", function()
+		local index = 0
+		local netId	= memory.read_int(memory.script_local("am_gang_call", 63 + 10 + (index * 7 + 1)))
+		if NETWORK.NETWORK_DOES_NETWORK_ID_EXIST(netId) and
+		not ENTITY.IS_ENTITY_DEAD(NETWORK.NET_TO_PED(netId), false) then
+			local mugger = NETWORK.NET_TO_PED(netId)
+			draw_box_esp(mugger, {r = 255, g = 0, b = 0, a = 255})
+		end
+	end)
+end)
+
 -------------------------------------
 -- JUMPING CARS
 -------------------------------------
@@ -6349,33 +6396,24 @@ local cageModels <const> =
 	"stt_prop_stunt_tube_s",
 	"stt_prop_stunt_tube_end",
 	"prop_jetski_ramp_01",
-	"stt_prop_stunt_tube_xs"
+	"stt_prop_stunt_tube_xs",
+	"prop_fnclink_03e",
+	"prop_container_05a",
+	"prop_jetski_ramp_01",
+	"prop_elecbox_12"
 }
 local lastMsg = ""
 local lastNotification <const> = newTimer()
 local format = translate("Protections", "Cage object from <C>%s</C>")
 
 
----@param entity Entity
----@param target Entity
----@return boolean
-function is_entity_inside_entity(entity, target)
-	local dist = ENTITY.GET_ENTITY_COORDS(entity, false)
-	dist:sub(ENTITY.GET_ENTITY_COORDS(target, false))
-	dist:abs()
-	local model = ENTITY.GET_ENTITY_MODEL(target)
-	local min, max = v3.new(), v3.new()
-	MISC.GET_MODEL_DIMENSIONS(model, min, max)
-	return dist.x < max.y and dist.y < max.x and dist.z < max.z
-end
-
 menu.toggle_loop(protectionOpt, translate("Protections", "Anticage"), {"anticage"}, "", function()
 	local myPos = players.get_position(players.user())
 	for _, model in ipairs(cageModels) do
 		local modelHash <const> =  util.joaat(model)
 		local obj = OBJECT.GET_CLOSEST_OBJECT_OF_TYPE(myPos.x, myPos.y, myPos.z, 8.0, modelHash, false, 0, 0)
-		if obj == NULL or not ENTITY.DOES_ENTITY_EXIST(obj) or
-		not is_entity_inside_entity(players.user_ped(), obj) then
+		if obj == 0 or not ENTITY.DOES_ENTITY_EXIST(obj) or
+		not ENTITY.IS_ENTITY_AT_ENTITY(players.user_ped(), obj, 5.0, 5.0, 5.0, false, true, false) then
 			goto LABEL_CONTINUE
 		end
 		local ownerId = get_entity_owner(obj)
@@ -6693,10 +6731,9 @@ end)]]
 memory.scan("CNetworkObjectMgr", "48 8B 0D ? ? ? ? 45 33 C0 E8 ? ? ? ? 33 FF 4C 8B F0", function (address)
 	CNetworkObjectMgr = memory.rip(address + 3)
 end)
---[[memory.scan("ChangeNetObjOwner", "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 54 41 56 41 57 48 81 EC ? ? ? ? 44 8A 62 4B", function (address)
-	ChangeNetObjOwner_addr = address 
+memory.scan("ChangeNetObjOwner", "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 54 41 56 41 57 48 81 EC ? ? ? ? 44 8A 62 4B", function (address)
+	ChangeNetObjOwner_addr = address
 end)
-]]
 
 ---@param player integer
 ---@return integer
@@ -6741,7 +6778,7 @@ end
 	return true
 end]]
 
---[[function ChangeNetObjOwner(object, player)
+function ChangeNetObjOwner(object, player)
 	if NETWORK.NETWORK_IS_IN_SESSION() then
 		local net_object_mgr = memory.read_long(CNetworkObjectMgr)
 		if net_object_mgr == NULL then
@@ -6764,7 +6801,7 @@ end]]
 		NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(object)
 		return true
 	end
-end]]
+end
 
 -------------------------------------
 --ON STOP

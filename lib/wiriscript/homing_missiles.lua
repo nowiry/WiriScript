@@ -11,51 +11,55 @@ THIS FILE IS PART OF WIRISCRIPT
 require "wiriscript.functions"
 
 --------------------------
--- BITWISE
+-- BITFIELD
 --------------------------
 
 ---@class Bitwise
 ---@field bits integer
-local Bitwise = {}
-Bitwise.__index = Bitwise
+Bitfield = {}
+Bitfield.__index = Bitfield
 
-function Bitwise.new()
-	return setmetatable({bits = 0}, Bitwise)
+function Bitfield.new()
+	return setmetatable({bits = 0}, Bitfield)
 end
 
-function Bitwise:IsBitSet(place)
+---@param place integer
+---@return boolean
+function Bitfield:IsBitSet(place)
 	return self.bits & (1 << place) ~= 0
 end
 
-function Bitwise:SetBit(place)
+---@param place integer
+function Bitfield:SetBit(place)
 	self.bits = self.bits | (1 << place)
 end
 
-function Bitwise:ClearBit(place)
+---@param place integer
+function Bitfield:ClearBit(place)
 	self.bits = self.bits & ~(1 << place)
 end
 
-function Bitwise:ToggleBit(place, on)
+---@param place integer
+---@param on boolean
+function Bitfield:ToggleBit(place, on)
 	if on then self:SetBit(place) else self:ClearBit(place) end
 end
 
-function Bitwise:reset()
+function Bitfield:reset()
 	self.bits = 0
 end
 
----DEBUG
-Bitwise.__tostring = function(self, bits)
-    bits = bits or 32
+Bitfield.__tostring = function(self)
     local tbl = {}
 	local num = self.bits
-    for b = bits, 1, -1 do
+    for b = 32, 1, -1 do
         tbl[b] = math.fmod(num, 2)
         num = math.floor((num - tbl[b]) / 2)
     end
     return table.concat(tbl)
 end
 
---------------------------------
+--------------------------
 
 local self = {}
 self.version = 21
@@ -80,8 +84,8 @@ local chargeLevel = 100.0
 local vehicleWeaponSide = 0
 local myVehicle = 0
 local weapon <const> = util.joaat("VEHICLE_WEAPON_SPACE_ROCKET")
-local lockOnBits <const> = Bitwise.new()
-local bits <const> = Bitwise.new()
+local lockOnBits <const> = Bitfield.new()
+local bits <const> = Bitfield.new()
 local trans = {
 	DisablingPassive = translate("Misc", "Disabling passive mode")
 }
@@ -255,18 +259,6 @@ local DoesVehicleHavePlayerDriver = function(vehicle)
 end
 
 
----@param entity Entity
----@param target Entity
----@return number
-local GetDistanceBetweenEntities = function(entity, target)
-	if not ENTITY.DOES_ENTITY_EXIST(entity) or not ENTITY.DOES_ENTITY_EXIST(target) then
-		return 0.0
-	end
-	local pos = ENTITY.GET_ENTITY_COORDS(entity, true)
-	return ENTITY.GET_ENTITY_COORDS(target, true):distance(pos)
-end
-
-
 ---@param player Player
 ---@return integer
 local GetPlayerWantedLevel = function (player)
@@ -288,7 +280,7 @@ local IsEntityTargetable = function(entity)
 	if not ENTITY.DOES_ENTITY_EXIST(entity) or ENTITY.IS_ENTITY_DEAD(entity, false) then
 		return false
 	end
-	local distance = GetDistanceBetweenEntities(myVehicle, entity)
+	local distance = get_distance_between_entities(myVehicle, entity)
 	if distance > 500.0 or distance < 10.0 then
 		return false
 	end
