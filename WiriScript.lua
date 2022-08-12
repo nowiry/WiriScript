@@ -2743,6 +2743,16 @@ generate_features = function(pId)
 		end
 	end)
 
+
+	if Config.general.developer then
+		menu.action(vehicleOpt, "Kick From Vehicle", {}, "", function()
+			local targetPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
+			if PED.IS_PED_IN_ANY_VEHICLE(targetPed, false) then
+				ChangeNetObjOwner(PED.GET_VEHICLE_PED_IS_IN(targetPed, false), players.user())
+			end
+		end)
+	end
+
 	---------------------
 	---------------------
 	-- FRIENDLY
@@ -6152,6 +6162,23 @@ util.log("Bodyguards Menu initialized")
 
 local worldOptions <const> = menu.list(menu.my_root(), translate("World", "World"), {}, "")
 
+
+-------------------------------------
+-- LUXURY HELICOPTER
+-------------------------------------
+
+menu.action(worldOptions, translate("World", "Request Luxury Helicopter"), {}, "", function()
+	if NETWORK.NETWORK_IS_SESSION_ACTIVE() and not NETWORK.NETWORK_IS_SCRIPT_ACTIVE("am_heli_taxi", -1, true, 0) then
+		write_global.int(2815059 + 876, 1)
+		write_global.int(2815059 + 883, 1) -- if > -1 the heli is a supervolito, otherwise is a maverick
+	end
+end)
+
+
+-------------------------------------
+-- HIGHLIGHT MUGGERS
+-------------------------------------
+
 menu.toggle_loop(worldOptions, translate("World", "Highlight Muggers"), {}, "", function ()
 	if not NETWORK.NETWORK_IS_SESSION_ACTIVE() or
 	not NETWORK.NETWORK_IS_SCRIPT_ACTIVE("am_gang_call", 0, true, 0) then
@@ -6731,9 +6758,9 @@ end)]]
 memory.scan("CNetworkObjectMgr", "48 8B 0D ? ? ? ? 45 33 C0 E8 ? ? ? ? 33 FF 4C 8B F0", function (address)
 	CNetworkObjectMgr = memory.rip(address + 3)
 end)
---[[memory.scan("ChangeNetObjOwner", "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 54 41 56 41 57 48 81 EC ? ? ? ? 44 8A 62 4B", function (address)
+memory.scan("ChangeNetObjOwner", "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 54 41 56 41 57 48 81 EC ? ? ? ? 44 8A 62 4B", function (address)
 	ChangeNetObjOwner_addr = address
-end)]]
+end)
 
 ---@param player integer
 ---@return integer
@@ -6778,8 +6805,8 @@ end
 	return true
 end]]
 
---[[function ChangeNetObjOwner(object, player)
-	if NETWORK.NETWORK_IS_IN_SESSION() then
+function ChangeNetObjOwner(object, player)
+	if NETWORK.NETWORK_IS_SESSION_STARTED() then
 		local net_object_mgr = memory.read_long(CNetworkObjectMgr)
 		if net_object_mgr == NULL then
 			return false
@@ -6801,7 +6828,7 @@ end]]
 		NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(object)
 		return true
 	end
-end]]
+end
 
 -------------------------------------
 --ON STOP
