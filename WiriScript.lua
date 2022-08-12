@@ -8,7 +8,7 @@ THIS FILE IS PART OF WIRISCRIPT
 
 ---@diagnostic disable: param-type-mismatch
 local scriptStartTime = util.current_time_millis()
-gVersion = 21
+gVersion = 22
 util.require_natives(1651208000)
 
 local required <const> = {
@@ -47,7 +47,7 @@ end
 
 
 if Functions.version ~= gVersion or UFO.version ~= gVersion or GuidedMissile.version ~= gVersion or
-homingMissiles.version ~= gVersion then
+homingMissiles.version ~= gVersion or orbitalCannon.getVersion() ~= gVersion then
 	error("versions of WiriScript's files don't match")
 end
 
@@ -6731,9 +6731,9 @@ end)]]
 memory.scan("CNetworkObjectMgr", "48 8B 0D ? ? ? ? 45 33 C0 E8 ? ? ? ? 33 FF 4C 8B F0", function (address)
 	CNetworkObjectMgr = memory.rip(address + 3)
 end)
-memory.scan("ChangeNetObjOwner", "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 54 41 56 41 57 48 81 EC ? ? ? ? 44 8A 62 4B", function (address)
+--[[memory.scan("ChangeNetObjOwner", "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 54 41 56 41 57 48 81 EC ? ? ? ? 44 8A 62 4B", function (address)
 	ChangeNetObjOwner_addr = address
-end)
+end)]]
 
 ---@param player integer
 ---@return integer
@@ -6778,7 +6778,7 @@ end
 	return true
 end]]
 
-function ChangeNetObjOwner(object, player)
+--[[function ChangeNetObjOwner(object, player)
 	if NETWORK.NETWORK_IS_IN_SESSION() then
 		local net_object_mgr = memory.read_long(CNetworkObjectMgr)
 		if net_object_mgr == NULL then
@@ -6801,7 +6801,7 @@ function ChangeNetObjOwner(object, player)
 		NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(object)
 		return true
 	end
-end
+end]]
 
 -------------------------------------
 --ON STOP
