@@ -2743,16 +2743,6 @@ generate_features = function(pId)
 		end
 	end)
 
-
-	if Config.general.developer then
-		menu.action(vehicleOpt, "Kick From Vehicle", {}, "", function()
-			local targetPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
-			if PED.IS_PED_IN_ANY_VEHICLE(targetPed, false) then
-				ChangeNetObjOwner(PED.GET_VEHICLE_PED_IS_IN(targetPed, false), players.user())
-			end
-		end)
-	end
-
 	---------------------
 	---------------------
 	-- FRIENDLY
@@ -3297,7 +3287,7 @@ end
 local selectedOpt = 1
 local shootingEffects <const> = {
 	ShootEffect.new("scr_rcbarry2", "muz_clown", 0.8, v3.new(90, 0.0, 0.0)),
-	ShootEffect.new("scr_rcbarry2", "scr_clown_bul", 0.3, v3.new(180.0, 0.0, 0.0)),
+	ShootEffect.new("scr_rcbarry2", "scr_clown_bul", 0.3, v3.new(180.0, 0.0, 0.0))
 }
 
 menu.toggle_loop(weaponOpt, translate("Weapon - Shooting Effect", "Shooting Effect"), {"shootingfx"}, "", function ()
@@ -3329,7 +3319,7 @@ end)
 
 local options <const> = {
 	translate("Weapon - Shooting Effect", "Clown Muzzle"),
-	translate("Weapon - Shooting Effect", "Clown Flowers"),
+	translate("Weapon - Shooting Effect", "Clown Flowers")
 }
 menu.slider_text(weaponOpt, translate("Weapon - Shooting Effect", "Set Shooting Effect"), {}, "", options, function (index)
 	selectedOpt = index
@@ -5007,10 +4997,6 @@ menu.action_slider(vehicleOptions, translate("UFO", "UFO"), {"ufo"}, helpText, o
 	if not (GuidedMissile.exists() or UFO.exists()) then UFO.create() end
 end)
 
-util.on_stop(function ()
-	if UFO.exists() then UFO.onStop() end
-end)
-
 -------------------------------------
 -- VEHICLE INSTANT LOCK ON
 -------------------------------------
@@ -6231,13 +6217,14 @@ menu.action(worldOptions, translate("World", "Kill Enemies"), {"killenemies"}, "
 	local timer = newTimer()
 	while PED.COUNT_PEDS_IN_COMBAT_WITH_TARGET_WITHIN_RADIUS(players.user_ped(), pos.x, pos.y, pos.z, 450.0) > 0 and
 	timer.elapsed() < 1000 do
-		kill_enemies(); util.yield()
+		kill_enemies()
+		util.yield_once()
 	end
 end)
 
 menu.toggle_loop(worldOptions, translate("World", "Auto Kill Enemies"), {"autokillenemies"}, "", function()
 	local pos = players.get_position(players.user())
-	if  PED.COUNT_PEDS_IN_COMBAT_WITH_TARGET_WITHIN_RADIUS(players.user_ped(), pos.x, pos.y, pos.z, 450.0) > 0 then
+	if PED.COUNT_PEDS_IN_COMBAT_WITH_TARGET_WITHIN_RADIUS(players.user_ped(), pos.x, pos.y, pos.z, 450.0) > 0 then
 		kill_enemies()
 	end
 end)
@@ -6758,9 +6745,9 @@ end)]]
 memory.scan("CNetworkObjectMgr", "48 8B 0D ? ? ? ? 45 33 C0 E8 ? ? ? ? 33 FF 4C 8B F0", function (address)
 	CNetworkObjectMgr = memory.rip(address + 3)
 end)
-memory.scan("ChangeNetObjOwner", "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 54 41 56 41 57 48 81 EC ? ? ? ? 44 8A 62 4B", function (address)
+--[[memory.scan("ChangeNetObjOwner", "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 54 41 56 41 57 48 81 EC ? ? ? ? 44 8A 62 4B", function (address)
 	ChangeNetObjOwner_addr = address
-end)
+end)]]
 
 ---@param player integer
 ---@return integer
@@ -6805,7 +6792,7 @@ end
 	return true
 end]]
 
-function ChangeNetObjOwner(object, player)
+--[[function ChangeNetObjOwner(object, player)
 	if NETWORK.NETWORK_IS_SESSION_STARTED() then
 		local net_object_mgr = memory.read_long(CNetworkObjectMgr)
 		if net_object_mgr == NULL then
@@ -6828,7 +6815,7 @@ function ChangeNetObjOwner(object, player)
 		NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(object)
 		return true
 	end
-end
+end]]
 
 -------------------------------------
 --ON STOP
@@ -6846,6 +6833,10 @@ util.on_stop(function()
 		orbitalCannon.destroy()
 	end
 
+	if UFO.exists() then
+		UFO.destroy()
+	end
+
 	if gIsShowingCredits then
 		AUDIO.SET_MOBILE_RADIO_ENABLED_DURING_GAMEPLAY(false)
 		AUDIO.SET_MOBILE_PHONE_RADIO_STATE(false)
@@ -6858,6 +6849,30 @@ util.on_stop(function()
 end)
 
 util.log("Script loaded in %d millis", util.current_time_millis() - scriptStartTime)
+
+
+
+--[[menu.toggle_loop(menu.my_root(), "Test", {}, "", function()
+	local coords = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(players.user_ped(), 1.0, 0, 0)
+	if STREAMING.HAS_NAMED_PTFX_ASSET_LOADED("weap_xs_weapons") then
+		GRAPHICS.USE_PARTICLE_FX_ASSET("weap_xs_weapons")
+		GRAPHICS.START_NETWORKED_PARTICLE_FX_NON_LOOPED_AT_COORD(
+			"bullet_tracer_xs_sr",
+			coords.x,
+			coords.y,
+			coords.z,
+			0, 90, 0,
+			1.0,
+			false,
+			false,
+			false,
+			0
+		)
+	else
+		STREAMING.REQUEST_NAMED_PTFX_ASSET("weap_xs_weapons")
+	end
+
+end)]]
 
 while true do
 	bodyguardMenu:onTick()

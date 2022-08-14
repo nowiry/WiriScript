@@ -101,10 +101,10 @@ end
 
 
 local function getScriptAxes()
-    local leftX  = PAD.GET_CONTROL_UNBOUND_NORMAL(2, 218)
-	local leftY  = PAD.GET_CONTROL_UNBOUND_NORMAL(2, 219)
-	local rightX = PAD.GET_CONTROL_UNBOUND_NORMAL(2, 220)
-	local rightY = PAD.GET_CONTROL_UNBOUND_NORMAL(2, 221)
+    local leftX  = PAD.GET_CONTROL_UNBOUND_NORMAL(0, 218)
+	local leftY  = PAD.GET_CONTROL_UNBOUND_NORMAL(0, 219)
+	local rightX = PAD.GET_CONTROL_UNBOUND_NORMAL(0, 220)
+	local rightY = PAD.GET_CONTROL_UNBOUND_NORMAL(0, 221)
     return leftX, leftY, rightX, rightY
 end
 
@@ -369,22 +369,22 @@ self.mainLoop = function ()
 
         if NETWORK.NETWORK_HAS_CONTROL_OF_NETWORK_ID(NETWORK.OBJ_TO_NET(object))  then
             if ENTITY.HAS_ENTITY_COLLIDED_WITH_ANYTHING(object) or ENTITY.GET_LAST_MATERIAL_HIT_BY_ENTITY(object) ~= 0 or
-            ENTITY.IS_ENTITY_IN_WATER(object) or PAD.IS_DISABLED_CONTROL_JUST_PRESSED(2, 75) or
+            ENTITY.IS_ENTITY_IN_WATER(object) or PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 75) or
             getBoundsState() == BoundsState.outOfBounds then
                 self.destroy()
             end
             if not PAD._IS_USING_KEYBOARD(0) then
-                if PAD.GET_CONTROL_UNBOUND_NORMAL(2, 208) ~= 0 then
+                if PAD.GET_CONTROL_UNBOUND_NORMAL(0, 208) ~= 0 then
                     accelerating = true
                 end
-                if PAD.GET_CONTROL_UNBOUND_NORMAL(2, 207) ~= 0 then
+                if PAD.GET_CONTROL_UNBOUND_NORMAL(0, 207) ~= 0 then
                     decelerating = true
                 end
             else
-                if PAD.GET_CONTROL_UNBOUND_NORMAL(2, 209) ~= 0 then
+                if PAD.GET_CONTROL_UNBOUND_NORMAL(0, 209) ~= 0 then
                     accelerating = true
                 end
-                if PAD.GET_CONTROL_UNBOUND_NORMAL(2, 210) ~= 0 then
+                if PAD.GET_CONTROL_UNBOUND_NORMAL(0, 210) ~= 0 then
                     decelerating = true
                 end
             end

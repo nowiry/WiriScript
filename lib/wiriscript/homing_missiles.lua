@@ -156,7 +156,7 @@ end
 
 ---@param entity Entity
 ---@return boolean
-local IsEntityInSaveScreenPos = function (entity)
+local IsEntityInSafeScreenPos = function (entity)
 	local pScreenX = memory.alloc(4)
 	local pScreenY = memory.alloc(4)
 	local pos = ENTITY.GET_ENTITY_COORDS(entity, true)
@@ -309,7 +309,7 @@ local SetNearbyEntities = function()
 		if count == 20 then break end
 		if bits:IsBitSet(Bit_IsCamPointingInFront) and IsEntityTargetable(entity) and
 		not table.find(targetEnts, entity) and not table.find(nearbyEntities, entity) and
-		IsEntityInSaveScreenPos(entity) then
+		IsEntityInSafeScreenPos(entity) then
 			nearbyEntities[count] = entity
 			count = count + 1
 		end
@@ -423,7 +423,7 @@ local LockonEntity = function (entity, count)
 	local amberSound = amberHomingSounds[count]
 
 	if not ENTITY.DOES_ENTITY_EXIST(entity) or ENTITY.IS_ENTITY_DEAD(entity, false) or
-	not IsEntityInSaveScreenPos(entity) then
+	not IsEntityInSafeScreenPos(entity) then
 		amberSound:stop()
 		lockOnBits:ClearBit(bitPlace)
 		redSound:stop()
@@ -502,7 +502,7 @@ local UpdateTargetEntities = function ()
 				numTargets = numTargets - 1
 				timer.disable()
 
-			elseif not IsEntityInSaveScreenPos(entity) or not IsEntityTargetable(entity) or
+			elseif not IsEntityInSafeScreenPos(entity) or not IsEntityTargetable(entity) or
 			not bits:IsBitSet(Bit_IsCamPointingInFront) then
 				targetEnts[i] = -1
 			  	numTargets = numTargets - 1

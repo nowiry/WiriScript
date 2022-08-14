@@ -1087,42 +1087,30 @@ end
 --------------------------
 
 ---@param model integer
----@return boolean
 function request_model(model)
 	if not STREAMING.IS_MODEL_VALID(model) then
 		return false
-	end
-
-	if STREAMING.HAS_MODEL_LOADED(model) then
+	elseif STREAMING.HAS_MODEL_LOADED(model) then
 		return true
 	end
 
-	local timer = newTimer()
 	STREAMING.REQUEST_MODEL(model)
-	while not STREAMING.HAS_MODEL_LOADED(model) and
-	timer.elapsed() < 500 do
+	while not STREAMING.HAS_MODEL_LOADED(model) do
 		util.yield_once()
 	end
-
-	return timer.elapsed() < 500
 end
 
 
 ---@param asset string
----@return boolean
 function request_fx_asset(asset)
 	if STREAMING.HAS_NAMED_PTFX_ASSET_LOADED(asset) then
 		return false
 	end
 
-	local timer = newTimer()
 	STREAMING.REQUEST_NAMED_PTFX_ASSET(asset)
-	while not STREAMING.HAS_NAMED_PTFX_ASSET_LOADED(asset) and
-	timer.elapsed() < 500 do
+	while not STREAMING.HAS_NAMED_PTFX_ASSET_LOADED(asset) do
 		util.yield_once()
 	end
-
-	return timer.elapsed() < 500
 end
 
 
@@ -1133,8 +1121,11 @@ function request_weapon_asset(hash)
 	end
 
 	WEAPON.REQUEST_WEAPON_ASSET(hash, 31, 0)
-	while not WEAPON.HAS_WEAPON_ASSET_LOADED(hash) do util.yield() end
+	while not WEAPON.HAS_WEAPON_ASSET_LOADED(hash) do
+		util.yield_once()
+	end
 end
+
 
 ---Credits to aaron
 ---@param textureDict string
@@ -1144,12 +1135,14 @@ function request_streamed_texture_dict(textureDict)
 	end)
 end
 
+
 ---@param textureDict string
 function set_streamed_texture_dict_as_no_longer_needed(textureDict)
 	util.spoof_script("main_persistent", function()
 		GRAPHICS.SET_STREAMED_TEXTURE_DICT_AS_NO_LONGER_NEEDED(textureDict)
 	end)
 end
+
 
 ---@param name string
 ---@return integer
@@ -1160,6 +1153,7 @@ function request_scaleform_movie(name)
 	end)
 	return handle
 end
+
 
 ---@param handle integer
 function set_scaleform_movie_as_no_longer_needed(handle)
