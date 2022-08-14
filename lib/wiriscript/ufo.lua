@@ -273,8 +273,7 @@ local getLockonSpriteScale = function(distance)
         disPerc = 1.0 - (distance - minDistance) / (maxDistance - minDistance)
     end
 
-    local fovPerc = 1.0 - (camFov - minFov) / (maxFov - minFov)
-    return  interpolate(0.5, 1.0, disPerc * fovPerc)
+    return interpolate(0.5, 1.0, disPerc)
 end
 
 
@@ -372,7 +371,7 @@ end
 
 local doCannon = function ()
     if not GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(scaleform) then
-        scaleform = GRAPHICS.REQUEST_SCALEFORM_MOVIE("ORBITAL_CANNON_CAM")
+        scaleform = request_scaleform_movie("ORBITAL_CANNON_CAM")
 
     elseif not isCannonActive then
         if CAM.IS_CAM_RENDERING(cam) then
@@ -550,7 +549,8 @@ self.mainLoop = function ()
             CAM.DO_SCREEN_FADE_OUT(800)
         else
             if not ENTITY.DOES_ENTITY_EXIST(jet) then
-                request_model(vehicleHash); request_model(objHash)
+                request_model(vehicleHash)
+                request_model(objHash)
                 local pos = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID(), false)
                 jet = entities.create_vehicle(vehicleHash, pos, CAM.GET_GAMEPLAY_CAM_ROT(0).z)
                 ENTITY.SET_ENTITY_VISIBLE(jet, false, 0)
@@ -568,7 +568,8 @@ self.mainLoop = function ()
 
                 CAM.DESTROY_ALL_CAMS(true)
                 cam = CAM.CREATE_CAM("DEFAULT_SCRIPTED_CAMERA", false)
-                CAM._ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(cam, jet, -89.0, 0.0, 0.0, 0.0, 0.0, -4.0, true)
+                cameraRot:set(-89.0, 0, 0)
+                CAM._ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(cam, jet, cameraRot.x, 0.0, cameraRot.z, 0.0, 0.0, -4.0, true)
                 CAM.SET_CAM_FOV(cam, camFov)
                 CAM.SET_CAM_ACTIVE(cam, true)
 
@@ -603,8 +604,8 @@ self.mainLoop = function ()
 
 		if PAD.IS_CONTROL_JUST_PRESSED(0, 80) or PAD.IS_CONTROL_JUST_PRESSED(0, 45) then
             if isCannonActive then
-                cameraRot = v3.new(-89.0, 0.0, 0.0)
-                CAM._ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(cam, jet, -89.0, 0.0, 0.0, 0.0, 0.0, -4.0, true)
+                cameraRot:set(-89.0, 0.0, 0.0)
+                CAM._ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(cam, jet, cameraRot.x, 0.0, cameraRot.z, 0.0, 0.0, -4.0, true)
             end
             AUDIO.PLAY_SOUND_FRONTEND(-1, "cannon_active", "dlc_xm_orbital_cannon_sounds", true);
             zoom = 0.0

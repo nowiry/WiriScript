@@ -53,12 +53,6 @@ self.create = function ()
     end
 end
 
-self.destroy = function ()
-    if self.exists() then
-        state = MissileState.exploting
-    end
-end
-
 
 local function currectHeading(heading)
     if heading > 180.0 then
@@ -253,7 +247,7 @@ end
 ---@param heading number
 function drawMissileScaleformMovie(heading)
     if not GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(scaleform) then
-        scaleform = GRAPHICS.REQUEST_SCALEFORM_MOVIE("SUBMARINE_MISSILES")
+        scaleform = request_scaleform_movie("SUBMARINE_MISSILES")
     else
         GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_ZOOM_VISIBLE")
         GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_BOOL(false)
@@ -282,8 +276,39 @@ function drawMissileScaleformMovie(heading)
             GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
         end
 
-        GRAPHICS.DRAW_SCALEFORM_MOVIE_FULLSCREEN(scaleform, 255, 255, 255, 0, 1)
+        GRAPHICS.DRAW_SCALEFORM_MOVIE_FULLSCREEN(scaleform, 255, 255, 255, 255, 1)
     end
+end
+
+
+local destroy = function ()
+    for _, sound in pairs(sounds) do
+        sound:stop()
+    end
+    if  GRAPHICS.DOES_PARTICLE_FX_LOOPED_EXIST(effects.missile_trail) then
+        GRAPHICS.STOP_PARTICLE_FX_LOOPED(effects.missile_trail, false)
+        STREAMING.REMOVE_NAMED_PTFX_ASSET(fxAsset)
+    end
+    AUDIO.STOP_AUDIO_SCENE("dlc_aw_arena_piloted_missile_scene")
+    set_scaleform_movie_as_no_longer_needed(scaleform)
+
+    if  HUD.DOES_BLIP_EXIST(blip) then
+        util.remove_blip(blip)
+        blip = 0
+    end
+
+    if  CAM.DOES_CAM_EXIST(camera) then
+        CAM.RENDER_SCRIPT_CAMS(false, false, 0, true, false, 0)
+        CAM.SET_CAM_ACTIVE(camera, false)
+        CAM.DESTROY_CAM(camera, false)
+    end
+
+    STREAMING.CLEAR_FOCUS()
+    GRAPHICS.CLEAR_TIMECYCLE_MODIFIER()
+    entities.delete_by_handle(object)
+    HUD.UNLOCK_MINIMAP_ANGLE()
+    HUD.UNLOCK_MINIMAP_POSITION()
+    ENTITY.FREEZE_ENTITY_POSITION(players.user_ped(), false)
 end
 
 
@@ -343,10 +368,7 @@ self.mainLoop = function ()
         startPos = coords
 
         if not GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(scaleform) then
-            scaleform = GRAPHICS.REQUEST_SCALEFORM_MOVIE("SUBMARINE_MISSILES")
-            repeat
-                util.yield()
-            until GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(scaleform)
+            scaleform = request_scaleform_movie("SUBMARINE_MISSILES")
         end
         state = MissileState.onFlight
     elseif state == MissileState.onFlight then
@@ -371,7 +393,7 @@ self.mainLoop = function ()
             if ENTITY.HAS_ENTITY_COLLIDED_WITH_ANYTHING(object) or ENTITY.GET_LAST_MATERIAL_HIT_BY_ENTITY(object) ~= 0 or
             ENTITY.IS_ENTITY_IN_WATER(object) or PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 75) or
             getBoundsState() == BoundsState.outOfBounds then
-                self.destroy()
+                state = MissileState.exploting
             end
             if not PAD._IS_USING_KEYBOARD(0) then
                 if PAD.GET_CONTROL_UNBOUND_NORMAL(0, 208) ~= 0 then
@@ -450,57 +472,20 @@ self.mainLoop = function ()
         end
     elseif state == MissileState.beingDestroyed then
         if timer.elapsed() >= 500 then
-            sounds.disconnect:stop()
-            if AUDIO.IS_AUDIO_SCENE_ACTIVE("dlc_aw_arena_piloted_missile_scene") then
-                AUDIO.STOP_AUDIO_SCENE("dlc_aw_arena_piloted_missile_scene")
-            end
-            local pScaleform = memory.alloc_int()
-            memory.write_int(pScaleform, scaleform)
-            GRAPHICS.SET_SCALEFORM_MOVIE_AS_NO_LONGER_NEEDED(pScaleform)
-            scaleform = 0
-
-            GRAPHICS.SET_TIMECYCLE_MODIFIER("DEFAULT")
-            entities.delete_by_handle(object)
-            HUD.UNLOCK_MINIMAP_ANGLE()
-            HUD.UNLOCK_MINIMAP_POSITION()
-            ENTITY.FREEZE_ENTITY_POSITION(PLAYER.PLAYER_PED_ID(), false)
-
+            destroy()
             state = MissileState.nonExistent
         end
     end
 end
 
 
-self.onStop = function ()
-    if self.exists() then
-        for _, sound in pairs(sounds) do sound:stop() end
-        if GRAPHICS.DOES_PARTICLE_FX_LOOPED_EXIST(effects.missile_trail) then
-            GRAPHICS.STOP_PARTICLE_FX_LOOPED(effects.missile_trail, false)
-            STREAMING.REMOVE_NAMED_PTFX_ASSET(fxAsset)
-        end
-        if AUDIO.IS_AUDIO_SCENE_ACTIVE("dlc_aw_arena_piloted_missile_scene") then
-            AUDIO.STOP_AUDIO_SCENE("dlc_aw_arena_piloted_missile_scene")
-        end
-
-        local pScaleform = memory.alloc_int()
-        memory.write_int(pScaleform, scaleform)
-        GRAPHICS.SET_SCALEFORM_MOVIE_AS_NO_LONGER_NEEDED(pScaleform)
-        scaleform = 0
-
-        if HUD.DOES_BLIP_EXIST(blip) then
-            util.remove_blip(blip)
-        end
-        CAM.DESTROY_ALL_CAMS(true)
-        CAM.DESTROY_CAM(camera, false)
-        CAM.RENDER_SCRIPT_CAMS(false, false, 0, true, false, 0)
-        STREAMING.CLEAR_FOCUS()
-
-        GRAPHICS.SET_TIMECYCLE_MODIFIER("DEFAULT")
-        entities.delete_by_handle(object)
-        HUD.UNLOCK_MINIMAP_ANGLE()
-        HUD.UNLOCK_MINIMAP_POSITION()
-        ENTITY.FREEZE_ENTITY_POSITION(PLAYER.PLAYER_PED_ID(), false) 
+self.destroy = function ()
+    if not self.exists() then
+        return
     end
+    destroy()
+    state = MissileState.nonExistent
 end
+
 
 return self

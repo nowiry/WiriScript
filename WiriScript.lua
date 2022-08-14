@@ -3981,10 +3981,6 @@ menu.action(weaponOpt, translate("Weapon", "Launch Guided Missile"), {"missile"}
 	if not UFO.exists() then GuidedMissile.create() end
 end)
 
-util.on_stop(function ()
-	GuidedMissile.onStop()
-end)
-
 -------------------------------------
 -- SUPERPUNCH
 -------------------------------------
@@ -3993,6 +3989,7 @@ menu.toggle_loop(weaponOpt, translate("Weapon", "Superpunch"), {"superpunch"}, "
 	local pWeapon = memory.alloc_int()
 	WEAPON.GET_CURRENT_PED_WEAPON(players.user_ped(), pWeapon, 1)
 	local weaponHash = memory.read_int(pWeapon)
+
 	if WEAPON.IS_PED_ARMED(players.user_ped(), 1) or weaponHash == util.joaat("weapon_unarmed") then
 		local pImpactCoords = v3.new()
 		local pos = ENTITY.GET_ENTITY_COORDS(players.user_ped(), false)
@@ -4000,6 +3997,7 @@ menu.toggle_loop(weaponOpt, translate("Weapon", "Superpunch"), {"superpunch"}, "
 			set_explosion_proof(players.user_ped(), true)
 			util.yield_once()
 			FIRE.ADD_EXPLOSION(pos.x, pos.y, pos.z - 1.0, 29, 5.0, false, true, 0.3, true)
+
 		elseif not FIRE.IS_EXPLOSION_IN_SPHERE(29, pos.x, pos.y, pos.z, 2.0) then
 			set_explosion_proof(players.user_ped(), false)
 		end
@@ -6835,6 +6833,10 @@ util.on_stop(function()
 
 	if UFO.exists() then
 		UFO.destroy()
+	end
+
+	if GuidedMissile.exists() then
+		GuidedMissile.destroy()
 	end
 
 	if gIsShowingCredits then
