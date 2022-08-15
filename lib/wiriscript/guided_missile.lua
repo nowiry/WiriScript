@@ -4,11 +4,12 @@ THIS FILE IS PART OF WIRISCRIPT
         Nowiry#2663
 --------------------------------
 ]]
+
 --- @diagnostic disable:param-type-mismatch
 require "wiriscript.functions"
 
 local self = {}
-self.version = 22
+local version = 22
 local MissileState <const> =
 {
     nonExistent = -1,
@@ -51,6 +52,10 @@ self.create = function ()
     if not self.exists() then
         state = MissileState.beingCreated
     end
+end
+
+self.getVersion = function ()
+    return version
 end
 
 

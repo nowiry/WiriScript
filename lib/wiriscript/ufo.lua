@@ -8,8 +8,7 @@ THIS FILE IS PART OF WIRISCRIPT
 require "wiriscript.functions"
 
 local self = {}
-self.version = 22
-
+local version = 22
 local UfoState <const> =
 {
     nonExistent = -1,
@@ -65,6 +64,11 @@ end
 self.setObjModel = function (model)
     objHash = util.joaat(model)
 end
+
+self.getVersion = function ()
+    return version
+end
+
 
 ---Returns the positive equivalent of a negative angle.
 ---@param value number #angle in `degrees`
@@ -179,34 +183,31 @@ end
 
 
 ---@param pos Vector3
----@param size number
 ---@param hudColour integer
-local drawLockonSprite = function (pos, size, hudColour)
+local drawLockonSprite = function (pos, hudColour, alpha)
     local colour = get_hud_colour(hudColour)
     local txdSizeX = 0.013
     local txdSizeY = 0.013 * GRAPHICS._GET_ASPECT_RATIO(false)
     GRAPHICS.SET_DRAW_ORIGIN(pos.x, pos.y, pos.z, 0)
-    size = (size * 0.03)
-    GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner", -size * 0.5, -size, txdSizeX, txdSizeY, 0.0, colour.r, colour.g, colour.b, colour.a, true, 0)
-    GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner",  size * 0.5, -size, txdSizeX, txdSizeY, 90., colour.r, colour.g, colour.b, colour.a, true, 0)
-    GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner", -size * 0.5,  size, txdSizeX, txdSizeY, 270, colour.r, colour.g, colour.b, colour.a, true, 0)
-    GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner",  size * 0.5,  size, txdSizeX, txdSizeY, 180, colour.r, colour.g, colour.b, colour.a, true, 0)
+    size = 0.015
+    GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner", -size * 0.5, -size, txdSizeX, txdSizeY, 0.0, colour.r, colour.g, colour.b, alpha, true, 0)
+    GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner",  size * 0.5, -size, txdSizeX, txdSizeY, 90., colour.r, colour.g, colour.b, alpha, true, 0)
+    GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner", -size * 0.5,  size, txdSizeX, txdSizeY, 270, colour.r, colour.g, colour.b, alpha, true, 0)
+    GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner",  size * 0.5,  size, txdSizeX, txdSizeY, 180, colour.r, colour.g, colour.b, alpha, true, 0)
     GRAPHICS.CLEAR_DRAW_ORIGIN()
 end
 
 
 ---@param distance number
 ---@return integer
-local getDirectionalArrowAlpha = function (distance)
+local getAlphaFromDistance = function (distance, min, max)
     local alpha = 255
-    local maxDistance = 2500
-    local minDistance = 1000
-    if distance > maxDistance then
+    if distance > max then
         alpha = 0
-    elseif distance < minDistance then
+    elseif distance < min then
         alpha = 255
     else
-        local perc = 1.0 - (distance - minDistance) / (maxDistance - minDistance)
+        local perc = 1.0 - (distance - min) / (max - min)
         alpha = math.ceil(alpha * perc)
     end
     return alpha
@@ -252,28 +253,9 @@ local drawDirectionalArrowForEntity = function (entity, hudColour)
         )
         local screenX = 0.5 - math.cos(angle) * 0.29
         local screenY = 0.5 - math.sin(angle) * 0.29
-        local colourA = getDirectionalArrowAlpha(distanceXY)
-        GRAPHICS.DRAW_SPRITE("helicopterhud", "hudArrow", screenX, screenY, 0.02, 0.04, math.deg(angle) - 90.0, colour.r, colour.g, colour.b, colourA, false, 0)
+        local alpha = getAlphaFromDistance(distanceXY, 500, 1000)
+        GRAPHICS.DRAW_SPRITE("helicopterhud", "hudArrow", screenX, screenY, 0.02, 0.04, math.deg(angle) - 90.0, colour.r, colour.g, colour.b, alpha, false, 0)
     end
-end
-
-
----@param distance number
----@return number
-local getLockonSpriteScale = function(distance)
-    local maxDistance = 2000.0
-    local minDistance = 500.0
-    local disPerc = 1.0
-
-    if distance > maxDistance then
-        disPerc = 0.0
-    elseif distance < minDistance then
-        disPerc = 1.0
-    else
-        disPerc = 1.0 - (distance - minDistance) / (maxDistance - minDistance)
-    end
-
-    return interpolate(0.5, 1.0, disPerc)
 end
 
 
@@ -285,12 +267,12 @@ local drawSpriteOnPlayers = function ()
     for _, player in pairs(players.list(false)) do
         local playerPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(player)
         if ENTITY.DOES_ENTITY_EXIST(playerPed) and not is_player_in_any_interior(player) and
-        not ENTITY.IS_ENTITY_DEAD(playerPed, false) then
-            local playerPos = ENTITY.GET_ENTITY_COORDS(playerPed, false)
-            local distance = get_distance_between_entities(players.user_ped(), playerPed)
-            local scale = getLockonSpriteScale(distance)
+        not ENTITY.IS_ENTITY_DEAD(playerPed, false) and get_distance_between_entities(playerPed, players.user_ped()) < 1000 then
+            local playerPos = players.get_position(player)
+            local myPos = players.get_position(players.user())
+            local distance = myPos:distance(playerPos)
             local hudColour = is_player_friend(player) and HudColour.friendly or HudColour.green
-            drawLockonSprite(playerPos, scale, hudColour)
+            drawLockonSprite(playerPos, hudColour, getAlphaFromDistance(distance, 500, 1000))
             if isCannonActive then drawDirectionalArrowForEntity(playerPed, hudColour) end
         end
     end
@@ -394,14 +376,12 @@ local doCannon = function ()
             CAM.RENDER_SCRIPT_CAMS(true, false, 0, true, false, 0)
         end
 
-        for i = 1, 6 do
-            PAD.DISABLE_CONTROL_ACTION(0, i, true)
-        end
+        for n = 1, 6 do PAD.DISABLE_CONTROL_ACTION(0, n, true) end
         PAD.DISABLE_CONTROL_ACTION(0, 85, true)
         PAD.DISABLE_CONTROL_ACTION(0, 122, true)
-
-        setCannonCamZoom()
+        HudTimer.DisableThisFrame()
         setCannonCamRot()
+        setCannonCamZoom()
 
         GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(scaleform, "SET_STATE")
         GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_INT(3)

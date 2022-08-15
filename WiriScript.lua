@@ -5,7 +5,6 @@ THIS FILE IS PART OF WIRISCRIPT
 --------------------------------
 ]]
 
-
 ---@diagnostic disable: param-type-mismatch
 local scriptStartTime = util.current_time_millis()
 gVersion = 22
@@ -32,9 +31,9 @@ end
 local Functions = require "wiriscript.functions"
 local UFO = require "wiriscript.ufo"
 local GuidedMissile = require "wiriscript.guided_missile"
-local pedList <const> = require "wiriscript.ped_list"
-local homingMissiles = require "wiriscript.homing_missiles"
-local orbitalCannon = require "wiriscript.orbital_cannon"
+local PedList <const> = require "wiriscript.ped_list"
+local HomingMissiles = require "wiriscript.homing_missiles"
+local OrbitalCannon = require "wiriscript.orbital_cannon"
 
 if filesystem.exists(filesystem.resources_dir() .. "WiriTextures.ytd") then
 	util.register_file(filesystem.resources_dir() .. "WiriTextures.ytd")
@@ -46,8 +45,8 @@ else
 end
 
 
-if Functions.version ~= gVersion or UFO.version ~= gVersion or GuidedMissile.version ~= gVersion or
-homingMissiles.version ~= gVersion or orbitalCannon.getVersion() ~= gVersion then
+if Functions.version ~= gVersion or UFO.getVersion() ~= gVersion or GuidedMissile.getVersion() ~= gVersion or
+HomingMissiles.getVersion() ~= gVersion or OrbitalCannon.getVersion() ~= gVersion then
 	error("versions of WiriScript's files don't match")
 end
 
@@ -1226,8 +1225,8 @@ generate_features = function(pId)
 			notification:help(trans.InInterior, HudColour.red)
 		elseif is_player_passive(pId) then
 			notification:help(trans.Passive, HudColour.red)
-		elseif not orbitalCannon.exists() and PLAYER.IS_PLAYER_PLAYING(pId) then
-			orbitalCannon.create(pId)
+		elseif not OrbitalCannon.exists() and PLAYER.IS_PLAYER_PLAYING(pId) then
+			OrbitalCannon.create(pId)
 		end
 	end)
 
@@ -4214,18 +4213,18 @@ local toggle
 
 toggle = menu.toggle_loop(list_homingMissiles, trans.HomingMissiles, {"homingmissiles"}, "", function ()
 	if not UFO.exists() and not GuidedMissile.exists() then
-		homingMissiles.mainLoop()
+		HomingMissiles.mainLoop()
 	else menu.set_value(toggle, false) end
-end, homingMissiles.reset)
+end, HomingMissiles.reset)
 
 
 local whiteList = menu.list(list_homingMissiles, trans.Whitelist, {}, "")
-menu.toggle(whiteList, trans.Friends, {}, "", homingMissiles.SetIgnoreFriends)
-menu.toggle(whiteList, trans.OrgMembers, {}, "", homingMissiles.SetIgnoreOrgMembers)
-menu.toggle(whiteList, trans.Crew, {}, "", homingMissiles.SetIgnoreCrewMembers)
+menu.toggle(whiteList, trans.Friends, {}, "", HomingMissiles.SetIgnoreFriends)
+menu.toggle(whiteList, trans.OrgMembers, {}, "", HomingMissiles.SetIgnoreOrgMembers)
+menu.toggle(whiteList, trans.Crew, {}, "", HomingMissiles.SetIgnoreCrewMembers)
 
 
-menu.slider(list_homingMissiles, trans.MaxTargets , {}, "", 1, 6, 6, 1, homingMissiles.SetMaxTargets)
+menu.slider(list_homingMissiles, trans.MaxTargets , {}, "", 1, 6, 6, 1, HomingMissiles.SetMaxTargets)
 
 -------------------------------------
 -- VEHICLE HANDLING EDITOR
@@ -5974,7 +5973,7 @@ function BodyguardMenu.new(parent, name, command_names)
 	end)
 	self.group = Group.new()
 
-	ModelList.new(self.ref, translate("Bg Menu", "Spawn"), "spawnbg", "", pedList, function (caption, model)
+	ModelList.new(self.ref, translate("Bg Menu", "Spawn"), "spawnbg", "", PedList, function (caption, model)
 		if self.group:getSize() >= 7 then
 			return notification:help(trans.ReachedMaxNumBodyguards, HudColour.red)
 		end
@@ -6827,8 +6826,8 @@ util.on_stop(function()
 		util.log("Active spoofing profile disabled due to script stop")
 	end
 
-	if orbitalCannon.exists() then
-		orbitalCannon.destroy()
+	if OrbitalCannon.exists() then
+		OrbitalCannon.destroy()
 	end
 
 	if UFO.exists() then
@@ -6880,7 +6879,7 @@ while true do
 	bodyguardMenu:onTick()
 	GuidedMissile.mainLoop()
 	UFO.mainLoop()
-	orbitalCannon.mainLoop()
+	OrbitalCannon.mainLoop()
 	handlingEditor:onTick()
 	util.yield_once()
 end
