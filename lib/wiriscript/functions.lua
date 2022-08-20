@@ -5,7 +5,6 @@ THIS FILE IS PART OF WIRISCRIPT
 --------------------------------
 ]]
 
----@diagnostic disable: param-type-mismatch
 json = require "pretty.json"
 local self = {}
 self.version = 22
@@ -173,11 +172,11 @@ local check_table_types = function (tbl, types)
 		return false, "tbl must be a tble"
 	end
 	for key, value in pairs(tbl) do
-		local ok, err = type_match(key, types[1])
-		if not ok then return false, "field " .. key .. ' ' .. err end
+		local ok, errmsg = type_match(key, types[1])
+		if not ok then return false, "field " .. key .. ' ' .. errmsg end
 
-		local ok, err = type_match(value, types[2])
-		if not ok then return false, "field " .. key .. ' ' .. err end
+		local ok, errmsg = type_match(value, types[2])
+		if not ok then return false, "field " .. key .. ' ' .. errmsg end
 	end
 	return true
 end
@@ -191,9 +190,11 @@ function is_translation_valid (obj)
 		if type(sect_name) ~= "string" then
 			return false, "got unexpected key type: " .. type(sect_name)
 		end
+
 		if type(section) ~= "table" then
 			return false, "field " .. sect_name .. " must be a table, got " .. type(section)
 		end
+
 		local ok, err = check_table_types(section, {"string", "string"})
 		if not ok then return false, err end
 	end
@@ -215,9 +216,9 @@ function load_translation(language)
 		return false, result
 	end
 
-	local ok, err = is_translation_valid(result)
+	local ok, errmsg = is_translation_valid(result)
 	if not ok then
-		return false, err
+		return false, errmsg
 	end
 
 	Translation = result
@@ -258,10 +259,12 @@ function Ini.load(fileName)
 	local section
 	for line in io.lines(fileName) do
 		local tempSection = string.match(line, '^%[([^%]]+)%]$')
+
 		if tempSection ~= nil then
 			section = tonumber(tempSection) and tonumber(tempSection) or tempSection
 			data[section] = data[section] or {}
 		end
+
 		local param, value = string.match(line, '^([%w_]+)%s*=%s*(.+)$')
 		if section ~= nil and param and value ~= nil then
 			if tonumber(value) then
@@ -271,9 +274,7 @@ function Ini.load(fileName)
 			elseif value == "false" then
 				value = false
 			end
-			if tonumber(param) then param = tonumber(param) end
-			---@diagnostic disable-next-line: need-check-nil
-			data[section][param] = value
+			data[section][tonumber(param) or param] = value
 		end
 	end
 	return data
@@ -342,7 +343,7 @@ function Sound:play()
 end
 
 function Sound:stop()
-	if not AUDIO.HAS_SOUND_FINISHED(self.Id) then
+	if self.Id ~= -1 then
         AUDIO.STOP_SOUND(self.Id)
         AUDIO.RELEASE_SOUND_ID(self.Id)
         self.Id = -1
@@ -419,6 +420,7 @@ end
 function get_blended_colour(perc)
 	local colour = {a = 255}
 	local r, g, b
+
 	if perc <= 0.5 then
 		r = 1.0
 		g = interpolate(0.0, 1.0, perc/0.5)
@@ -428,6 +430,7 @@ function get_blended_colour(perc)
 		g = 1.0
 		b = 0.0
 	end
+
 	colour.r = math.ceil(r * 255)
 	colour.g = math.ceil(g * 255)
 	colour.b = math.ceil(b * 255)
@@ -438,7 +441,7 @@ end
 -- INSTRUCTIONAL
 --------------------------
 
-Instructional = {}
+Instructional = {scaleform = 0}
 
 ---@return boolean
 function Instructional:begin ()
@@ -453,7 +456,7 @@ function Instructional:begin ()
 		self.position = 0
         return true
 	else
-		self.scaleform = GRAPHICS.REQUEST_SCALEFORM_MOVIE("instructional_buttons")
+		self.scaleform = request_scaleform_movie("instructional_buttons")
 		return false
     end
 end
@@ -523,7 +526,6 @@ end
 ---@field isEnabled fun(): boolean
 ---@field disable fun()
 
-
 ---@return Timer
 function newTimer()
 	local self = {
@@ -553,57 +555,31 @@ function newTimer()
 end
 
 --------------------------
--- RALATIONSHIP
---------------------------
-
----@param name string
----@return integer
-local function add_relationship_group(name)
-	local ptr = memory.alloc_int()
-	PED.ADD_RELATIONSHIP_GROUP(name, ptr)
-	return memory.read_int(ptr)
-end
-
-relationship = {}
-function relationship:hostile(ped)
-	if not PED._DOES_RELATIONSHIP_GROUP_EXIST(self.hostile_group) then
-		self.hostile_group = add_relationship_group("hostile_group")
-	end
-	PED.SET_PED_RELATIONSHIP_GROUP_HASH(ped, self.hostile_group)
-	PED.SET_RELATIONSHIP_BETWEEN_GROUPS(0, self.hostile_group, self.hostile_group)
-end
-
-function relationship:friendly(ped)
-	if not PED._DOES_RELATIONSHIP_GROUP_EXIST(self.friendly_group) then
-		self.friendly_group = add_relationship_group("friendly_group")
-	end
-	PED.SET_PED_RELATIONSHIP_GROUP_HASH(ped, self.friendly_group)
-	PED.SET_RELATIONSHIP_BETWEEN_GROUPS(0, self.friendly_group, self.friendly_group)
-end
-
---------------------------
 -- ENTITIES
 --------------------------
 
-
-function setBit(bitfield, bitNum)
-	return (bitfield | (1 << bitNum))
+function SetBit(bits, place)
+	return (bits | (1 << place))
 end
 
-function clearBit(bitfield, bitNum)
-	return (bitfield & ~(1 << bitNum))
+function ClearBit(bits, place)
+	return (bits & ~(1 << place))
 end
+
+function BitTest(bits, place)
+	return (bits & (1 << place)) ~= 0
+end
+
 
 ---@param entity Entity
 ---@param value boolean
 function set_explosion_proof(entity, value)
 	local pEntity = entities.handle_to_pointer(entity)
 	if pEntity == 0 then return end
-	local damageBits = memory.read_uint(pEntity + 0x0188)
-	damageBits = value and setBit(damageBits, 11) or clearBit(damageBits, 11)
-	memory.write_uint(pEntity + 0x0188, damageBits)
+	local damageBits = memory.read_uint(pEntity + 0x188)
+	damageBits = value and SetBit(damageBits, 11) or ClearBit(damageBits, 11)
+	memory.write_uint(pEntity + 0x188, damageBits)
 end
-
 
 ---@param entity Entity
 ---@param target Entity
@@ -617,13 +593,13 @@ function set_entity_face_entity(entity, target, usePitch)
 	if not usePitch then
 		ENTITY.SET_ENTITY_HEADING(entity, rot.z)
 	else
-		ENTITY.SET_ENTITY_ROTATION(entity, rot.x, rot.y, rot.z, 2, 0)
+		ENTITY.SET_ENTITY_ROTATION(entity, rot.x, rot.y, rot.z, 2, false)
 	end
 end
 
 ---@param entity Entity
 ---@param blipSprite integer
----@param colour Colour
+---@param colour integer
 ---@return Blip
 function add_blip_for_entity(entity, blipSprite, colour)
 	local blip = HUD.ADD_BLIP_FOR_ENTITY(entity)
@@ -632,7 +608,7 @@ function add_blip_for_entity(entity, blipSprite, colour)
 	HUD.SHOW_HEIGHT_ON_BLIP(blip, false)
 
 	util.create_tick_handler(function ()
-		if not ENTITY.DOES_ENTITY_EXIST(entity)or ENTITY.IS_ENTITY_DEAD(entity, 0) then
+		if not ENTITY.DOES_ENTITY_EXIST(entity)or ENTITY.IS_ENTITY_DEAD(entity, false) then
 			util.remove_blip(blip)
 			return false
 		elseif not HUD.DOES_BLIP_EXIST(blip) then
@@ -768,36 +744,47 @@ end
 ---@param to v3
 ---@param colour Colour
 local draw_line = function (start, to, colour)
-	GRAPHICS.DRAW_LINE(start.x, start.y, start.z, to.x, to.y, to.z, colour.r, colour.g, colour.b, colour.a)
+	GRAPHICS.DRAW_LINE(start, to, colour.r, colour.g, colour.b, colour.a)
+end
+
+---@param pos0 v3
+---@param pos1 v3
+---@param pos2 v3
+---@param pos3 v3
+---@param colour Colour
+local draw_rect = function (pos0, pos1, pos2, pos3, colour)
+	GRAPHICS.DRAW_POLY(pos0, pos1, pos3, colour.r, colour.g, colour.b, colour.a)
+	GRAPHICS.DRAW_POLY(pos3, pos2, pos0, colour.r, colour.g, colour.b, colour.a)
 end
 
 
 ---@param entity Entity
----@param colour? Colour
-function draw_box_esp(entity, colour)
+---@param showPoly boolean
+---@param colour? Colour	
+function draw_bounding_box(entity, showPoly, colour)
 	if not ENTITY.DOES_ENTITY_EXIST(entity) then
 		return
 	end
 	colour = colour or {r = 255, g = 0, b = 0, a = 255}
 	local min = v3.new()
 	local max = v3.new()
-	MISC.GET_MODEL_DIMENSIONS(ENTITY.GET_ENTITY_MODEL(entity), min, max)
+	MISC.GET_MODEL_DIMENSIONS(ENTITY.GET_ENTITY_MODEL(entity), memory.addrof(min), memory.addrof(max))
 	min:abs(); max:abs()
 
-	local upperLeftRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -max.x, -max.y, max.z)
-	local upperRightRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, min.x, -max.y, max.z)
-	local lowerLeftRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -max.x, -max.y, -min.z)
-	local lowerRightRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, min.x, -max.y, -min.z)
+	local upperLeftRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, v3(-max.x, -max.y, max.z))
+	local upperRightRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, v3(min.x, -max.y, max.z))
+	local lowerLeftRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, v3(-max.x, -max.y, -min.z))
+	local lowerRightRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, v3(min.x, -max.y, -min.z))
 
 	draw_line(upperLeftRear, upperRightRear, colour)
 	draw_line(lowerLeftRear, lowerRightRear, colour)
 	draw_line(upperLeftRear, lowerLeftRear, colour)
 	draw_line(upperRightRear, lowerRightRear, colour)
 
-	local upperLeftFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -max.x, min.y, max.z)
-	local upperRightFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, min.x, min.y, max.z)
-	local lowerLeftFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -max.x, min.y, -min.z)
-	local lowerRightFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, min.x, min.y, -min.z)
+	local upperLeftFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, v3(-max.x, min.y, max.z))
+	local upperRightFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity,v3(min.x, min.y, max.z))
+	local lowerLeftFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, v3(-max.x, min.y, -min.z))
+	local lowerRightFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity,v3(min.x, min.y, -min.z))
 
 	draw_line(upperLeftFront, upperRightFront, colour)
 	draw_line(lowerLeftFront, lowerRightFront, colour)
@@ -808,8 +795,19 @@ function draw_box_esp(entity, colour)
 	draw_line(upperRightRear, upperRightFront, colour)
 	draw_line(lowerLeftRear, lowerLeftFront, colour)
 	draw_line(lowerRightRear, lowerRightFront, colour)
-end
 
+	showPoly = type(showPoly) ~= "boolean" and true or showPoly
+	if showPoly then
+		draw_rect(lowerLeftRear, upperLeftRear, lowerLeftFront, upperLeftFront, colour)
+		draw_rect(upperRightRear, lowerRightRear, upperRightFront, lowerRightFront, colour)
+
+		draw_rect(lowerLeftFront, upperLeftFront, lowerRightFront, upperRightFront, colour)
+		draw_rect(upperLeftRear, lowerLeftRear, upperRightRear, lowerRightRear, colour)
+
+		draw_rect(upperRightRear, upperRightFront, upperLeftRear, upperLeftFront, colour)
+		draw_rect(lowerRightFront, lowerRightRear, lowerLeftFront, lowerLeftRear, colour)
+	end
+end
 
 ---@param entity Entity
 ---@param flag integer
@@ -857,7 +855,6 @@ function add_ai_blip_for_ped(ped, forcedOn, hasCone, noticeRange, colour, sprite
 	return HUD._GET_AI_BLIP_2(ped)
 end
 
-
 ---@param entity Entity
 ---@param minDistance number
 ---@param maxDistance number
@@ -866,7 +863,6 @@ function get_random_offset_from_entity(entity, minDistance, maxDistance)
 	local pos = ENTITY.GET_ENTITY_COORDS(entity, false)
 	return get_random_offset_in_range(pos, minDistance, maxDistance)
 end
-
 
 ---@param coords v3
 ---@param minDistance number
@@ -881,7 +877,6 @@ function get_random_offset_in_range(coords, minDistance, maxDistance)
 	return coords
 end
 
-
 ---@param entity Entity
 function set_entity_as_no_longer_needed(entity)
 	if not ENTITY.DOES_ENTITY_EXIST(entity) then return end
@@ -889,7 +884,6 @@ function set_entity_as_no_longer_needed(entity)
 	memory.write_int(pHandle, entity)
 	ENTITY.SET_ENTITY_AS_NO_LONGER_NEEDED(pHandle)
 end
-
 
 ---@param entity Entity
 ---@param target Entity
@@ -1009,34 +1003,6 @@ function get_offset_from_cam(dist)
 end
 
 --------------------------
--- NATIVES
---------------------------
-
----@diagnostic disable: undefined-global
-
---- CAM::_0x202A5ED9CE01D6E7
-function CAM._ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(cam, entity, xRot, yRot, zRot, xOffset, yOffset, zOffset, isRelative)
-    native_invoker.begin_call()
-    native_invoker.push_arg_int(cam)
-    native_invoker.push_arg_int(entity)
-    native_invoker.push_arg_float(xRot); native_invoker.push_arg_float(yRot); native_invoker.push_arg_float(zRot)
-    native_invoker.push_arg_float(xOffset); native_invoker.push_arg_float(yOffset); native_invoker.push_arg_float(zOffset)
-    native_invoker.push_arg_bool(isRelative)
-    native_invoker.end_call("202A5ED9CE01D6E7")
-end
-
-function PED.COUNT_PEDS_IN_COMBAT_WITH_TARGET_WITHIN_RADIUS(ped, posX, posY, posZ, radius)
-	native_invoker.begin_call()
-	native_invoker.push_arg_int(ped)
-	native_invoker.push_arg_float(posX); native_invoker.push_arg_float(posY); native_invoker.push_arg_float(posZ)
-	native_invoker.push_arg_float(radius)
-	native_invoker.end_call("336B3D200AB007CB")
-	return native_invoker.get_return_value_int()
-end
-
----@diagnostic enable: undefined-global
-
---------------------------
 -- RAYCAST
 --------------------------
 
@@ -1067,17 +1033,17 @@ function get_raycast_result(dist, flag)
 	flag = flag or TraceFlag.everything
 	local didHit = memory.alloc(1)
 	local endCoords = v3.new()
-	local surfaceNormal = v3.new()
+	local normal = v3.new()
 	local hitEntity = memory.alloc_int()
 	local pos1 = CAM.GET_FINAL_RENDERED_CAM_COORD()
 	local pos2 = get_offset_from_cam(dist)
 
-	local handle = SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(pos1.x, pos1.y, pos1.z, pos2.x, pos2.y, pos2.z, flag, players.user_ped(), 7)
-	SHAPETEST.GET_SHAPE_TEST_RESULT(handle, didHit, endCoords, surfaceNormal, hitEntity)
+	local handle = SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(pos1, pos2, flag, players.user_ped(), 7)
+	SHAPETEST.GET_SHAPE_TEST_RESULT(handle, didHit, memory.addrof(endCoords), memory.addrof(normal), hitEntity)
 
 	result.didHit = memory.read_byte(didHit) ~= 0
 	result.endCoords = endCoords
-	result.surfaceNormal = surfaceNormal
+	result.surfaceNormal = normal
 	result.hitEntity = memory.read_int(hitEntity)
 	return result
 end
@@ -1088,42 +1054,22 @@ end
 
 ---@param model integer
 function request_model(model)
-	if not STREAMING.IS_MODEL_VALID(model) then
-		return false
-	elseif STREAMING.HAS_MODEL_LOADED(model) then
-		return true
-	end
-
 	STREAMING.REQUEST_MODEL(model)
-	while not STREAMING.HAS_MODEL_LOADED(model) do
-		util.yield_once()
-	end
+	while not STREAMING.HAS_MODEL_LOADED(model) do util.yield_once() end
 end
 
 
 ---@param asset string
 function request_fx_asset(asset)
-	if STREAMING.HAS_NAMED_PTFX_ASSET_LOADED(asset) then
-		return false
-	end
-
 	STREAMING.REQUEST_NAMED_PTFX_ASSET(asset)
-	while not STREAMING.HAS_NAMED_PTFX_ASSET_LOADED(asset) do
-		util.yield_once()
-	end
+	while not STREAMING.HAS_NAMED_PTFX_ASSET_LOADED(asset) do util.yield_once() end
 end
 
 
 ---@param hash integer
 function request_weapon_asset(hash)
-	if WEAPON.HAS_WEAPON_ASSET_LOADED(hash) then
-		return true
-	end
-
 	WEAPON.REQUEST_WEAPON_ASSET(hash, 31, 0)
-	while not WEAPON.HAS_WEAPON_ASSET_LOADED(hash) do
-		util.yield_once()
-	end
+	while not WEAPON.HAS_WEAPON_ASSET_LOADED(hash) do util.yield_once() end
 end
 
 
@@ -1218,23 +1164,6 @@ read_global = {
 }
 
 
-local orgScan = memory.scan
-
----@param name string
----@param pattern string
----@param callback fun(address: integer)
-function memory.scan(name, pattern, callback)
-	local address = orgScan(pattern)
-	if address ~= NULL then
-		util.log("Found " .. name)
-		callback(address)
-	else
-		util.log("Failed to find " .. name)
-		util.stop_script()
-	end
-end
-
-
 HudTimer = {}
 
 HudTimer.SetHeightMultThisFrame = function (mult)
@@ -1296,6 +1225,7 @@ function pairs_by_keys(t, f)
 	end
 	return iter
 end
+
 
 ---Inserts `value` if `t` does not already includes it.
 ---@param t table
@@ -1384,7 +1314,7 @@ end
 ---@return number?
 function get_ground_z(pos)
 	local pGroundZ = memory.alloc(4)
-	MISC.GET_GROUND_Z_FOR_3D_COORD(pos.x, pos.y, pos.z, pGroundZ, false, true)
+	MISC.GET_GROUND_Z_FOR_3D_COORD(pos, pGroundZ, false, true)
 	local groundz = memory.read_float(pGroundZ)
 	return groundz
 end
@@ -1431,6 +1361,18 @@ end
 ---@return number
 function random_float(min, max)
 	return min + math.random() * (max - min)
+end
+
+---@param type integer
+---@param pos v3
+---@param scale number
+---@param colour Colour
+---@param textureDict string?
+---@param textureName string?
+function draw_marker(type, pos, scale, colour, textureDict, textureName)
+	textureDict = textureDict or 0
+	textureName = textureName or 0
+	GRAPHICS.DRAW_MARKER(type, pos, v3(), v3(), v3(scale, scale, scale), colour.r, colour.g, colour.b, colour.a, false, false, 0, false, textureDict, textureName, false)
 end
 
 

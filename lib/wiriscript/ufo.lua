@@ -4,7 +4,7 @@ THIS FILE IS PART OF WIRISCRIPT
          Nowiry#2663
 --------------------------------
 ]]
---- @diagnostic disable:param-type-mismatch
+
 require "wiriscript.functions"
 
 local self = {}
@@ -149,11 +149,11 @@ end
 
 
 local tractorBeam = function ()
-    local pos = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(jet, 0.0, 0.0, -8.0)
+    local pos = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(jet, v3(0.0, 0.0, -8.0))
     backholePos = pos
     if not isCannonActive then
+        draw_marker(28, pos, 1.0, sphereColour)
         rainbow_colour(sphereColour)
-        GRAPHICS._DRAW_SPHERE(pos.x, pos.y, pos.z, 1.0, sphereColour.r, sphereColour.g, sphereColour.b, 255)
     end
 
     if PAD.IS_DISABLED_CONTROL_JUST_PRESSED(0, 73) then
@@ -175,7 +175,7 @@ local tractorBeam = function ()
             delta:mul(multiplier)
             local vel = ENTITY.GET_ENTITY_VELOCITY(jet)
             vel:add(delta)
-            ENTITY.SET_ENTITY_VELOCITY(vehicle, vel.x, vel.y, vel.z)
+            ENTITY.SET_ENTITY_VELOCITY(vehicle, vel)
             ENTITY.SET_ENTITY_NO_COLLISION_ENTITY(vehicle, jet, true)
         else table.remove(targetVehicles, i) end
     end
@@ -188,12 +188,12 @@ local drawLockonSprite = function (pos, hudColour, alpha)
     local colour = get_hud_colour(hudColour)
     local txdSizeX = 0.013
     local txdSizeY = 0.013 * GRAPHICS._GET_ASPECT_RATIO(false)
-    GRAPHICS.SET_DRAW_ORIGIN(pos.x, pos.y, pos.z, 0)
+    GRAPHICS.SET_DRAW_ORIGIN(pos, 0)
     size = 0.015
     GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner", -size * 0.5, -size, txdSizeX, txdSizeY, 0.0, colour.r, colour.g, colour.b, alpha, true, 0)
-    GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner",  size * 0.5, -size, txdSizeX, txdSizeY, 90., colour.r, colour.g, colour.b, alpha, true, 0)
-    GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner", -size * 0.5,  size, txdSizeX, txdSizeY, 270, colour.r, colour.g, colour.b, alpha, true, 0)
-    GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner",  size * 0.5,  size, txdSizeX, txdSizeY, 180, colour.r, colour.g, colour.b, alpha, true, 0)
+    GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner",  size * 0.5, -size, txdSizeX, txdSizeY, 90.0, colour.r, colour.g, colour.b, alpha, true, 0)
+    GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner", -size * 0.5,  size, txdSizeX, txdSizeY, 270., colour.r, colour.g, colour.b, alpha, true, 0)
+    GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner",  size * 0.5,  size, txdSizeX, txdSizeY, 180., colour.r, colour.g, colour.b, alpha, true, 0)
     GRAPHICS.CLEAR_DRAW_ORIGIN()
 end
 
@@ -220,7 +220,7 @@ end
 local drawDirectionalArrowForEntity = function (entity, hudColour)
     local entPos = ENTITY.GET_ENTITY_COORDS(entity, false)
     local ptr = memory.alloc(4)
-    if not GRAPHICS.GET_SCREEN_COORD_FROM_WORLD_COORD(entPos.x, entPos.y, entPos.z, ptr, ptr) then
+    if not GRAPHICS.GET_SCREEN_COORD_FROM_WORLD_COORD(entPos, ptr, ptr) then
         local colour = get_hud_colour(hudColour)
         local cam = CAM.GET_RENDERING_CAM()
         local camPos = CAM.GET_CAM_COORD(cam)
@@ -341,7 +341,7 @@ local function setCannonCamRot()
         end
 
         sound.panLoop:play()
-        CAM._ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(cam, jet, cameraRot.x, 0.0, cameraRot.z, 0.0, 0.0, -4.0, true)
+        CAM._ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(cam, jet, cameraRot, v3(0.0, 0.0, -4.0), true)
     else
         sound.panLoop:stop()
     end
@@ -416,21 +416,14 @@ local doCannon = function ()
                     countdown = 3
                     isCounting = false
                     local rot = raycastResult.surfaceNormal:toRot()
+                    rot.x = rot.x - 90.0
 
-                    FIRE.ADD_EXPLOSION(pos.x, pos.y, pos.z, 59, 1.0, true, false, 1.0, false)
+                    FIRE.ADD_EXPLOSION(pos, 59, 1.0, true, false, 1.0, false)
                     GRAPHICS.USE_PARTICLE_FX_ASSET(effect.asset)
                     GRAPHICS.START_NETWORKED_PARTICLE_FX_NON_LOOPED_AT_COORD(
-                        effect.name,
-                        pos.x,
-                        pos.y,
-                        pos.z,
-                        rot.x - 90.0,
-                        rot.y,
-                        rot.z,
-                        1.0,
-                        false, false, false, true
+                        effect.name, pos, rot, 1.0, false, false, false, true
                     )
-                    AUDIO.PLAY_SOUND_FROM_COORD(-1, "DLC_XM_Explosions_Orbital_Cannon", pos.x, pos.y, pos.z, 0, true, 0, false)
+                    AUDIO.PLAY_SOUND_FROM_COORD(-1, "DLC_XM_Explosions_Orbital_Cannon", pos, NULL, true, 0, false)
                     CAM.SHAKE_CAM(cam, "GAMEPLAY_EXPLOSION_SHAKE", 1.5)
                     lastShot.reset()
                 else
@@ -505,10 +498,10 @@ local destroy = function()
     local ok, groundZ = util.get_ground_z(pos.x, pos.y)
     if ok then pos.z = groundZ end
     local outCoords = v3.new()
-    if PATHFIND.GET_CLOSEST_VEHICLE_NODE(pos.x, pos.y, pos.z, outCoords, 1, 100.0, 2.5) then
+    if PATHFIND.GET_CLOSEST_VEHICLE_NODE(pos, memory.addrof(outCoords), 1, 100.0, 2.5) then
         pos = outCoords
     end
-    ENTITY.SET_ENTITY_COORDS(players.user_ped(), pos.x, pos.y, pos.z, false, false, false, true)
+    ENTITY.SET_ENTITY_COORDS(players.user_ped(), pos, false, false, false, true)
     ENTITY.SET_ENTITY_VISIBLE(players.user_ped(), true, true)
     PED.REMOVE_PED_HELMET(players.user_ped(), true)
     DisableOTR()
@@ -533,7 +526,7 @@ self.mainLoop = function ()
                 request_model(objHash)
                 local pos = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID(), false)
                 jet = entities.create_vehicle(vehicleHash, pos, CAM.GET_GAMEPLAY_CAM_ROT(0).z)
-                ENTITY.SET_ENTITY_VISIBLE(jet, false, 0)
+                ENTITY.SET_ENTITY_VISIBLE(jet, false, false)
                 ENTITY.SET_ENTITY_VISIBLE(players.user_ped(), false, true)
 
                 VEHICLE.SET_VEHICLE_ENGINE_ON(jet, true, true, true)
@@ -542,14 +535,14 @@ self.mainLoop = function ()
                 setVehicleCamDistance(jet, -20.0)
 
                 object = entities.create_object(objHash, pos)
-                ENTITY.ATTACH_ENTITY_TO_ENTITY(object, jet, 0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, false, true, false, false, 0, true)
-                ENTITY.SET_ENTITY_COORDS_NO_OFFSET(jet, pos.x, pos.y, pos.z + 200, false, false, true)
+                ENTITY.ATTACH_ENTITY_TO_ENTITY(object, jet, 0, v3(), v3(), false, true, false, false, 0, true, 0)
+                ENTITY.SET_ENTITY_COORDS_NO_OFFSET(jet, v3(pos.x, pos.y, pos.z + 200), false, false, true)
                 PED.SET_PED_INTO_VEHICLE(PLAYER.PLAYER_PED_ID(), jet, -1)
 
                 CAM.DESTROY_ALL_CAMS(true)
                 cam = CAM.CREATE_CAM("DEFAULT_SCRIPTED_CAMERA", false)
                 cameraRot:set(-89.0, 0, 0)
-                CAM._ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(cam, jet, cameraRot.x, 0.0, cameraRot.z, 0.0, 0.0, -4.0, true)
+                CAM._ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(cam, jet, cameraRot, v3(0.0, 0.0, -4.0), true)
                 CAM.SET_CAM_FOV(cam, camFov)
                 CAM.SET_CAM_ACTIVE(cam, true)
 
@@ -585,7 +578,7 @@ self.mainLoop = function ()
 		if PAD.IS_CONTROL_JUST_PRESSED(0, 80) or PAD.IS_CONTROL_JUST_PRESSED(0, 45) then
             if isCannonActive then
                 cameraRot:set(-89.0, 0.0, 0.0)
-                CAM._ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(cam, jet, cameraRot.x, 0.0, cameraRot.z, 0.0, 0.0, -4.0, true)
+                CAM._ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(cam, jet, cameraRot, v3(0.0, 0.0, -4.0), true)
             end
             AUDIO.PLAY_SOUND_FRONTEND(-1, "cannon_active", "dlc_xm_orbital_cannon_sounds", true);
             zoom = 0.0

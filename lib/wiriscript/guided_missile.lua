@@ -5,7 +5,6 @@ THIS FILE IS PART OF WIRISCRIPT
 --------------------------------
 ]]
 
---- @diagnostic disable:param-type-mismatch
 require "wiriscript.functions"
 
 local self = {}
@@ -336,17 +335,17 @@ self.mainLoop = function ()
         ENTITY.SET_ENTITY_LOD_DIST(object, 700)
         NETWORK.SET_NETWORK_ID_CAN_MIGRATE(NETWORK.OBJ_TO_NET(object), false)
         ENTITY.SET_ENTITY_RECORDS_COLLISIONS(object, true)
-        ENTITY.SET_ENTITY_COORDS_NO_OFFSET(object, coords.x, coords.y, coords.z + 5, false, false, true)
+        ENTITY.SET_ENTITY_COORDS_NO_OFFSET(object, v3(coords.x, coords.y, coords.z + 5), false, false, true)
         ENTITY.SET_ENTITY_HAS_GRAVITY(object, false)
         STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(objHash)
 
         camera = CAM.CREATE_CAM("DEFAULT_SCRIPTED_CAMERA", true)
-        CAM.SET_CAM_FOV(camera, 80)
+        CAM.SET_CAM_FOV(camera, 80.0)
         CAM.SET_CAM_NEAR_CLIP(camera, 0.01)
         CAM.SET_CAM_NEAR_DOF(camera, 0.01)
         GRAPHICS.CLEAR_TIMECYCLE_MODIFIER()
         GRAPHICS.SET_TIMECYCLE_MODIFIER("eyeinthesky")
-        CAM._ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(camera, object, 0.0, 0.0, 180.0, 0.0, -0.9, 0.0, 1)
+        CAM._ATTACH_CAM_TO_ENTITY_WITH_FIXED_DIRECTION(camera, object, v3(0.0, 0.0, 180.0), v3(0.0, -0.9, 0.0), true)
         CAM.RENDER_SCRIPT_CAMS(true, false, 0, true, true, 0)
 
         if not AUDIO.IS_AUDIO_SCENE_ACTIVE("dlc_aw_arena_piloted_missile_scene") then
@@ -357,18 +356,12 @@ self.mainLoop = function ()
         request_fx_asset(fxAsset)
         GRAPHICS.USE_PARTICLE_FX_ASSET(fxAsset)
         effects.missile_trail = GRAPHICS.START_NETWORKED_PARTICLE_FX_LOOPED_ON_ENTITY(
-            "scr_xs_guided_missile_trail",
-            object,
-            0.0, 0.0, 0.0,
-            0.0, 0.0, 0.0,
-            1.0,
-            false, false, false,
-            0, 0, 0, 0
+            "scr_xs_guided_missile_trail", object, v3(), v3(), 1.0, false, false, false, 0, 0, 0, 0
         )
 
-        blip = HUD.ADD_BLIP_FOR_COORD(coords.x, coords.y, coords.z)
+        blip = HUD.ADD_BLIP_FOR_COORD(coords)
         HUD.SET_BLIP_SCALE(blip, 1.0)
-        HUD.SET_BLIP_ROUTE(blip, 0)
+        HUD.SET_BLIP_ROUTE(blip, false)
         HUD.SET_BLIP_SPRITE(blip, 548)
         startPos = coords
 
@@ -388,11 +381,11 @@ self.mainLoop = function ()
 
         DisablePhone()
         HUD.SET_BLIP_DISPLAY(blip, 2)
-        HUD.SET_BLIP_COORDS(blip, coords.x, coords.y, coords.z)
+        HUD.SET_BLIP_COORDS(blip, coords)
         HUD.LOCK_MINIMAP_POSITION(coords.x, coords.y)
-        HUD.SET_BLIP_ROTATION(blip, round(heading))
+        HUD.SET_BLIP_ROTATION(blip, math.ceil(heading))
         HUD.SET_BLIP_PRIORITY(blip, 9)
-        HUD.LOCK_MINIMAP_ANGLE(round(heading))
+        HUD.LOCK_MINIMAP_ANGLE(math.ceil(heading))
 
         if NETWORK.NETWORK_HAS_CONTROL_OF_NETWORK_ID(NETWORK.OBJ_TO_NET(object))  then
             if ENTITY.HAS_ENTITY_COLLIDED_WITH_ANYTHING(object) or ENTITY.GET_LAST_MATERIAL_HIT_BY_ENTITY(object) ~= 0 or
@@ -426,17 +419,15 @@ self.mainLoop = function ()
 
             local force = v3.new(direction)
             force:mul(forceMag)
-            ENTITY.APPLY_FORCE_TO_ENTITY_CENTER_OF_MASS(
-                object, 1, force.x, force.y, force.z, false, false, false, false)
+            ENTITY.APPLY_FORCE_TO_ENTITY_CENTER_OF_MASS(object, 1, force, false, false, false, false)
             setMissileRotation()
-            STREAMING.SET_FOCUS_POS_AND_VEL(
-                coords.x, coords.y, coords.z, velocity.x, velocity.y, velocity.z)
+            STREAMING.SET_FOCUS_POS_AND_VEL(coords, velocity)
             if MISC.GET_FRAME_COUNT() % 120 == 0 then
-                PED.SET_SCENARIO_PEDS_SPAWN_IN_SPHERE_AREA(coords.x, coords.y, coords.z, 60.0, 30);
+                PED.SET_SCENARIO_PEDS_SPAWN_IN_SPHERE_AREA(coords, 60.0, 30)
             end
 
             local myPos = ENTITY.GET_ENTITY_COORDS(players.user_ped(), false)
-            STREAMING.REQUEST_COLLISION_AT_COORD(myPos.x, myPos.y, myPos.z)
+            STREAMING.REQUEST_COLLISION_AT_COORD(myPos)
 
             drawMissileScaleformMovie(rotation.z)
             drawInstructionalButtons()
@@ -445,7 +436,7 @@ self.mainLoop = function ()
         end
     elseif state == MissileState.exploting then
         local coord = CAM.GET_CAM_COORD(camera)
-        FIRE.ADD_EXPLOSION(coord.x, coord.y, coord.z, 81, 5.0, true, false, 1.0, false)
+        FIRE.ADD_EXPLOSION(coord, 81, 5.0, true, false, 1.0, false)
         PAD.SET_PAD_SHAKE(0, 300, 200)
         NETWORK.NETWORK_FADE_OUT_ENTITY(object, false, true)
         sounds.startUp:stop()

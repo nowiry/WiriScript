@@ -5,8 +5,8 @@ THIS FILE IS PART OF WIRISCRIPT
 --------------------------------
 ]]
 
----@diagnostic disable: exp-in-action, unknown-symbol, break-outside
----@diagnostic disable
+---@diagnostic disable: exp-in-action, unknown-symbol, break-outside, undefined-global
+
 
 require "wiriscript.functions"
 
@@ -121,7 +121,7 @@ local DrawLockonSprite = function (position, scale, colour)
 	if GRAPHICS.HAS_STREAMED_TEXTURE_DICT_LOADED("mpsubmarine_periscope") then
 		local txdSizeX = scale * 0.042
 		local txdSizeY = scale * 0.042 * GRAPHICS._GET_ASPECT_RATIO(false)
-		GRAPHICS.SET_DRAW_ORIGIN(position.x, position.y, position.z, 0)
+		GRAPHICS.SET_DRAW_ORIGIN(position, 0)
 		GRAPHICS.DRAW_SPRITE(
 		"mpsubmarine_periscope", "target_default", 0.0, 0.0, txdSizeX, txdSizeY, 0.0, colour.r, colour.g, colour.b, colour.a, true, 0)
 		GRAPHICS.CLEAR_DRAW_ORIGIN()
@@ -160,7 +160,7 @@ local IsEntityInSafeScreenPos = function (entity)
 	local pScreenX = memory.alloc(4)
 	local pScreenY = memory.alloc(4)
 	local pos = ENTITY.GET_ENTITY_COORDS(entity, true)
-	if not GRAPHICS.GET_SCREEN_COORD_FROM_WORLD_COORD(pos.x, pos.y, pos.z, pScreenX, pScreenY) then
+	if not GRAPHICS.GET_SCREEN_COORD_FROM_WORLD_COORD(pos, pScreenX, pScreenY) then
 		return false
 	end
 	local screenX = memory.read_float(pScreenX)
@@ -183,12 +183,12 @@ local GetPlayerOrgBoss = function (player)
 end
 
 
----@param player0 Player
----@param player1 Player
+---@param player Player
+---@param target Player
 ---@return boolean
-local ArePlayersInTheSameOrg = function (player0, player1)
-	local slot0 = GetPlayerOrgBoss(player0)
-	return slot0 ~= -1 and slot0 == GetPlayerOrgBoss(player1)
+local ArePlayersInTheSameOrg = function (player, target)
+	local boss = GetPlayerOrgBoss(player)
+	return boss ~= -1 and boss == GetPlayerOrgBoss(target)
 end
 
 
@@ -221,14 +221,14 @@ local ArePlayersInTheSameCrew = function (player0, player1)
 end
 
 
----@param player Player
+---@param ped Ped
 local IsPedAnyTargetablePlayer = function (ped)
 	local player = NETWORK.NETWORK_GET_PLAYER_INDEX_FROM_PED(ped)
 	if player == -1 or not NETWORK.NETWORK_IS_PLAYER_CONNECTED(player) then
 		return false
 	end
 
-	if players.is_in_interior(player) or is_player_passive(player) or
+	if is_player_in_interior(player) or is_player_passive(player) or
 	NETWORK._IS_ENTITY_GHOSTED_TO_LOCAL_PLAYER(ped) then
 		return false
 	elseif bits:IsBitSet(Bit_IgnoreFriends) and is_player_friend(player) then
@@ -467,13 +467,13 @@ local GetCrosshairPosition = function ()
 	frontPos:add(vehPos)
 
 	local handle =
-	SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(vehPos.x, vehPos.y, vehPos.z, frontPos.x, frontPos.y, frontPos.z, 511, myVehicle, 7)
+	SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(vehPos, frontPos, 511, myVehicle, 7)
 
 	local pHit = memory.alloc(1)
 	local endCoords = v3.new()
 	local normal = v3.new()
 	local pHitEntity = memory.alloc_int()
-	local result = SHAPETEST.GET_SHAPE_TEST_RESULT(handle, pHit, endCoords, normal, pHitEntity)
+	SHAPETEST.GET_SHAPE_TEST_RESULT(handle, pHit, memory.addrof(endCoords), memory.addrof(normal), pHitEntity)
 	return memory.read_int(pHit) == 1 and endCoords or frontPos
 end
 
@@ -532,7 +532,7 @@ end
 
 
 ---@param vehicle Vehicle
----@param damage number
+---@param damage integer
 ---@param weaponHash Hash
 ---@param ownerPed Ped
 ---@param isAudible boolean
@@ -543,24 +543,25 @@ end
 local ShootFromVehicle = function (vehicle, damage, weaponHash, ownerPed, isAudible, isVisible, speed, target, position)
 	local pos = ENTITY.GET_ENTITY_COORDS(vehicle, true)
 	local min, max = v3.new(), v3.new()
-	MISC.GET_MODEL_DIMENSIONS(ENTITY.GET_ENTITY_MODEL(vehicle), min, max)
+	MISC.GET_MODEL_DIMENSIONS(ENTITY.GET_ENTITY_MODEL(vehicle), memory.addrof(min), memory.addrof(max))
 	local direction = ENTITY.GET_ENTITY_ROTATION(vehicle, 2):toDir()
 	local a
 
 	if position == 0 then
-		local offset = {x = min.x + 0.3, y = max.y - 0.15, z = 0.3}
-		a = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(vehicle, offset.x, offset.y, offset.z)
+		local offset = v3.new(min.x + 0.3, max.y - 0.15, 0.3)
+		a = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(vehicle, offset)
 	elseif position == 1 then
-		local offset = {x = max.x - 0.3, y = max.y - 0.15, z = 0.3}
-		a = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(vehicle, offset.x, offset.y, offset.z)
+		local offset = v3.new(max.x - 0.3, max.y - 0.15, 0.3)
+		a = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(vehicle, offset)
 	else
 		error("got unexpected position")
 	end
 
 	local b = v3.new(direction)
 	b:mul(5.0); b:add(a)
-	MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS_IGNORE_ENTITY_NEW(a.x, a.y, a.z, b.x, b.y, b.z, damage, true, weaponHash, ownerPed, isAudible, not isVisible, speed, vehicle, false, false, target, false, 0, 0, 0)
-	AUDIO.PLAY_SOUND_FROM_COORD(-1, "Fire", pos.x, pos.y, pos.z, "DLC_BTL_Terrobyte_Turret_Sounds", true, 120, true)
+	util.spoof_script("main_persistent", function() WEAPON.REQUEST_WEAPON_ASSET(weaponHash, 31, 26) end)
+	MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS_IGNORE_ENTITY_NEW(a, b, damage, true, weaponHash, ownerPed, isAudible, not isVisible, speed, vehicle, false, false, target, false, 0, 0, 0)
+	AUDIO.PLAY_SOUND_FROM_COORD(-1, "Fire", pos, "DLC_BTL_Terrobyte_Turret_Sounds", true, 120, true)
 end
 
 
@@ -578,7 +579,6 @@ local ShootMissiles = function()
 		end
 
 		local vehicle = PED.GET_VEHICLE_PED_IS_IN(players.user_ped(), false)
-		local pos = ENTITY.GET_ENTITY_COORDS(vehicle, true)
 		vehicleWeaponSide = vehicleWeaponSide == 0 and 1 or 0
 		local ownerPed = players.user_ped()
 
@@ -760,7 +760,7 @@ end
 self.mainLoop = function ()
 	if NETWORK.NETWORK_IS_GAME_IN_PROGRESS() and
 	PLAYER.IS_PLAYER_PLAYING(players.user()) and PED.IS_PED_IN_ANY_VEHICLE(players.user_ped(), false) then
-		
+
 		local vehicle = PED.GET_VEHICLE_PED_IS_IN(players.user_ped(), false)
 		if ENTITY.DOES_ENTITY_EXIST(vehicle) and not ENTITY.IS_ENTITY_DEAD(vehicle, false) and
 		VEHICLE.IS_VEHICLE_DRIVEABLE(vehicle, false) and

@@ -116,12 +116,12 @@ local DrawLockonSprite = function (pos, size, hudColour)
     local colour = get_hud_colour(hudColour)
     local txdSizeX = 0.013
     local txdSizeY = 0.013 * GRAPHICS._GET_ASPECT_RATIO(false)
-    GRAPHICS.SET_DRAW_ORIGIN(pos.x, pos.y, pos.z, 0)
+    GRAPHICS.SET_DRAW_ORIGIN(pos, 0)
     size = (size * 0.03)
     GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner", -size * 0.5, -size, txdSizeX, txdSizeY, 0.0, colour.r, colour.g, colour.b, colour.a, true, 0)
-    GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner",  size * 0.5, -size, txdSizeX, txdSizeY, 90., colour.r, colour.g, colour.b, colour.a, true, 0)
-    GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner", -size * 0.5,  size, txdSizeX, txdSizeY, 270, colour.r, colour.g, colour.b, colour.a, true, 0)
-    GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner",  size * 0.5,  size, txdSizeX, txdSizeY, 180, colour.r, colour.g, colour.b, colour.a, true, 0)
+    GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner",  size * 0.5, -size, txdSizeX, txdSizeY, 90.0, colour.r, colour.g, colour.b, colour.a, true, 0)
+    GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner", -size * 0.5,  size, txdSizeX, txdSizeY, 270., colour.r, colour.g, colour.b, colour.a, true, 0)
+    GRAPHICS.DRAW_SPRITE("helicopterhud", "hud_corner",  size * 0.5,  size, txdSizeX, txdSizeY, 180., colour.r, colour.g, colour.b, colour.a, true, 0)
     GRAPHICS.CLEAR_DRAW_ORIGIN()
 end
 
@@ -175,7 +175,7 @@ end
 local DrawDirectionalArrowForEntity = function (entity, hudColour)
     local entPos = ENTITY.GET_ENTITY_COORDS(entity, false)
     local ptr = memory.alloc(4)
-    if not GRAPHICS.GET_SCREEN_COORD_FROM_WORLD_COORD(entPos.x, entPos.y, entPos.z, ptr, ptr) then
+    if not GRAPHICS.GET_SCREEN_COORD_FROM_WORLD_COORD(entPos, ptr, ptr) then
         local colour = get_hud_colour(hudColour)
         local camPos = CAM.GET_CAM_COORD(cam)
         local camRot = v3.new(-math.pi/2, 0, 0)
@@ -247,7 +247,7 @@ Destroy = function ()
     sounds.zoomOut:stop()
     sounds.activating:stop()
 
-    PLAYER.DISABLE_PLAYER_FIRING(players.user_ped(), false)
+    PLAYER.DISABLE_PLAYER_FIRING(players.user(), false)
     menu.set_value(becomeOrbitalCannon, false)
 
     GRAPHICS.ANIMPOSTFX_STOP("MP_OrbitalCannon")
@@ -331,8 +331,8 @@ self.mainLoop  = function ()
 
         cam = CAM.CREATE_CAM("DEFAULT_SCRIPTED_CAMERA", false)
         local pos = players.get_position(targetId)
-        CAM.SET_CAM_COORD(cam, pos.x, pos.y, pos.z + 300.0)
-        CAM.SET_CAM_ROT(cam, -90.0, 0.0, 0.0, 2)
+        CAM.SET_CAM_COORD(cam, v3(pos.x, pos.y, pos.z + 300.0))
+        CAM.SET_CAM_ROT(cam, v3(-90.0, 0.0, 0.0, 2))
         CAM.SET_CAM_FOV(cam, maxFov)
         CAM.SET_CAM_ACTIVE(cam, true)
 
@@ -349,7 +349,7 @@ self.mainLoop  = function ()
 
     else
         local myPos = players.get_position(players.user())
-        STREAMING.REQUEST_COLLISION_AT_COORD(myPos.x, myPos.y, myPos.z)
+        STREAMING.REQUEST_COLLISION_AT_COORD(myPos)
         SetCannonState(4)
 
         if util.is_session_transition_active() then
@@ -372,8 +372,8 @@ self.mainLoop  = function ()
 
         elseif state == State.LoadingScene then
             local pos = players.get_position(targetId)
-            STREAMING.NEW_LOAD_SCENE_START_SPHERE(pos.x, pos.y, pos.z, 300.0, false)
-            STREAMING.SET_FOCUS_POS_AND_VEL(pos.x, pos.y, pos.z, 5.0, 0.0, 0.0)
+            STREAMING.NEW_LOAD_SCENE_START_SPHERE(pos, 300.0, false)
+            STREAMING.SET_FOCUS_POS_AND_VEL(pos, v3(5.0, 0.0, 0.0))
             NETWORK.NETWORK_SET_IN_FREE_CAM_MODE(true)
             timer.disable()
             newSceneStart.reset()
@@ -401,7 +401,7 @@ self.mainLoop  = function ()
             end
 
             local pos = players.get_position(targetId)
-            CAM.SET_CAM_COORD(cam, pos.x, pos.y, pos.z + 300.0)
+            CAM.SET_CAM_COORD(cam, v3(pos.x, pos.y, pos.z + 300.0))
 
         elseif state == State.Charging then
             if chargeLevel == 100 then
@@ -418,15 +418,15 @@ self.mainLoop  = function ()
             end
 
             local pos = players.get_position(targetId)
-            CAM.SET_CAM_COORD(cam, pos.x, pos.y, pos.z + 300.0)
+            CAM.SET_CAM_COORD(cam, v3(pos.x, pos.y, pos.z + 300.0))
             SetCannonCamZoom()
 
         elseif state == State.Spectating then
             local camPos = CAM.GET_CAM_COORD(cam)
             local ptr = memory.alloc(4)
-            MISC._GET_GROUND_Z_FOR_3D_COORD_2(camPos.x, camPos.y, camPos.z, ptr, false, false)
+            MISC._GET_GROUND_Z_FOR_3D_COORD_2(camPos, ptr, false, false)
             local groundZ = memory.read_float(ptr)
-            STREAMING.SET_FOCUS_POS_AND_VEL(camPos.x, camPos.y, groundZ, 5.0, 0.0, 0.0)
+            STREAMING.SET_FOCUS_POS_AND_VEL(v3(camPos.x, camPos.y, groundZ), v3(5.0, 0.0, 0.0))
 
             if PAD.IS_DISABLED_CONTROL_PRESSED(0, 69) then
                 if not isCounting then
@@ -484,28 +484,20 @@ self.mainLoop  = function ()
 
             else
                 local pos = players.get_position(targetId)
-                CAM.SET_CAM_COORD(cam, pos.x, pos.y, pos.z + 300.0)
+                CAM.SET_CAM_COORD(cam, v3(pos.x, pos.y, pos.z + 300.0))
             end
 
         elseif state == State.Shooting then
             if STREAMING.HAS_NAMED_PTFX_ASSET_LOADED(orbitalBlast.asset) then
                 chargeLevel = 0.0
                 local pos = players.get_position(targetId)
-                FIRE.ADD_OWNED_EXPLOSION(players.user_ped(), pos.x, pos.y, pos.z, 59, 1.0, true, false, 1.0)
+                FIRE.ADD_OWNED_EXPLOSION(players.user_ped(), pos, 59, 1.0, true, false, 1.0)
                 GRAPHICS.USE_PARTICLE_FX_ASSET(orbitalBlast.asset)
                 GRAPHICS.START_NETWORKED_PARTICLE_FX_NON_LOOPED_AT_COORD(
-                    orbitalBlast.name,
-                    pos.x,
-                    pos.y,
-                    pos.z,
-                    0.0,
-                    0.0,
-                    0.0,
-                    1.0,
-                    false, false, false, true
+                    orbitalBlast.name, pos, v3(), 1.0, false, false, false, true
                 )
                 AUDIO.PLAY_SOUND_FROM_COORD(
-                -1, "DLC_XM_Explosions_Orbital_Cannon", pos.x, pos.y, pos.z, NULL, true, 0, false)
+                -1, "DLC_XM_Explosions_Orbital_Cannon", pos, NULL, true, 0, false)
                 CAM.SHAKE_CAM(cam, "GAMEPLAY_EXPLOSION_SHAKE", 1.5)
                 PAD.SET_PAD_SHAKE(0, 500, 256)
                 timer.reset()
