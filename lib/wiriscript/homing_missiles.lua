@@ -6,8 +6,6 @@ THIS FILE IS PART OF WIRISCRIPT
 ]]
 
 ---@diagnostic disable: exp-in-action, unknown-symbol, break-outside, undefined-global
-
-
 require "wiriscript.functions"
 
 --------------------------
@@ -213,7 +211,7 @@ local ArePlayersInTheSameCrew = function (player0, player1)
 		NETWORK.NETWORK_CLAN_PLAYER_IS_ACTIVE(handle1) then
 			local clanDesc0, clanDesc1 = memory.alloc(280), memory.alloc(280)
 			NETWORK.NETWORK_CLAN_PLAYER_GET_DESC(clanDesc0, 35, handle0)
-			NETWORK.NETWORK_CLAN_PLAYER_GET_DESC(clanDesc1, 35, handle0)
+			NETWORK.NETWORK_CLAN_PLAYER_GET_DESC(clanDesc1, 35, handle1)
 			return memory.read_int(clanDesc0 + 0x0) == memory.read_int(clanDesc1 + 0x0)
 		end
 	end
@@ -559,7 +557,7 @@ local ShootFromVehicle = function (vehicle, damage, weaponHash, ownerPed, isAudi
 
 	local b = v3.new(direction)
 	b:mul(5.0); b:add(a)
-	util.spoof_script("main_persistent", function() WEAPON.REQUEST_WEAPON_ASSET(weaponHash, 31, 26) end)
+	WEAPON.REQUEST_WEAPON_ASSET(weaponHash, 31, 26)
 	MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS_IGNORE_ENTITY_NEW(a, b, damage, true, weaponHash, ownerPed, isAudible, not isVisible, speed, vehicle, false, false, target, false, 0, 0, 0)
 	AUDIO.PLAY_SOUND_FROM_COORD(-1, "Fire", pos, "DLC_BTL_Terrobyte_Turret_Sounds", true, 120, true)
 end

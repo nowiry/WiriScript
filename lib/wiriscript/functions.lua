@@ -1372,7 +1372,7 @@ end
 function draw_marker(type, pos, scale, colour, textureDict, textureName)
 	textureDict = textureDict or 0
 	textureName = textureName or 0
-	GRAPHICS.DRAW_MARKER(type, pos, v3(), v3(), v3(scale, scale, scale), colour.r, colour.g, colour.b, colour.a, false, false, 0, false, textureDict, textureName, false)
+	GRAPHICS.DRAW_MARKER(type, pos, v3(), v3(), v3(scale, scale, scale), colour.r, colour.g, colour.b, colour.a, false, false, 0, true, textureDict, textureName, false)
 end
 
 

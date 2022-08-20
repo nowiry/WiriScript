@@ -78,6 +78,41 @@ if not filesystem.exists(wiriDir .. "bodyguards") then
 	filesystem.mkdir(wiriDir .. "bodyguards")
 end
 
+---------------------------------
+-- CONFIG/LANGUAGE
+---------------------------------
+
+if filesystem.exists(configFile) then
+	for s, tbl in pairs(Ini.load(configFile)) do
+		for k, v in pairs(tbl) do
+			if Config[s] and Config[s][k] ~= nil then Config[s][k] = v end
+		end
+	end
+	util.log("Configuration loaded")
+end
+
+if Config.general.language ~= "english" then
+	local ok, errmsg = load_translation(Config.general.language .. ".json")
+	if not ok then notification:help("Couldn't load tranlation: " .. errmsg, HudColour.red) end
+end
+
+-----------------------------------
+-- LABELS
+-----------------------------------	
+
+local customLabels <const> =
+{
+	EnterFileName = translate("Labels", "Enter the file name"),
+	InvalidChar = translate("Labels", "Got an invalid character, try again"),
+	EnterValue = translate("Labels", "Enter the value"),
+	ValueMustBeNumber = translate("Labels", "The value must be a number, try again"),
+	Search = translate("Labels" ,"Type the word to search"),
+}
+
+for key, text in pairs(customLabels) do
+	customLabels[key] = util.register_label(text)
+end
+
 -----------------------------------
 -- PEDS LIST
 -----------------------------------
@@ -137,6 +172,9 @@ ModelList =
 	---@type fun(caption: string, model: string)?
 	onClick = nil,
 	changeName = false,
+	---@type table
+	options = {},
+	foundOpts = {},
 }
 ModelList.__index = ModelList
 
@@ -147,30 +185,42 @@ ModelList.__index = ModelList
 ---@param tbl table
 ---@param onClick? fun(caption: string, model: string)
 ---@param changeName boolean #If the list's name will change to show the selected model.
+---@param searchOpt boolean
 ---@return ModelList
-function ModelList.new(parent, name, command, helpText, tbl, onClick, changeName)
+function ModelList.new(parent, name, command, helpText, tbl, onClick, changeName, searchOpt)
 	local self = setmetatable({}, ModelList)
 	self.name = name
 	self.command = command
 	self.onClick = onClick
 	self.changeName = changeName
 	self.reference = menu.list(parent, name, {self.command}, helpText or "")
+	self.options = tbl
+	self.foundOpts = {}
 
-	for caption, value in pairs_by_keys(tbl) do
+	if searchOpt then
+		self:createSearchList(self.reference, translate("Misc", "Search"))
+	end
+
+	for caption, value in pairs_by_keys(self.options) do
 		if type(value) == "string" then
 			self:addOpt(self.reference, caption, value)
-		elseif type(value) == "table" then self:addSection(caption, value) end
+		elseif type(value) == "table" then
+			local section = menu.list(self.reference, caption, {}, "")
+			self:addSection(section, value)
+		end
 	end
 
 	return self
 end
+
 
 ---@param parent integer
 ---@param caption string
 ---@param model string
 function ModelList:addOpt(parent, caption, model)
 	local command = self.command ~= "" and self.command .. caption or ""
-	menu.action(parent, caption, {command}, "", function(click)
+
+	return menu.action(parent, caption, {command}, "", function(click)
 		if self.changeName then
 			local newName = string.format("%s: %s", self.name, caption)
 			menu.set_menu_name(self.reference, newName)
@@ -180,11 +230,65 @@ function ModelList:addOpt(parent, caption, model)
 	end)
 end
 
+
+---@param parent integer
+---@param tbl table<string, string>
+---@param outReferences integer[]?
+function ModelList:addSection(parent, tbl, outReferences)
+	for caption, name in pairs_by_keys(tbl) do
+		local reference = self:addOpt(parent, caption, name)
+		if outReferences then table.insert(outReferences, reference) end
+	end
+end
+
+
+---@param parent integer
 ---@param menu_name string
----@param tbl table
-function ModelList:addSection(menu_name, tbl)
-	local reference = menu.list(self.reference, menu_name, {}, "")
-	for caption, name in pairs_by_keys(tbl) do self:addOpt(reference, caption, name) end
+function ModelList:createSearchList(parent, menu_name)
+	local reference = menu.list(parent, menu_name, {}, "")
+
+	menu.action(reference, menu_name, {}, "", function (click)
+		if (CLICK_FLAG_AUTO & click) ~= 0 then
+			return
+		end
+
+		for _, reference in ipairs(self.foundOpts) do
+			menu.delete(reference)
+			self.foundOpts = {}
+		end
+
+		local text = get_input_from_screen_keyboard(customLabels.Search, 20, "")
+		if text == "" then return end
+
+		for caption, value in pairs(self.options) do
+			if type(value) == "string" then
+				local model = value
+				if string.lower(caption):find(string.lower(text)) or
+				value:find(string.lower(text))  then
+					local opt = self:addOpt(reference, caption, model)
+					table.insert(self.foundOpts, opt)
+				end
+
+			elseif type(value) == "table" then
+				local tbl = value
+				local matches = self.getSectionMatches(caption, text, tbl)
+				self:addSection(reference, matches, self.foundOpts)
+			end
+		end
+	end)
+end
+
+
+---@param find string
+---@param tbl table<string, string>
+---@return table
+function ModelList.getSectionMatches(sectionName, find, tbl)
+	local matches = {}
+	for caption, model in pairs(tbl) do
+		if string.lower(caption):find(string.lower(find)) or
+		model:find(string.lower(find)) then matches[sectionName .. " > " .. caption] = model end
+	end
+	return matches
 end
 
 -----------------------------------
@@ -382,37 +486,11 @@ local Imputs <const> =
 	INPUT_VEH_CINEMATIC_DOWN_ONLY = {"Numpad -; none", 97}
 }
 
-local customLabels <const> =
-{
-	EnterFileName = util.register_label("Enter the file name"),
-	InvalidChar = util.register_label("Got an invalid character, try again"),
-	EnterValue = util.register_label("Enter the value"),
-	ValueMustBeNumber = util.register_label("The value must be a number, try again"),
-}
-
 local NULL <const> = 0
 DecorFlag_isTrollyVehicle = 1 << 0
 DecorFlag_isEnemyVehicle = 1 << 1
 DecorFlag_isAttacker = 1 << 2
 DecorFlag_isAngryPlane = 1 << 3
-
----------------------------------
--- CONFIG
----------------------------------
-
-if filesystem.exists(configFile) then
-	for s, tbl in pairs(Ini.load(configFile)) do
-		for k, v in pairs(tbl) do
-			if Config[s] and Config[s][k] ~= nil then Config[s][k] = v end
-		end
-	end
-	util.log("Configuration loaded")
-end
-
-if Config.general.language ~= "english" then
-	local ok, errmsg = load_translation(Config.general.language .. ".json")
-	if not ok then notification:help("Couldn't load tranlation: " .. errmsg, HudColour.red) end
-end
 
 -----------------------------------
 -- HTTP
@@ -644,8 +722,10 @@ local crewInfo =
 	ID = translate("Spoofing Profile - Crew", "ID"),
 	Tag = translate("Spoofing Profile - Crew", "Tag"),
 	AltBadge = translate("Spoofing Profile - Crew", "Alternative Badge"),
+	Yes = translate("Misc", "Yes"),
+	No = translate("Misc", "No"),
 	Motto = translate("Spoofing Profile - Crew", "Motto"),
-	None = translate("Spoofing Profile - Crew", "None")
+	None = translate("Spoofing Profile - Crew", "None"),
 }
 
 
@@ -658,7 +738,7 @@ function Crew:createInfoList(parent, name)
 		return
 	end
 	local actions <const> = {{crewInfo.Name, self.name}, {crewInfo.ID, self.icon}, {crewInfo.Tag, self.tag},
-	{crewInfo.Motto, self.motto}, {crewInfo.AltBadge, self.alt_badge == "On" and "Yes" or "No"}}
+	{crewInfo.Motto, self.motto}, {crewInfo.AltBadge, self.alt_badge == "On" and crewInfo.Yes or crewInfo.No}}
 	local root = menu.list(parent, name, {}, "")
 	for _, tbl in ipairs(actions) do menu.readonly(root, tbl[1], tbl[2]) end
 end
@@ -1365,7 +1445,7 @@ generate_features = function(pId)
 			util.yield(150)
 		until count == i
 		STREAMING.SET_MODEL_AS_NO_LONGER_NEEDED(modelHash)
-	end, false)
+	end, false, false)
 
 	-------------------------------------
 	-- CLONE ATTACKER
@@ -3349,7 +3429,7 @@ menu.toggle_loop(weaponOpt, translate("Weapon", "Magnet Gun"), {"magnetgun"}, ""
 	local offset = get_offset_from_cam(30.0)
 	local vehicles <const> = get_vehicles_in_player_range(players.user(), 70.0)
 	rainbow_colour(colour)
-	draw_marker(28, offset, 1.0, colour)
+	draw_marker(28, offset, 0.4, colour)
 
 	for _, vehicle in ipairs(vehicles) do
 		if PED.GET_VEHICLE_PED_IS_USING(players.user_ped()) ~= vehicle and
@@ -3360,6 +3440,7 @@ menu.toggle_loop(weaponOpt, translate("Weapon", "Magnet Gun"), {"magnetgun"}, ""
 			vect:sub(vehiclePos)
 			if selectedOpt == 1 then
 				ENTITY.SET_ENTITY_VELOCITY(vehicle, vect)
+
 			elseif selectedOpt == 2 then
 				vect:mul(0.5)
 				ENTITY.APPLY_FORCE_TO_ENTITY(vehicle, 1, vect, v3(0.0, 0.0, 0.5), 0, false, false, true, false, false)
@@ -3624,13 +3705,13 @@ menu.toggle_loop(vehicleGun, translate("Weapon - Vehicle Gun", "Vehicle Gun"), {
 			preview:setRotation(camRot)
 			if raycast.didHit then preview:setOnGround() end
 		end
-	elseif preview:exists() then preview:destroy() end
 
-	if Instructional:begin() then
-		Instructional.add_control_group(29, "FM_AE_SORT_2")
-		Instructional:set_background_colour(0, 0, 0, 80)
-		Instructional:draw()
-	end
+		if Instructional:begin() then
+			Instructional.add_control_group(29, "FM_AE_SORT_2")
+			Instructional:set_background_colour(0, 0, 0, 80)
+			Instructional:draw()
+		end
+	elseif preview:exists() then preview:destroy() end
 
 	if PED.IS_PED_SHOOTING(players.user_ped()) then
 		local veh = VEHICLE.CREATE_VEHICLE(modelHash, coords.x, camRot.z, true, true, false)
@@ -4191,12 +4272,12 @@ menu.toggle_loop(vehicleWeaponRoot, translate("Vehicle - Vehicle Weapons", "Vehi
 	timer.elapsed() < selectedWeapon.timeBetweenShots then
 		return
 	elseif get_vehicle_cam_relative_heading(vehicle) < 95.0 then
-		shoot_from_vehicle(vehicle, 200, weaponHash, players.user_ped(), true, true, 1000.0, 0, 0)
-		shoot_from_vehicle(vehicle, 200, weaponHash, players.user_ped(), true, true, 1000.0, 0, 2)
+		shoot_from_vehicle(vehicle, 200, weaponHash, players.user_ped(), true, true, 2000.0, 0, 0)
+		shoot_from_vehicle(vehicle, 200, weaponHash, players.user_ped(), true, true, 2000.0, 0, 2)
 		timer.reset()
 	else
-		shoot_from_vehicle(vehicle, 200, weaponHash, players.user_ped(), true, true, 1000.0, 0, 1)
-		shoot_from_vehicle(vehicle, 200, weaponHash, players.user_ped(), true, true, 1000.0, 0, 3)
+		shoot_from_vehicle(vehicle, 200, weaponHash, players.user_ped(), true, true, 2000.0, 0, 1)
+		shoot_from_vehicle(vehicle, 200, weaponHash, players.user_ped(), true, true, 2000.0, 0, 3)
 		timer.reset()
 	end
 end, function () state = 0 end)
@@ -5046,6 +5127,8 @@ end
 
 ---@type VehicleLockOn
 local modifiedLockOn
+
+print(string.format("%X", entities.handle_to_pointer(players.user_ped())))
 
 menu.toggle_loop(vehicleOptions, translate("Vehicle", "Vehicle Instant Lock-On"), {}, "", function ()
 	local CPed = entities.handle_to_pointer(players.user_ped())
@@ -5997,7 +6080,7 @@ function BodyguardMenu.new(parent, name, command_names)
 		member:giveWeapon(weaponHash)
 		member:createMgr(self.ref, caption)
 		if self.group.defaults.invincible then member:setInvincible(true) end
-	end, false)
+	end, false, true)
 
 	menu.action(self.ref, translate("Bg Menu", "Clone Myself"), {"clonebg"}, "", function ()
 		if self.group:getSize() >= 7 then
@@ -6410,7 +6493,7 @@ local IsInSafePosForDrone = function()
 	return BitTest(read_global.int(1958711), 23)
 end
 
-menu.action(services, translate("World", "Instant Nano Drone"), {}, "", function()
+menu.action(services, translate("Services", "Nano Drone"), {}, "", function()
 	local address = memory.script_global(1958711)
 	local bits = memory.read_int(address)
 	if not BitTest(bits, 24) then
@@ -6423,7 +6506,7 @@ end)
 -- LUXURY HELICOPTER
 -------------------------------------
 
-menu.action(services, translate("World", "Request Luxury Helicopter"), {}, "", function()
+menu.action(services, translate("Services", "Request Luxury Helicopter"), {}, "", function()
 	if NETWORK.NETWORK_IS_SESSION_ACTIVE() and
 	not NETWORK.NETWORK_IS_SCRIPT_ACTIVE("am_heli_taxi", -1, true, 0) then
 		write_global.int(2815059 + 876, 1)
@@ -6445,7 +6528,7 @@ function DoesPlayerOwnBandito(player)
 	return false
 end
 
-menu.action(services, translate("World", "Instant RC Bandito"), {}, "", function()
+menu.action(services, translate("Services", "Instant RC Bandito"), {}, "", function()
 	write_global.int(2815059 + 6751, 1)
 	if not DoesPlayerOwnBandito(players.user()) then
 		local address = memory.script_global(1853348 + (players.user() * 834 + 1) + 267 + 284)
@@ -6467,7 +6550,7 @@ function DoesPlayerOwnMinitank(player)
 	return false
 end
 
-menu.action(services, translate("World", "Instant RC Tank"), {}, "", function ()
+menu.action(services, translate("Services", "Instant RC Tank"), {}, "", function ()
 	write_global.int(2815059 + 6752, 1)
 	if not DoesPlayerOwnMinitank(players.user()) then
 		local address = memory.script_global(1853348 + (players.user() * 834 + 1) + 267 + 408 + 2)
@@ -6835,12 +6918,15 @@ end
 memoryScan("GetNetGamePlayer", "48 83 EC ? 33 C0 38 05 ? ? ? ? 74 ? 83 F9", function (address)
 	GetNetGamePlayer_addr = address
 end)
+
 --[[memoryScan("UnregisterNetworkObject", "48 89 70 ? 48 89 78 ? 41 54 41 56 41 57 48 83 ec ? 80 7a ? ? 45 8a f9", function (address)
 	UnregisterNetworkObject_addr = address - 0xB
 end)]]
+
 memoryScan("CNetworkObjectMgr", "48 8B 0D ? ? ? ? 45 33 C0 E8 ? ? ? ? 33 FF 4C 8B F0", function (address)
 	CNetworkObjectMgr = memory.rip(address + 3)
 end)
+
 --[[memoryScan("ChangeNetObjOwner", "48 8B C4 48 89 58 08 48 89 68 10 48 89 70 18 48 89 78 20 41 54 41 56 41 57 48 81 EC ? ? ? ? 44 8A 62 4B", function (address)
 	ChangeNetObjOwner_addr = address
 end)]]
