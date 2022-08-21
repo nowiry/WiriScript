@@ -781,7 +781,8 @@ self.mainLoop = function ()
 				DrawChargingMeter()
 				DisablePhone()
 				DisableControlActions()
-			else
+
+			elseif not is_player_in_any_rc_vehicle(players.user()) then
 				if state ~= State.Reseted then
 					self.reset()
 				end

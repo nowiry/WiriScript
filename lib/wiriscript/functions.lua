@@ -375,6 +375,7 @@ function new_colour(r, g, b, a)
 	return {r = r, g = g, b = b, a = a}
 end
 
+
 ---@return Colour
 function get_random_colour()
 	local colour = {a = 255}
@@ -383,6 +384,7 @@ function get_random_colour()
 	colour.b = math.random(0,255)
 	return colour
 end
+
 
 ---@param hudColour HudColour
 ---@return Colour
@@ -461,6 +463,7 @@ function Instructional:begin ()
     end
 end
 
+
 ---@param index integer
 ---@param name string
 ---@param button string
@@ -481,6 +484,7 @@ function Instructional:add_data_slot(index, name, button)
 	self.position = self.position + 1
 end
 
+
 ---@param index integer
 ---@param name string
 function Instructional.add_control(index, name)
@@ -488,12 +492,14 @@ function Instructional.add_control(index, name)
     Instructional:add_data_slot(index, name, button)
 end
 
+
 ---@param index integer
 ---@param name string
 function Instructional.add_control_group (index, name)
 	local button = PAD.GET_CONTROL_GROUP_INSTRUCTIONAL_BUTTON(2, index, true)
     Instructional:add_data_slot(index, name, button)
 end
+
 
 ---@param r integer
 ---@param g integer
@@ -507,6 +513,7 @@ function Instructional:set_background_colour(r, g, b, a)
 	GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_INT(a)
 	GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
 end
+
 
 function Instructional:draw ()
 	GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(self.scaleform, "DRAW_INSTRUCTIONAL_BUTTONS")
@@ -581,6 +588,7 @@ function set_explosion_proof(entity, value)
 	memory.write_uint(pEntity + 0x188, damageBits)
 end
 
+
 ---@param entity Entity
 ---@param target Entity
 ---@param usePitch? boolean
@@ -596,6 +604,7 @@ function set_entity_face_entity(entity, target, usePitch)
 		ENTITY.SET_ENTITY_ROTATION(entity, rot.x, rot.y, rot.z, 2, false)
 	end
 end
+
 
 ---@param entity Entity
 ---@param blipSprite integer
@@ -622,6 +631,7 @@ function add_blip_for_entity(entity, blipSprite, colour)
 	return blip
 end
 
+
 ---@param blip Blip
 ---@param name string
 ---@param isLabel? boolean
@@ -635,6 +645,7 @@ function set_blip_name(blip, name, isLabel)
 	HUD.END_TEXT_COMMAND_SET_BLIP_NAME(blip)
 end
 
+
 ---@param entity Entity
 ---@return boolean
 function request_control_once(entity)
@@ -645,6 +656,7 @@ function request_control_once(entity)
 	NETWORK.SET_NETWORK_ID_CAN_MIGRATE(netId, true)
 	return NETWORK.NETWORK_REQUEST_CONTROL_OF_ENTITY(entity)
 end
+
 
 ---@param entity Entity
 ---@param timeOut? integer #time in `ms` trying to get control
@@ -661,6 +673,7 @@ function request_control(entity, timeOut)
 	return start.elapsed() < timeOut
 end
 
+
 ---@param ped Ped
 ---@param maxPeds? integer
 ---@param ignore? integer
@@ -676,6 +689,7 @@ function get_ped_nearby_peds(ped, maxPeds, ignore)
 	return pedsList
 end
 
+
 ---@param ped Ped
 ---@param maxVehicles? integer
 ---@return Entity[]
@@ -690,6 +704,7 @@ function get_ped_nearby_vehicles(ped, maxVehicles)
 	return vehiclesList
 end
 
+
 ---@param ped Ped
 ---@return Entity[]
 function get_ped_nearby_entities(ped)
@@ -699,6 +714,7 @@ function get_ped_nearby_entities(ped)
 	for i = 1, #vehicles do table.insert(entities, vehicles[i]) end
 	return entities
 end
+
 
 ---@param player Player
 ---@param radius number
@@ -716,6 +732,7 @@ function get_peds_in_player_range(player, radius)
 	return peds
 end
 
+
 ---@param player Player
 ---@param radius number
 ---@return Entity[]
@@ -729,6 +746,7 @@ function get_vehicles_in_player_range(player, radius)
 	return vehicles
 end
 
+
 ---@param pId Player
 ---@param radius number
 ---@return Entity[]
@@ -740,12 +758,14 @@ function get_entities_in_player_range(pId, radius)
 	return entities
 end
 
+
 ---@param start v3
 ---@param to v3
 ---@param colour Colour
 local draw_line = function (start, to, colour)
 	GRAPHICS.DRAW_LINE(start, to, colour.r, colour.g, colour.b, colour.a)
 end
+
 
 ---@param pos0 v3
 ---@param pos1 v3
@@ -809,13 +829,13 @@ function draw_bounding_box(entity, showPoly, colour)
 	end
 end
 
+
 ---@param entity Entity
 ---@param flag integer
 function set_decor_flag(entity, flag)
-	if ENTITY.DOES_ENTITY_EXIST(entity) then
-		DECORATOR.DECOR_SET_INT(entity, "Casino_Game_Info_Decorator", flag)
-	end
+	DECORATOR.DECOR_SET_INT(entity, "Casino_Game_Info_Decorator", flag)
 end
+
 
 ---@param entity Entity
 ---@param flag integer
@@ -829,10 +849,12 @@ function is_decor_flag_set(entity, flag)
 	return false
 end
 
+
 ---@param entity Entity
 function remove_decor(entity)
 	DECORATOR.DECOR_REMOVE(entity, "Casino_Game_Info_Decorator")
 end
+
 
 ---@param ped Ped
 ---@param forcedOn boolean
@@ -855,6 +877,7 @@ function add_ai_blip_for_ped(ped, forcedOn, hasCone, noticeRange, colour, sprite
 	return HUD._GET_AI_BLIP_2(ped)
 end
 
+
 ---@param entity Entity
 ---@param minDistance number
 ---@param maxDistance number
@@ -863,6 +886,7 @@ function get_random_offset_from_entity(entity, minDistance, maxDistance)
 	local pos = ENTITY.GET_ENTITY_COORDS(entity, false)
 	return get_random_offset_in_range(pos, minDistance, maxDistance)
 end
+
 
 ---@param coords v3
 ---@param minDistance number
@@ -877,6 +901,7 @@ function get_random_offset_in_range(coords, minDistance, maxDistance)
 	return coords
 end
 
+
 ---@param entity Entity
 function set_entity_as_no_longer_needed(entity)
 	if not ENTITY.DOES_ENTITY_EXIST(entity) then return end
@@ -884,6 +909,7 @@ function set_entity_as_no_longer_needed(entity)
 	memory.write_int(pHandle, entity)
 	ENTITY.SET_ENTITY_AS_NO_LONGER_NEEDED(pHandle)
 end
+
 
 ---@param entity Entity
 ---@param target Entity
@@ -909,6 +935,7 @@ function is_player_friend(player)
 	return isFriend
 end
 
+
 ---@param player Player
 ---@return Vehicle
 function get_vehicle_player_is_in(player)
@@ -918,6 +945,7 @@ function get_vehicle_player_is_in(player)
 	end
 	return 0
 end
+
 
 ---@param player Player
 ---@return Entity
@@ -935,6 +963,7 @@ function get_entity_player_is_aiming_at(player)
 	return entity
 end
 
+
 ---@param entity Entity
 ---@return integer address
 function get_net_obj(entity)
@@ -942,12 +971,14 @@ function get_net_obj(entity)
 	return pEntity ~= NULL and memory.read_long(pEntity + 0xD0) or NULL
 end
 
+
 ---@param entity Entity
 ---@return Player owner
 function get_entity_owner(entity)
 	local net_obj = get_net_obj(entity)
 	return net_obj ~= NULL and memory.read_byte(net_obj + 0x49) or -1
 end
+
 
 ---@param player Player
 ---@return boolean
@@ -962,12 +993,14 @@ function is_player_passive(player)
 	return false
 end
 
+
 ---@param player Player
 ---@return boolean
 function is_player_in_any_interior(player)
 	local address = memory.script_global(2689235 + (player * 453 + 1) + 243)
 	return address ~= NULL and memory.read_int(address) ~= 0
 end
+
 
 ---@param player Player
 ---@return boolean
@@ -983,6 +1016,58 @@ function is_player_in_interior(player)
 	elseif read_global.int(2689235 + (player * 453 + 1) + 318 + 6) ~= -1 then
 		return true
 	end
+	return false
+end
+
+
+---@param player Player
+---@return boolean
+function is_player_in_rc_bandito(player)
+	if player ~= -1 then
+		local address = memory.script_global(1853348 + (player * 834 + 1) + 267 + 348)
+		return BitTest(memory.read_int(address), 29)
+	end
+	return false
+end
+
+
+---@param player Player
+---@return boolean
+function is_player_in_rc_tank(player)
+	if player ~= -1 then
+		local address = memory.script_global(1853348 + (player * 834 + 1) + 267 + 408 + 2)
+		return BitTest(memory.read_int(address), 16)
+	end
+	return false
+end
+
+
+---@param player Player
+---@return boolean
+function is_player_in_rc_personal_vehicle(player)
+	if player ~= -1 then
+		local address = memory.script_global(1853348 + (player * 834 + 1) + 267 + 408 + 3)
+		return BitTest(memory.read_int(address), 6)
+	end
+	return false
+end
+
+
+---@param player Player
+---@return boolean
+function is_player_in_any_rc_vehicle(player)
+	if is_player_in_rc_bandito(player) then
+		return true
+	end
+
+	if is_player_in_rc_tank(player) then
+		return true
+	end
+
+	if is_player_in_rc_personal_vehicle(player) then
+		return true
+	end
+
 	return false
 end
 
@@ -1234,6 +1319,7 @@ function table.insert_once(t, value)
 	if not table.find(t, value) then table.insert(t, value) end
 end
 
+
 ---@generic T: table, K, V
 ---@param t T
 ---@param f fun(key: K, value: V): boolean
@@ -1246,6 +1332,7 @@ function table.find_if(t, f)
 	return nil
 end
 
+
 ---@generic T: table, K, V
 ---@param t T
 ---@param value any
@@ -1257,6 +1344,7 @@ function table.find(t, value)
 	end
 	return nil
 end
+
 
 ---@generic T: table, K, V
 ---@param t T
@@ -1274,16 +1362,18 @@ end
 -- MISC
 --------------------------
 
---- Credits to Sainan
+---Credits to Sainan
 function int_to_uint(int)
     if int >= 0 then return int end
     return (1 << 32) + int
 end
 
+
 function interpolate(y0, y1, perc)
 	perc = perc > 1.0 and 1.0 or perc
 	return (1 - perc) * y0 + perc * y1
 end
+
 
 ---@param num number
 ---@param places? integer
@@ -1291,6 +1381,7 @@ end
 function round(num, places)
 	return tonumber(string.format('%.' .. (places or 0) .. 'f', num))
 end
+
 
 ---@param blip integer
 ---@return v3?
@@ -1310,6 +1401,7 @@ function get_blip_coords(blip)
 	return pos
 end
 
+
 ---@param pos v3
 ---@return number?
 function get_ground_z(pos)
@@ -1318,6 +1410,7 @@ function get_ground_z(pos)
 	local groundz = memory.read_float(pGroundZ)
 	return groundz
 end
+
 
 ---@param windowName string #Must be a label
 ---@param maxInput integer
@@ -1333,6 +1426,7 @@ function get_input_from_screen_keyboard(windowName, maxInput, defaultText)
 	end
 	return ""
 end
+
 
 ---@param s string
 ---@param x number
@@ -1352,9 +1446,11 @@ function draw_string(s, x, y, scale, font)
 	HUD.END_TEXT_COMMAND_DISPLAY_TEXT(x, y, 0)
 end
 
+
 function capitalize(txt)
 	return tostring(txt):gsub('^%l', string.upper)
 end
+
 
 ---@param min number
 ---@param max number
@@ -1362,6 +1458,7 @@ end
 function random_float(min, max)
 	return min + math.random() * (max - min)
 end
+
 
 ---@param type integer
 ---@param pos v3
