@@ -58,7 +58,7 @@ self.getVersion = function ()
 end
 
 
-local function currectHeading(heading)
+local function invertHeading(heading)
     if heading > 180.0 then
         return (heading - 180.0)
     end
@@ -325,7 +325,7 @@ self.mainLoop = function ()
         request_model(objHash)
         local coords = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID(), false)
         object = entities.create_object(objHash, coords)
-        ENTITY.SET_ENTITY_HEADING(object, currectHeading(CAM.GET_GAMEPLAY_CAM_ROT(0).z))
+        ENTITY.SET_ENTITY_HEADING(object, invertHeading(CAM.GET_GAMEPLAY_CAM_ROT(0).z))
         ENTITY.SET_ENTITY_AS_MISSION_ENTITY(object, false, true)
         ENTITY.SET_ENTITY_INVINCIBLE(object, true)
         ENTITY._SET_ENTITY_CLEANUP_BY_ENGINE(object, true)
@@ -376,7 +376,7 @@ self.mainLoop = function ()
         local coords    = ENTITY.GET_ENTITY_COORDS(object, true)
         local velocity  = ENTITY.GET_ENTITY_VELOCITY(object)
         local rotation  = CAM.GET_CAM_ROT(camera, 2)
-        local heading   = currectHeading( ENTITY.GET_ENTITY_HEADING(object) )
+        local heading   = invertHeading( ENTITY.GET_ENTITY_HEADING(object) )
         local direction = rotation:toDir()
 
         DisablePhone()

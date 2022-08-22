@@ -5127,9 +5127,6 @@ end
 
 ---@type VehicleLockOn
 local modifiedLockOn
-
-print(string.format("%X", entities.handle_to_pointer(players.user_ped())))
-
 menu.toggle_loop(vehicleOptions, translate("Vehicle", "Vehicle Instant Lock-On"), {}, "", function ()
 	local CPed = entities.handle_to_pointer(players.user_ped())
 	if CPed == NULL then return end
@@ -6493,7 +6490,7 @@ local IsInSafePosForDrone = function()
 	return BitTest(read_global.int(1958711), 23)
 end
 
-menu.action(services, translate("Services", "Nano Drone"), {}, "", function()
+menu.action(services, translate("Services", "Instant Nano Drone"), {}, "", function()
 	local address = memory.script_global(1958711)
 	local bits = memory.read_int(address)
 	if not BitTest(bits, 24) then
@@ -6565,6 +6562,11 @@ end)
 ---------------------
 
 local protectionOpt <const> = menu.list(menu.my_root(), translate("Protections", "Protections"), {}, "")
+
+-------------------------------------
+-- ANTICAGE
+-------------------------------------
+
 local cageModels <const> =
 {
 	"prop_gold_cont_01",
@@ -6592,7 +6594,7 @@ menu.toggle_loop(protectionOpt, translate("Protections", "Anticage"), {"anticage
 		local obj = OBJECT.GET_CLOSEST_OBJECT_OF_TYPE(myPos, 8.0, modelHash, false, false, false)
 		if obj == 0 or not ENTITY.DOES_ENTITY_EXIST(obj) or
 		not ENTITY.IS_ENTITY_AT_ENTITY(players.user_ped(), obj, v3(5.0, 5.0, 5.0), false, true, 0) then
-			goto LABEL_CONTINUE
+			continue
 		end
 		local ownerId = get_entity_owner(obj)
 		local msg = string.format(format, PLAYER.GET_PLAYER_NAME(ownerId))
@@ -6604,8 +6606,142 @@ menu.toggle_loop(protectionOpt, translate("Protections", "Anticage"), {"anticage
 		end
 		request_control(obj, 1500)
 		entities.delete_by_handle(obj)
-	::LABEL_CONTINUE::
 	end
+end)
+
+-------------------------------------
+-- DRONE DETECTION
+-------------------------------------
+
+local trans =
+{
+	FlyingDrone = translate("Protections", "<C>%s</C> is flying a drone"),
+	LaunchedMissile = translate("Protections", "<C>%s</C> is using a guided missile"),
+	NearDrone = translate("Protections", "<C>%s</C>'s drone is nearby"),
+	NearMissile = translate("Protections", "<C>%s</C>'s guided missile is nearby"),
+}
+local notificationBits = 0
+local nearbyNotificationBits = 0
+local blips = {}
+
+
+---@param player Player
+---@return boolean
+local function IsPlayerFlyingAnyDrone(player)
+	local address = memory.script_global(1853348 + (player * 834 + 1) + 267 + 348)
+	return BitTest(memory.read_int(address), 26)
+end
+
+---@param player Player
+---@return integer
+local function GetPlayerDroneType(player)
+	local p_type = memory.script_global(1911933 + (player * 260 + 1) + 93)
+	return memory.read_int(p_type)
+end
+
+---@param player Player
+---@return Object
+local function GetPlayerDroneObject(player)
+	local p_object = memory.script_global(1911933 + (players.user() * 260 + 1) + 60 + (player + 1))
+	return memory.read_int(p_object)
+end
+
+---@param heading number
+---@return number
+local function InvertHeading(heading)
+	if heading > 180.0 then
+		return heading - 180.0
+	end
+	return heading + 180.0
+end
+
+---@param droneType integer
+---@return integer
+local function GetDroneBlipSprite(droneType)
+	return (droneType == 8 or droneType == 4) and 548 or 627
+end
+
+---@param droneType integer
+---@return string
+local function GetNotificationMsg(droneType, nearby)
+	if droneType == 8 or droneType == 4 then
+		return nearby and trans.NearMissile or trans.LaunchedMissile
+	end
+	return nearby and trans.NearDrone or trans.FlyingDrone
+end
+
+---@param blip Blip
+local function RemoveBlip(blip)
+	if HUD.DOES_BLIP_EXIST(blip) then util.remove_blip(blip) end
+end
+
+
+---@param player Player
+function AddBlipForPlayerDrone(player)
+	if not blips[player] then
+		blips[player] = 0
+	end
+
+	if NETWORK.NETWORK_IS_PLAYER_ACTIVE(player) and PLAYER.IS_PLAYER_PLAYING(player) and
+	players.user() ~= player and IsPlayerFlyingAnyDrone(player) then
+		if ENTITY.DOES_ENTITY_EXIST(GetPlayerDroneObject(player)) then
+			local obj = GetPlayerDroneObject(player)
+			local pos = ENTITY.GET_ENTITY_COORDS(obj, true)
+			local heading = InvertHeading(ENTITY.GET_ENTITY_HEADING(obj))
+
+			if not HUD.DOES_BLIP_EXIST(blips[player]) then
+				blips[player] = HUD.ADD_BLIP_FOR_ENTITY(obj)
+				local sprite = GetDroneBlipSprite(GetPlayerDroneType(player))
+				HUD.SET_BLIP_SPRITE(blips[player], sprite)
+				HUD.SHOW_HEIGHT_ON_BLIP(blips[player], false)
+				HUD.SET_BLIP_SCALE(blips[player], 0.8)
+				HUD.SET_BLIP_NAME_TO_PLAYER_NAME(blips[player], player)
+
+			else
+				HUD.SET_BLIP_DISPLAY(blips[player], 2)
+				HUD.SET_BLIP_COORDS(blips[player], pos)
+				HUD.SET_BLIP_ROTATION(blips[player], math.ceil(heading))
+				HUD.SET_BLIP_PRIORITY(blips[player], 9)
+			end
+
+			if not BitTest(nearbyNotificationBits, player) and HUD.DOES_BLIP_EXIST(blips[player]) then
+				local msg = GetNotificationMsg(GetPlayerDroneType(player), true)
+				notification:normal(msg, HudColour.purpleDark, PLAYER.GET_PLAYER_NAME(player))
+				nearbyNotificationBits = SetBit(nearbyNotificationBits, player)
+			end
+
+		else
+			RemoveBlip(blips[player])
+			blips[player] = 0
+			nearbyNotificationBits = ClearBit(nearbyNotificationBits, player)
+		end
+
+		if not BitTest(notificationBits, player) then
+			local msg = GetNotificationMsg(GetPlayerDroneType(player), false)
+			notification:normal(msg, HudColour.purpleDark, PLAYER.GET_PLAYER_NAME(player))
+			notificationBits = SetBit(notificationBits, player)
+		end
+
+	else
+		RemoveBlip(blips[player])
+		blips[player] = 0
+		notificationBits = ClearBit(notificationBits, player)
+		nearbyNotificationBits = ClearBit(nearbyNotificationBits, player)
+	end
+end
+
+local help =
+translate("Protections", "Notifies when a player is flying a drone or launched a guided missile " ..
+"and shows it on the map when nearby")
+
+menu.toggle_loop(protectionOpt, translate("Protections", "Drone/Missile Detection"), {}, help, function ()
+	for player = 0, 32 do AddBlipForPlayerDrone(player) end
+end, function()
+	for i, blip in pairs(blips) do
+		RemoveBlip(blip); blips[i] = 0
+	end
+	notificationBits = 0
+	nearbyNotificationBits = 0
 end)
 
 ---------------------
