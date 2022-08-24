@@ -5349,7 +5349,7 @@ menu.action(drivingStyleList, translate("Autopilot - Driving Style", "Set Custom
 	function() drivingStyle = currentFlag end)
 
 menu.slider(autopilot, translate("Vehicle - Autopilot", "Speed"), {"autopilotspeed"}, "",
-	5, 200, 20, 1, function(speed) autopilotSpeed = speed end)
+	5, 200, 20, 1, function(speed) autopilotSpeed = speed * 1.0 end)
 
 -------------------------------------
 -- ENGINE ALWAYS ON
@@ -6896,7 +6896,7 @@ local healthtxt <const> = menu.list(settings, translate("Settings", "Health Text
 local sizeX, sizeY = directx.get_client_size()
 
 local sliderX = menu.slider(healthtxt, "X", {"healthx"}, "", 0, sizeX, math.ceil(sizeX * Config.healthtxtpos.x), 1, function(x)
-	Config.healthtxtpos.x = round(x/sizeX, 4)
+	Config.healthtxtpos.x = round(x / sizeX, 4)
 end)
 
 menu.on_tick_in_viewport(sliderX, function()
@@ -6904,7 +6904,7 @@ menu.on_tick_in_viewport(sliderX, function()
 end)
 
 menu.slider(healthtxt, "Y", {"healthy"}, "", 0, sizeY, math.ceil(sizeY * Config.healthtxtpos.y), 1, function(y)
-	Config.healthtxtpos.y = round(y/sizeY, 4)
+	Config.healthtxtpos.y = round(y / sizeY, 4)
 end)
 
 -------------------------------------
