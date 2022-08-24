@@ -8,7 +8,7 @@ THIS FILE IS PART OF WIRISCRIPT
 require "wiriscript.functions"
 
 local self = {}
-local version = 22
+local version = 23
 local targetId = -1
 local cam = 0
 local zoomLevel = 0.0

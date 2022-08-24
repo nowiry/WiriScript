@@ -6,7 +6,7 @@ THIS FILE IS PART OF WIRISCRIPT
 ]]
 
 local scriptStartTime = util.current_time_millis()
-gVersion = 22
+gVersion = 23
 util.require_natives("1660775568-uno")
 
 local required <const> = {
