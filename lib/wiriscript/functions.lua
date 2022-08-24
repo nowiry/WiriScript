@@ -86,8 +86,8 @@ notification =
 ---@param msg string
 function notification.stand(msg)
 	assert(type(msg) == "string", "msg must be a string, got " .. type(msg))
-	msg = "[WiriScript] " .. tostring(msg):gsub('[~]%w[~]', "") -- removes any text colour (i.e. ~r~, ~b~, ~s~, etc.)
-	util.toast(msg)
+	msg = msg:gsub('~%w~', ""):gsub('<C>(.-)</C>', '%1')
+	util.toast("[WiriScript] " .. msg)
 end
 
 

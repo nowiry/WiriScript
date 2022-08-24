@@ -193,10 +193,9 @@ function ModelList.new(parent, name, command, helpText, tbl, onClick, changeName
 	self.command = command
 	self.onClick = onClick
 	self.changeName = changeName
-	self.reference = menu.list(parent, name, {self.command}, helpText or "")
-	self.options = tbl
 	self.foundOpts = {}
-
+	self.options = tbl
+	self.reference = menu.list(parent, name, {self.command}, helpText or "")
 	if searchOpt then
 		self:createSearchList(self.reference, translate("Misc", "Search"))
 	end
@@ -204,12 +203,12 @@ function ModelList.new(parent, name, command, helpText, tbl, onClick, changeName
 	for caption, value in pairs_by_keys(self.options) do
 		if type(value) == "string" then
 			self:addOpt(self.reference, caption, value)
+
 		elseif type(value) == "table" then
 			local section = menu.list(self.reference, caption, {}, "")
 			self:addSection(section, value)
 		end
 	end
-
 	return self
 end
 
@@ -258,14 +257,16 @@ function ModelList:createSearchList(parent, menu_name)
 		end
 
 		local text = get_input_from_screen_keyboard(customLabels.Search, 20, "")
-		if text == "" then return end
+		if text == "" then
+			return
+		else
+			text = string.lower(text)
+		end
 
 		for caption, value in pairs(self.options) do
 			if type(value) == "string" then
-				local model = value
-				if string.lower(caption):find(string.lower(text)) or
-				value:find(string.lower(text))  then
-					local opt = self:addOpt(reference, caption, model)
+				if string.lower(caption):find(text) or value:find(text) then
+					local opt = self:addOpt(reference, caption, value)
 					table.insert(self.foundOpts, opt)
 				end
 
@@ -279,14 +280,17 @@ function ModelList:createSearchList(parent, menu_name)
 end
 
 
+---@param section string
 ---@param find string
 ---@param tbl table<string, string>
 ---@return table
-function ModelList.getSectionMatches(sectionName, find, tbl)
+function ModelList.getSectionMatches(section, find, tbl)
 	local matches = {}
+	find = string.lower(find)
+
 	for caption, model in pairs(tbl) do
-		if string.lower(caption):find(string.lower(find)) or
-		model:find(string.lower(find)) then matches[sectionName .. " > " .. caption] = model end
+		if string.lower(caption):find(find) or
+		model:find(find) then matches[section .. " > " .. caption] = model end
 	end
 	return matches
 end
@@ -962,6 +966,7 @@ local trans =
 	Enabled = translate("Spoofing Profile", "Proofile enabled"),
 	MovedToBin = translate("Spoofing Profile", "Profile moved to recycle bin"),
 	InvalidProfile = translate("Spoofing Profile", "%s is an invalid profile: %s"),
+	ClickToRestore = translate("Spoofing Profile", "Click to restore")
 }
 
 ---@class ProfileManager
@@ -1124,9 +1129,8 @@ function ProfileManager:remove(name, profile)
 	self.profiles[name] = nil; self.menuLists[name] = nil
 	if self.deletedProfiles[ name ] then return end
 
-	local helpText = translate("Spoofing Profile", "Click to restore")
 	local command
-	command = menu.action(self.recycleBin, name, {}, helpText, function()
+	command = menu.action(self.recycleBin, name, {}, trans.ClickToRestore, function()
 		self:save(profile, true)
 		menu.delete(command)
 		self.deletedProfiles[name] = nil
@@ -2514,16 +2518,18 @@ generate_features = function(pId)
 	-- SEND MUGGER
 	-------------------------------------
 
-	menu.action(trollingOpt, translate("Trolling", "Send Mugger"), {}, "", function(index)
+	local msg = translate("Trolling", "A mugger is already active")
+
+	menu.action(trollingOpt, translate("Trolling", "Send Mugger"), {}, "", function()
 		if NETWORK.NETWORK_IS_SESSION_STARTED() and NETWORK.NETWORK_IS_PLAYER_ACTIVE(pId) and
 		not PED.IS_PED_INJURED(PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)) and not is_player_in_interior(pId) then
 
 			if not NETWORK.NETWORK_IS_SCRIPT_ACTIVE("am_gang_call", 0, true, 0) then
 				local bits_addr = memory.script_global(1853348 + (players.user() * 834 + 1) + 140)
-				memory.write_int(bits_addr, memory.read_int(bits_addr) | (1 << 0))
+				memory.write_int(bits_addr, SetBit(memory.read_int(bits_addr), 0))
 				write_global.int(1853348 + (players.user() * 834 + 1) + 141, pId)
 			else
-				notification:help(translate("Trolling", "A mugger is already active"), HudColour.red)
+				notification:help(msg, HudColour.red)
 			end
 		end
 	end)
@@ -2532,16 +2538,17 @@ generate_features = function(pId)
 	-- SEND MERCENARIES
 	-------------------------------------
 
+	local msg = translate("Trolling", "Mercenaries are already active")
+
 	menu.action(trollingOpt, translate("Trolling", "Send Mercenaries"), {}, "", function()
 		if NETWORK.NETWORK_IS_SESSION_STARTED() and NETWORK.NETWORK_IS_PLAYER_ACTIVE(pId) and
 		not PED.IS_PED_INJURED(PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)) and not is_player_in_interior(pId) then
 
 			if not NETWORK.NETWORK_IS_SCRIPT_ACTIVE("am_gang_call", 1, true, 0) then
 				local bits_addr = memory.script_global(1853348 + (players.user() * 834 + 1) + 140)
-				memory.write_int(bits_addr, memory.read_int(bits_addr) | (1 << 1))
+				memory.write_int(bits_addr, SetBit(memory.read_int(bits_addr), 1))
 				write_global.int(1853348 + (players.user() * 834 + 1) + 141, pId)
 			else
-				local msg = translate("Trolling", "Mercenaries are already active")
 				notification:help(msg, HudColour.red)
 			end
 		end
@@ -2986,7 +2993,7 @@ menu.toggle_loop(selfOpt, translate("Forcefield", "Forcefield"), {"forcefield"},
 		for _, entity in ipairs(entities) do
 			local entPos = ENTITY.GET_ENTITY_COORDS(entity, false)
 
-			if not PED.IS_PED_A_PLAYER(entity) and
+			if not (ENTITY.IS_ENTITY_A_PED(entity) and PED.IS_PED_A_PLAYER(entity)) and
 			PED.GET_VEHICLE_PED_IS_USING(players.user_ped()) ~= entity and request_control_once(entity) then
 				local force = v3.new(entPos)
 				force:sub(playerPos)
@@ -2995,7 +3002,6 @@ menu.toggle_loop(selfOpt, translate("Forcefield", "Forcefield"), {"forcefield"},
 				if ENTITY.IS_ENTITY_A_PED(entity) then
 					PED.SET_PED_TO_RAGDOLL(entity, 1000, 1000, 0, false, false, false)
 				end
-
 				ENTITY.APPLY_FORCE_TO_ENTITY(entity, 3, force, v3(0, 0, 0.5), 0, false, false, true, false, false)
 			end
 		end
@@ -3020,10 +3026,11 @@ end)
 local helpText = translate("Self", "Use Jedi Force on nearby vehicles")
 local notif_format = translate("Self", "Press ~%s~ and ~%s~ to use Force")
 
+
 local state = 0
 menu.toggle_loop(selfOpt, translate("Self", "Force"), {"jedimode"}, helpText, function()
 	if state == 0 then
-		notification:help(notif_format, HudColour.black, "INPUT_VEH_FLY_SELECT_TARGET_RIGHT", "INPUT_VEH_FLY_ROLL_RIGHT_ONLY")
+		notification:help(notif_format, HudColour.black, "INPUT_ATTACK", "INPUT_AIM")
 		local effect = Effect.new("scr_ie_tw", "scr_impexp_tw_take_zone")
 		local colour = {r = 0.5, g = 0.0, b = 0.5, a = 1.0}
 		request_fx_asset(effect.asset)
@@ -3034,15 +3041,23 @@ menu.toggle_loop(selfOpt, translate("Self", "Force"), {"jedimode"}, helpText, fu
 		)
 		state = 1
 	elseif state == 1 then
+		PLAYER.DISABLE_PLAYER_FIRING(players.user(), true)
+		PAD.DISABLE_CONTROL_ACTION(0, 25, true)
+		PAD.DISABLE_CONTROL_ACTION(0, 68, true)
+		PAD.DISABLE_CONTROL_ACTION(0, 91, true)
 		local entities = get_ped_nearby_vehicles(players.user_ped())
+
 		for _, vehicle in ipairs(entities) do
 			if PED.IS_PED_IN_ANY_VEHICLE(players.user_ped(), false) and
 			PED.GET_VEHICLE_PED_IS_IN(players.user_ped(), false) == vehicle then
 				continue
 			end
-			if PAD.IS_CONTROL_PRESSED(0, 118) and request_control_once(vehicle) then
+			if PAD.IS_DISABLED_CONTROL_PRESSED(0, 24) and
+			request_control_once(vehicle) then
 				ENTITY.APPLY_FORCE_TO_ENTITY(vehicle, 1, v3(0.0, 0.0, 0.5), v3(), 0, false, false, true, false, false)
-			elseif PAD.IS_CONTROL_PRESSED(0, 109) and request_control_once(vehicle) then
+
+			elseif PAD.IS_DISABLED_CONTROL_PRESSED(0, 25) and
+			request_control_once(vehicle) then
 				ENTITY.APPLY_FORCE_TO_ENTITY(vehicle, 1, v3(0.0, 0.0, -70.0), v3(), 0, false, false, true, false, false)
 			end
 		end
@@ -3081,6 +3096,7 @@ menu.toggle_loop(selfOpt, translate("Self", "Carpet Ride"), {"carpetride"}, "", 
 		notification:help(format0 .. ".\n" .. format1 .. '.', HudColour.black,
 			"INPUT_MOVE_UP_ONLY", "INPUT_MOVE_DOWN_ONLY", "INPUT_VEH_JUMP", "INPUT_DUCK", "INPUT_VEH_MOVE_UP_ONLY")
 		state = 1
+
 	elseif state == 1 then
 		HUD.DISPLAY_SNIPER_SCOPE_THIS_FRAME()
 		local objPos = ENTITY.GET_ENTITY_COORDS(object, false)
@@ -3395,16 +3411,16 @@ local shootingEffects <const> = {
 
 menu.toggle_loop(weaponOpt, translate("Weapon - Shooting Effect", "Shooting Effect"), {"shootingfx"}, "", function ()
 	local effect = shootingEffects[selectedOpt]
-	if STREAMING.HAS_NAMED_PTFX_ASSET_LOADED(effect.asset) then
-		if PED.IS_PED_SHOOTING(players.user_ped()) then
-			local weapon = WEAPON.GET_CURRENT_PED_WEAPON_ENTITY_INDEX(players.user_ped(), false)
-			local boneId = ENTITY.GET_ENTITY_BONE_INDEX_BY_NAME(weapon, "gun_muzzle")
-			GRAPHICS.USE_PARTICLE_FX_ASSET(effect.asset)
-			GRAPHICS._START_NETWORKED_PARTICLE_FX_NON_LOOPED_ON_ENTITY_BONE(
-				effect.name, weapon, v3(), effect.rotation, boneId, effect.scale, false, false, false)
-		end
-	else
+	if not STREAMING.HAS_NAMED_PTFX_ASSET_LOADED(effect.asset) then
 		STREAMING.REQUEST_NAMED_PTFX_ASSET(effect.asset)
+
+	elseif PED.IS_PED_SHOOTING(players.user_ped()) then
+		local weapon = WEAPON.GET_CURRENT_PED_WEAPON_ENTITY_INDEX(players.user_ped(), false)
+		local boneId = ENTITY.GET_ENTITY_BONE_INDEX_BY_NAME(weapon, "gun_muzzle")
+		GRAPHICS.USE_PARTICLE_FX_ASSET(effect.asset)
+		GRAPHICS._START_NETWORKED_PARTICLE_FX_NON_LOOPED_ON_ENTITY_BONE(
+			effect.name, weapon, v3(), effect.rotation, boneId, effect.scale, false, false, false
+		)
 	end
 end)
 
@@ -3495,16 +3511,19 @@ local function get_time_between_shots()
 	return addr ~= 0 and memory.read_float(addr) * 1000 or -1.0
 end
 
+
 menu.toggle_loop(weaponOpt, translate("Weapon", "Bullet Changer"), {"bulletchanger"}, "", function ()
 	local localPed = players.user_ped()
 	if not WEAPON.IS_PED_ARMED(localPed, 4) then
 		return
 	end
+
 	local selectedBullet = util.joaat(weaponModels[selectedOpt])
 	if not WEAPON.HAS_WEAPON_ASSET_LOADED(selectedBullet) then
 		WEAPON.REQUEST_WEAPON_ASSET(selectedBullet, 31, 26)
 		WEAPON.GIVE_WEAPON_TO_PED(localPed, selectedBullet, 200, false, false)
 	end
+
 	PLAYER.DISABLE_PLAYER_FIRING(players.user(), true)
 	if PAD.IS_DISABLED_CONTROL_PRESSED(0, 24) and
 	PLAYER.IS_PLAYER_FREE_AIMING(players.user()) and timer.elapsed() > math.max(get_time_between_shots(), 80.0) then
@@ -3513,13 +3532,16 @@ menu.toggle_loop(weaponOpt, translate("Weapon", "Bullet Changer"), {"bulletchang
 		local bonePos = ENTITY._GET_ENTITY_BONE_POSITION_2(weapon, bone)
 		local b = get_offset_from_cam(30.0)
 		MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS(
-			bonePos, b, 200, true, selectedBullet, localPed, true, false, 2000.0)
+			bonePos, b, 200, true, selectedBullet, localPed, true, false, 2000.0
+		)
 		PAD.SET_PAD_SHAKE(0, 50, 100)
 		timer.reset()
+
 	elseif PAD.IS_DISABLED_CONTROL_JUST_RELEASED(0, 24) then
 		PAD.STOP_PAD_SHAKE(0)
 	end
 end)
+
 
 local options <const> = {
 	{util.get_label_text("WT_A_RPG")}, {util.get_label_text("WT_FWRKLNCHR")},
@@ -3573,6 +3595,7 @@ local effectColour = {r = 0.5, g = 0.0, b = 0.5, a = 1.0}
 local selectedOpt = 1
 local hitEffectRoot <const> = menu.list(weaponOpt, translate("Weapon - Hit Effect", "Hit Effect"), {}, "")
 
+
 menu.toggle_loop(hitEffectRoot, translate("Weapon - Hit Effect", "Hit Effect"), {"hiteffects"}, "", function()
 	local effect = hitEffects[selectedOpt]
 	if not STREAMING.HAS_NAMED_PTFX_ASSET_LOADED(effect.asset) then
@@ -3583,14 +3606,18 @@ menu.toggle_loop(hitEffectRoot, translate("Weapon - Hit Effect", "Hit Effect"), 
 		local raycastResult = get_raycast_result(1000.0)
 		local rot = raycastResult.surfaceNormal:toRot()
 		GRAPHICS.USE_PARTICLE_FX_ASSET(effect.asset)
+
 		if effect.colorCanChange then
 			local colour = effectColour
 			GRAPHICS.SET_PARTICLE_FX_NON_LOOPED_COLOUR(colour.r, colour.g, colour.b)
 		end
+
 		GRAPHICS.START_NETWORKED_PARTICLE_FX_NON_LOOPED_AT_COORD(
-			effect.name, hitCoords, v3(rot.x - 90.0, rot.y, rot.z), 1.0, false, false, false, false)
+			effect.name, hitCoords, v3(rot.x - 90.0, rot.y, rot.z), 1.0, false, false, false, false
+		)
 	end
 end)
+
 
 menu.list_select(hitEffectRoot, translate("Weapon - Hit Effect", "Set Effect"), {}, "", options, 1, function (opt)
 	selectedOpt = opt
@@ -3598,10 +3625,10 @@ end)
 
 local name <const> =  translate("Weapon - Hit Effect", "Colour")
 local helpText = translate("Weapon - Hit Effect", "Only works on some effects.")
-local menuColour =
-menu.colour(hitEffectRoot, name, {"effectcolour"}, helpText, effectColour, false,
-	function(colour) effectColour = colour end)
+local SetEffectColour = function(colour) effectColour = colour end
 
+local menuColour =
+menu.colour(hitEffectRoot, name, {"effectcolour"}, helpText, effectColour, false, SetEffectColour)
 menu.rainbow(menuColour)
 
 -------------------------------------
@@ -3675,6 +3702,7 @@ function get_veh_distance()
 	if PAD.IS_CONTROL_JUST_PRESSED(2, 241) and distancePerc < 1.0 then
 		distancePerc = distancePerc + 0.25
 		lastInput.reset()
+
 	elseif PAD.IS_CONTROL_JUST_PRESSED(2, 242) and distancePerc > 0.0 then
 		distancePerc = distancePerc - 0.25
 		lastInput.reset()
@@ -3719,11 +3747,11 @@ menu.toggle_loop(vehicleGun, translate("Weapon - Vehicle Gun", "Vehicle Gun"), {
 		ENTITY._SET_ENTITY_CLEANUP_BY_ENGINE(veh, true)
 		ENTITY.SET_ENTITY_COORDS_NO_OFFSET(veh, coords, false, false, false)
 		ENTITY.SET_ENTITY_ROTATION(veh, camRot.x, camRot.y, camRot.z, 0, true)
-		if setIntoVehicle then
+		if not setIntoVehicle then
+			VEHICLE.SET_VEHICLE_DOORS_LOCKED(veh, 2)
+		else
 			VEHICLE.SET_VEHICLE_ENGINE_ON(veh, true, true, true)
 			PED.SET_PED_INTO_VEHICLE(players.user_ped(), veh, -1)
-		else
-			VEHICLE.SET_VEHICLE_DOORS_LOCKED(veh, 2)
 		end
 		VEHICLE.SET_VEHICLE_FORWARD_SPEED(veh, 200.0)
 	end
@@ -4915,13 +4943,16 @@ function HandlingEditor.new(parent, menuname, commands, helpTxt)
 	end, function ()
 		self.isOpen = false
 	end)
+
 	self.ref_vehicleName = menu.readonly(self.reference, translate("Handling Editor", "Vehicle"), "???")
+
 	local name <const> = translate("Handling Editor", "Save")
 	self.ref_save = menu.action(self.reference, name, {"savehandling"}, "", function ()
 		local ok, msg = self:save()
 		if not ok then return notification:help(capitalize(msg), HudColour.red) end
 		notification:normal(msgs.SuccessfullySaved, HudColour.purpleDark)
 	end)
+
 	local name <const> = translate("Handling Editor", "Saved Files")
 	self.savedFiles = FilesList.new(self.reference, name, "", "json")
 
@@ -4980,7 +5011,7 @@ function HandlingEditor:onTick()
 			for _, subHandling in ipairs(get_vehicle_sub_handling(pVehicle)) do
 				local name = get_sub_handling_type_name(subHandling.type)
 				local offsets = SubHandlingData[name]
-				if offsets then
+				if offsets and not self.subHandlingData[name] then
 					self.subHandlingData[name] =
 					HandlingData.new(self.reference, name, subHandling.address, offsets)
 				end
@@ -4994,8 +5025,8 @@ function HandlingEditor:onTick()
 		self:removeSubHandlingData()
 		self:setVehicleName("???")
 		menu.delete(self.handlingData.reference)
-		self.savedFiles:clear()
 		self.handlingData = nil
+		self.savedFiles:clear()
 	end
 end
 
@@ -5048,7 +5079,7 @@ function HandlingEditor:load(path)
 	local ok, result = json.parse(path, false)
 	if not ok then return false, result end
 	local handlingData = result["CHandlingData"]
-	if not handlingData then
+	if type(handlingData) ~= "table" then
 		return false, "field: CHandlingData was not found in the parsed file"
 	end
 	self.handlingData:set(handlingData)
@@ -5058,9 +5089,9 @@ function HandlingEditor:load(path)
 	for _, ht in ipairs(handlingTypes) do
 		local name <const> = get_sub_handling_type_name(ht.type)
 		local data = result[name]
-		if data then
+		if type(data) == "table" then
 			local subHandling = self.subHandlingData[name]
-			if subHandling then subHandling:set(data) count = count + 1 end
+			if subHandling then subHandling:set(data); count = count + 1 end
 		end
 	end
 
@@ -5157,7 +5188,6 @@ local effects <const> = {
 	{"scr_rcbarry1", "scr_alien_disintegrate", 0.1, 400},
 	{"scr_rcbarry1", "scr_alien_teleport", 0.1, 400}
 }
-local wheelBones <const> = {"wheel_lf", "wheel_lr", "wheel_rf", "wheel_rr"}
 local selectedOpt = 1
 local lastEffect <const> = newTimer()
 
@@ -5169,11 +5199,10 @@ menu.toggle_loop(vehicleOptions, translate("Vehicle Effects", "Vehicle Effects")
 	if ENTITY.DOES_ENTITY_EXIST(vehicle) and not ENTITY.IS_ENTITY_DEAD(vehicle, false) and
 	VEHICLE.IS_VEHICLE_DRIVEABLE(vehicle, false) and lastEffect.elapsed() > effect[4] then
 		request_fx_asset(effect[1])
-		for _, bone in pairs(wheelBones) do
-			local boneIndex = ENTITY.GET_ENTITY_BONE_INDEX_BY_NAME(vehicle, bone)
+		for _, boneName in pairs({"wheel_lf", "wheel_lr", "wheel_rf", "wheel_rr"}) do
+			local bone = ENTITY.GET_ENTITY_BONE_INDEX_BY_NAME(vehicle, boneName)
 			GRAPHICS.USE_PARTICLE_FX_ASSET(effect[1])
-			GRAPHICS._START_NETWORKED_PARTICLE_FX_NON_LOOPED_ON_ENTITY_BONE(
-				effect[2], vehicle, v3(), v3(), boneIndex, effect[3], false, false, false)
+			GRAPHICS._START_NETWORKED_PARTICLE_FX_NON_LOOPED_ON_ENTITY_BONE(effect[2], vehicle, v3(), v3(), bone, effect[3], false, false, false)
 		end
 		lastEffect.reset()
 	end
@@ -5231,7 +5260,6 @@ menu.toggle_loop(autopilot, translate("Vehicle - Autopilot", "Autopilot"), {}, "
 			lastNotification.reset()
 			return
 		end
-
 		if TASK.GET_SEQUENCE_PROGRESS(players.user_ped()) ~= -1 then
 			TASK.CLEAR_PED_TASKS(players.user_ped())
 		end
@@ -6486,16 +6514,49 @@ local services <const> = menu.list(menu.my_root(), translate("Services", "Servic
 -- NANO DRONE
 -------------------------------------
 
-local IsInSafePosForDrone = function()
+function CanSpawnNanoDrone()
 	return BitTest(read_global.int(1958711), 23)
 end
 
+function CanUseDrone()
+	if not NETWORK.NETWORK_IS_PLAYER_ACTIVE(players.user()) then
+		return false
+	end
+	if util.is_session_transition_active() then
+		return false
+	end
+	if players.is_in_interior(players.user()) then
+		return false
+	end
+	if PED.IS_PED_IN_ANY_VEHICLE(players.user_ped(), false) then
+		return false
+	end
+	if PED.IS_PED_IN_ANY_TRAIN(players.user_ped()) or
+	PLAYER.IS_PLAYER_RIDING_TRAIN(players.user()) then
+		return false
+	end
+	if PED.IS_PED_FALLING(players.user_ped()) then
+		return false
+	end
+	if ENTITY.GET_ENTITY_SUBMERGED_LEVEL(players.user_ped()) > 0.3 then
+		return false
+	end
+	if ENTITY.IS_ENTITY_IN_AIR(players.user_ped()) then
+		return false
+	end
+	if PED.IS_PED_ON_VEHICLE(players.user_ped()) then
+		return false
+	end
+	return true
+end
+
 menu.action(services, translate("Services", "Instant Nano Drone"), {}, "", function()
-	local address = memory.script_global(1958711)
-	local bits = memory.read_int(address)
-	if not BitTest(bits, 24) then
-		memory.write_int(address, SetBit(bits, 24))
-		if not IsInSafePosForDrone() then memory.write_int(address, SetBit(bits, 23)) end
+	local p_bits = memory.script_global(1958711)
+	local bits = memory.read_int(p_bits)
+	if CanUseDrone() and not BitTest(bits, 24) then
+		TASK.CLEAR_PED_TASKS(players.user_ped())
+		memory.write_int(p_bits, SetBit(bits, 24))
+		if not CanSpawnNanoDrone() then memory.write_int(p_bits, SetBit(bits, 23)) end
 	end
 end)
 
@@ -6617,8 +6678,8 @@ local trans =
 {
 	FlyingDrone = translate("Protections", "<C>%s</C> is flying a drone"),
 	LaunchedMissile = translate("Protections", "<C>%s</C> is using a guided missile"),
-	NearDrone = translate("Protections", "<C>%s</C>'s drone is nearby"),
-	NearMissile = translate("Protections", "<C>%s</C>'s guided missile is nearby"),
+	NearDrone = translate("Protections", "<C>%s</C>'s drone is ~r~nearby~s~"),
+	NearMissile = translate("Protections", "<C>%s</C>'s guided missile is ~r~nearby~s~"),
 }
 local notificationBits = 0
 local nearbyNotificationBits = 0
@@ -6670,9 +6731,11 @@ local function GetNotificationMsg(droneType, nearby)
 	return nearby and trans.NearDrone or trans.FlyingDrone
 end
 
----@param blip Blip
-local function RemoveBlip(blip)
-	if HUD.DOES_BLIP_EXIST(blip) then util.remove_blip(blip) end
+---@param index integer
+local function RemoveBlipIndex(index)
+	if HUD.DOES_BLIP_EXIST(blips[index]) then
+		util.remove_blip(blips[index]); blips[index] = 0
+	end
 end
 
 
@@ -6711,8 +6774,7 @@ function AddBlipForPlayerDrone(player)
 			end
 
 		else
-			RemoveBlip(blips[player])
-			blips[player] = 0
+			RemoveBlipIndex(player)
 			nearbyNotificationBits = ClearBit(nearbyNotificationBits, player)
 		end
 
@@ -6723,23 +6785,23 @@ function AddBlipForPlayerDrone(player)
 		end
 
 	else
-		RemoveBlip(blips[player])
-		blips[player] = 0
+		RemoveBlipIndex(player)
 		notificationBits = ClearBit(notificationBits, player)
 		nearbyNotificationBits = ClearBit(nearbyNotificationBits, player)
 	end
 end
+
 
 local help =
 translate("Protections", "Notifies when a player is flying a drone or launched a guided missile " ..
 "and shows it on the map when nearby")
 
 menu.toggle_loop(protectionOpt, translate("Protections", "Drone/Missile Detection"), {}, help, function ()
-	for player = 0, 32 do AddBlipForPlayerDrone(player) end
-end, function()
-	for i, blip in pairs(blips) do
-		RemoveBlip(blip); blips[i] = 0
+	if NETWORK.NETWORK_IS_SESSION_ACTIVE() then
+		for player = 0, 32 do AddBlipForPlayerDrone(player) end
 	end
+end, function()
+	for i in pairs(blips) do RemoveBlipIndex(i) end
 	notificationBits = 0
 	nearbyNotificationBits = 0
 end)
@@ -7043,7 +7105,7 @@ util.log("On join dispatched")
 ---@param name string
 ---@param pattern string
 ---@param callback fun(address: integer)
-function memoryScan (name, pattern, callback)
+function memoryScan(name, pattern, callback)
 	local address = memory.scan(pattern)
 	assert(address ~= NULL, "memory scan failed: " .. name)
 	callback(address)

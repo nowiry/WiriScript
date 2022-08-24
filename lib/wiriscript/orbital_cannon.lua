@@ -174,8 +174,8 @@ end
 ---@param hudColour HudColour
 local DrawDirectionalArrowForEntity = function (entity, hudColour)
     local entPos = ENTITY.GET_ENTITY_COORDS(entity, false)
-    local ptr = memory.alloc(4)
-    if not GRAPHICS.GET_SCREEN_COORD_FROM_WORLD_COORD(entPos, ptr, ptr) then
+    local screenX, screenY = memory.alloc(4), memory.alloc(4)
+    if not GRAPHICS.GET_SCREEN_COORD_FROM_WORLD_COORD(entPos, screenX, screenY) then
         local colour = get_hud_colour(hudColour)
         local camPos = CAM.GET_CAM_COORD(cam)
         local camRot = v3.new(-math.pi/2, 0, 0)
@@ -255,9 +255,6 @@ Destroy = function ()
     GRAPHICS.CASCADE_SHADOWS_SET_AIRCRAFT_MODE(false)
     AUDIO.STOP_AUDIO_SCENE("dlc_xm_orbital_cannon_camera_active_scene")
     AUDIO.RELEASE_NAMED_SCRIPT_AUDIO_BANK("DLC_CHRISTMAS2017/XM_ION_CANNON")
-    if GRAPHICS.HAS_STREAMED_TEXTURE_DICT_LOADED("helicopterhud") then
-        set_streamed_texture_dict_as_no_longer_needed("helicopterhud")
-    end
 
     CAM.RENDER_SCRIPT_CAMS(false, false, 0, true, false, 0)
     if  CAM.DOES_CAM_EXIST(cam) then
@@ -275,6 +272,7 @@ Destroy = function ()
     chargeLevel = 0.0
     didShoot = false
     camFov = maxFov
+    countdown = 3
     timer.disable()
     chargeTimer.disable()
     noTargetTimer.disable()
