@@ -6,7 +6,7 @@ THIS FILE IS PART OF WIRISCRIPT
 ]]
 
 local scriptStartTime = util.current_time_millis()
-gVersion = 23
+gVersion = 24
 util.require_natives("1660775568-uno")
 
 local required <const> = {
@@ -5909,14 +5909,14 @@ function Member:setOutfit(obj)
 	for componentId, tbl in pairs(obj.components) do
 		if tonumber(componentId) and type(tbl.drawableId) == "number" and
 		type(tbl.textureId) == "number" and request_control(self.handle) then
-        	PED.SET_PED_COMPONENT_VARIATION(self.handle, componentId, tbl.drawableId, tbl.textureId, 2)
+        	PED.SET_PED_COMPONENT_VARIATION(self.handle, math.tointeger(componentId), tbl.drawableId, tbl.textureId, 2)
 		end
 	end
 
 	for propId, tbl in pairs(obj.props) do
 		if tonumber(propId) and type(tbl.drawableId) == "number" and
 		type(tbl.textureId) == "number" and request_control(self.handle) then
-			PED.SET_PED_PROP_INDEX(self.handle, propId, tbl.drawableId, tbl.textureId, true)
+			PED.SET_PED_PROP_INDEX(self.handle, math.tointeger(propId), tbl.drawableId, tbl.textureId, true)
 		end
 	end
 	return true

@@ -60,7 +60,7 @@ end
 --------------------------
 
 local self = {}
-local version = 23
+local version = 24
 local State <const> =
 {
 	GettingNearbyEnts = 0,
