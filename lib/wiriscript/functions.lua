@@ -862,7 +862,6 @@ end
 ---@param noticeRange number
 ---@param colour integer
 ---@param sprite integer
----@return Blip
 function add_ai_blip_for_ped(ped, forcedOn, hasCone, noticeRange, colour, sprite)
 	if colour == -1 then
 		HUD.SET_PED_HAS_AI_BLIP(ped, true)
@@ -873,8 +872,6 @@ function add_ai_blip_for_ped(ped, forcedOn, hasCone, noticeRange, colour, sprite
 	if sprite ~= -1 then HUD._SET_PED_AI_BLIP_SPRITE(ped, sprite) end
 	HUD.SET_PED_AI_BLIP_HAS_CONE(ped, hasCone)
 	HUD.SET_PED_AI_BLIP_FORCED_ON(ped, forcedOn)
-	util.yield_once() -- the ped does not get the blip inmmediatly
-	return HUD._GET_AI_BLIP_2(ped)
 end
 
 
@@ -1069,6 +1066,13 @@ function is_player_in_any_rc_vehicle(player)
 	end
 
 	return false
+end
+
+
+---@param player Player
+---@return string
+function get_condensed_player_name(player)
+	return "<C>" .. PLAYER.GET_PLAYER_NAME(player) .. "</C>"
 end
 
 --------------------------
