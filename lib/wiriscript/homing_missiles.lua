@@ -14,7 +14,7 @@ require "wiriscript.functions"
 
 ---@class Bitwise
 ---@field bits integer
-Bitfield = {}
+local Bitfield = {}
 Bitfield.__index = Bitfield
 
 function Bitfield.new()
@@ -76,8 +76,9 @@ local numTargets = 0
 local maxTargets = 6
 local lastShot <const> = newTimer()
 local rechargeTimer <const> = newTimer()
-local entCount = 1
-local shotCount = 1
+local entCount = 0
+local shotCount = 0
+local numShotTargets = 0
 local chargeLevel = 100.0
 local vehicleWeaponSide = 0
 local myVehicle = 0
@@ -360,16 +361,16 @@ end
 
 
 local SetTargetEntities = function()
-	if entCount < 1 or entCount > 20 then
-        entCount = 1
+	if entCount < 0 or entCount > 19 then
+        entCount = 0
     end
-	local entity = nearbyEntities[entCount]
+	local entity = nearbyEntities[entCount + 1]
 
 	if ENTITY.DOES_ENTITY_EXIST(entity) and not ENTITY.IS_ENTITY_DEAD(entity, false) and
 	ENTITY.HAS_ENTITY_CLEAR_LOS_TO_ENTITY(myVehicle, entity, 287) then
 		if numTargets < maxTargets then
 			if TargetEntitiesInsert(entity) then
-				nearbyEntities[entCount] = -1
+				nearbyEntities[entCount + 1] = -1
 				entCount = entCount + 1
 			end
 		else
@@ -385,17 +386,17 @@ local SetTargetEntities = function()
 				if targetDist > entDist then targetEnts[targetId] = entity end
 			end
 
-			nearbyEntities[entCount] = -1
+			nearbyEntities[entCount + 1] = -1
 			entCount = entCount + 1
 		end
 	else
-		nearbyEntities[entCount] = -1
+		nearbyEntities[entCount + 1] = -1
 		entCount = entCount + 1
 	end
 
-	if entCount >= 20 then
+	if entCount > 19 then
 		state = State.GettingNearbyEnts
-		entCount = 1
+		entCount = 0
 	end
 end
 
@@ -557,9 +558,8 @@ local ShootFromVehicle = function (vehicle, damage, weaponHash, ownerPed, isAudi
 
 	local b = v3.new(direction)
 	b:mul(5.0); b:add(a)
-	WEAPON.REQUEST_WEAPON_ASSET(weaponHash, 31, 26)
 	MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS_IGNORE_ENTITY_NEW(a, b, damage, true, weaponHash, ownerPed, isAudible, not isVisible, speed, vehicle, false, false, target, false, 0, 0, 0)
-	AUDIO.PLAY_SOUND_FROM_COORD(-1, "Fire", pos, "DLC_BTL_Terrobyte_Turret_Sounds", true, 120, true)
+	AUDIO.PLAY_SOUND_FROM_COORD(-1, "Fire", pos, "DLC_BTL_Terrobyte_Turret_Sounds", true, 200, true)
 end
 
 
@@ -570,10 +570,10 @@ local ShootMissiles = function()
 	end
 	local target = 0
 
-	if PAD.IS_DISABLED_CONTROL_PRESSED(2, controlId) or bits:IsBitSet(Bit_IsTargetShooting) then
-		if shotCount < 1 or shotCount > 6 then shotCount = 1 end
-		if bits:IsBitSet(Bit_IsRecharging) or lastShot.elapsed() < 300 then
-			return
+	if (PAD.IS_DISABLED_CONTROL_PRESSED(2, controlId) or bits:IsBitSet(Bit_IsTargetShooting)) and
+	not bits:IsBitSet(Bit_IsRecharging) and lastShot.elapsed() > 300 then
+		if shotCount < 0 or shotCount > 5 then
+			shotCount = 0
 		end
 
 		local vehicle = PED.GET_VEHICLE_PED_IS_IN(players.user_ped(), false)
@@ -581,24 +581,35 @@ local ShootMissiles = function()
 		local ownerPed = players.user_ped()
 
 		if numTargets > 0 then
-			if ENTITY.DOES_ENTITY_EXIST(targetEnts[shotCount]) and
-			not ENTITY.IS_ENTITY_DEAD(targetEnts[shotCount], false) then
-				target = targetEnts[shotCount]
+			if ENTITY.DOES_ENTITY_EXIST(targetEnts[numShotTargets + 1]) and
+			not ENTITY.IS_ENTITY_DEAD(targetEnts[numShotTargets + 1], false) then
+				target = targetEnts[numShotTargets + 1]
+				bits:SetBit(Bit_IsTargetShooting)
+				ShootFromVehicle(vehicle, 200, weapon, ownerPed, true, true, 1000.0, target, vehicleWeaponSide)
+				shotCount = shotCount + 1
+				numShotTargets = numShotTargets + 1
+				lastShot.reset()
 			end
-			bits:SetBit(Bit_IsTargetShooting)
-			shotCount = shotCount + 1
-			ShootFromVehicle(vehicle, 200, weapon, ownerPed, true, true, 1000.0, target, vehicleWeaponSide)
-			lastShot.reset()
-			if numTargets == shotCount - 1 then
+
+			if numTargets == numShotTargets then
 				bits:SetBit(Bit_IsRecharging)
 				bits:ClearBit(Bit_IsTargetShooting)
-                shotCount = 1
+				numShotTargets = 0
+                shotCount = 0
 				chargeLevel = 0
 				rechargeTimer.reset()
 			end
+
 		else
 			ShootFromVehicle(vehicle, 200, weapon, ownerPed, true, true, 1000.0, 0, vehicleWeaponSide)
+			shotCount = shotCount + 1
 			lastShot.reset()
+			if shotCount == 6 then
+				bits:SetBit(Bit_IsRecharging)
+				chargeLevel = 0
+				shotCount = 0
+				rechargeTimer.reset()
+			end
 		end
 	end
 end
@@ -627,6 +638,7 @@ local LockonManager = function ()
 			bits:ClearBit(Bit_IsRecharging)
 			chargeLevel = 100.0
 			shotCount = 0
+			numShotTargets = 0
 		end
 	end
 
@@ -678,25 +690,29 @@ end
 
 
 local DrawChargingMeter = function ()
-	local maxWidth = 0.119
-	local width = interpolate(0.0, maxWidth, chargeLevel / 100)
+	local maxWidth <const> = 0.119
+	local posY <const> = 0.63
+
 	local colour = {r = 0, g = 153, b = 51, a = 255}
 	if chargeLevel < 100 then
 		colour = {r = 153, g = 0, b = 0, a = 255}
 	end
-	local height = 0.035
+	local width = interpolate(0.0, maxWidth, chargeLevel / 100)
+	local height <const> = 0.035
 	local rectPosX = 0.85 + width/2
-	GRAPHICS.DRAW_RECT(rectPosX, 0.55, width, height, colour.r, colour.g, colour.b, colour.a, true)
+	GRAPHICS.DRAW_RECT(rectPosX, posY, width, height, colour.r, colour.g, colour.b, colour.a, true)
 
 	local textColour = get_hud_colour(HudColour.white)
 	Print.setupdraw(4, {x = 0.55, y = 0.55}, true, false, false, textColour)
 	local textPosX = 0.85 + maxWidth/2
 	local text = (chargeLevel == 100) and "DRONE_READY" or "DRONE_CHARGING"
-	Print.drawstring(text, textPosX, 0.55 - 0.019)
+	Print.drawstring(text, textPosX, posY - 0.019)
 
-	GRAPHICS.DRAW_RECT(0.85 + maxWidth/2, 0.496, maxWidth, 0.06, 156, 156, 156, 80, true)
+	--Caption
+	local captionHeight <const> = 0.06
+	GRAPHICS.DRAW_RECT(0.85 + maxWidth/2, posY - captionHeight + 0.005, maxWidth, captionHeight, 156, 156, 156, 80, true)
 	Print.setupdraw(4, {x = 0.65, y = 0.65}, true, false, false, textColour)
-	Print.drawstring("DRONE_MISSILE", textPosX + 0.001, 0.495 - 0.02)
+	Print.drawstring("DRONE_MISSILE", textPosX + 0.001, posY - captionHeight - 0.015)
 end
 
 
@@ -718,9 +734,10 @@ self.reset = function()
 	set_streamed_texture_dict_as_no_longer_needed("mpsubmarine_periscope")
 	lockOnBits:reset()
 	targetEnts = {-1, -1, -1, -1, -1, -1}
-	entCount = 1
+	entCount = 0
 	numTargets = 0
-	shotCount = 1
+	shotCount = 0
+	numShotTargets = 0
 	chargeLevel = 100.0
 	myVehicle = 0
 	StopHomingSounds()
@@ -756,8 +773,8 @@ end
 
 
 self.mainLoop = function ()
-	if NETWORK.NETWORK_IS_GAME_IN_PROGRESS() and
-	PLAYER.IS_PLAYER_PLAYING(players.user()) and PED.IS_PED_IN_ANY_VEHICLE(players.user_ped(), false) then
+	if PLAYER.IS_PLAYER_PLAYING(players.user()) and
+	PED.IS_PED_IN_ANY_VEHICLE(players.user_ped(), false) then
 
 		local vehicle = PED.GET_VEHICLE_PED_IS_IN(players.user_ped(), false)
 		if ENTITY.DOES_ENTITY_EXIST(vehicle) and not ENTITY.IS_ENTITY_DEAD(vehicle, false) and
@@ -767,6 +784,8 @@ self.mainLoop = function ()
 			if not is_player_passive(players.user()) then
 				if state == State.Reseted then
 					request_streamed_texture_dict("mpsubmarine_periscope")
+					--This prevents not being able to shoot
+					WEAPON.GIVE_DELAYED_WEAPON_TO_PED(players.user_ped(), weapon, -1, false)
 					state = State.GettingNearbyEnts
 				end
 				myVehicle = vehicle

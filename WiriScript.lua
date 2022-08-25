@@ -196,6 +196,7 @@ function ModelList.new(parent, name, command, helpText, tbl, onClick, changeName
 	self.foundOpts = {}
 	self.options = tbl
 	self.reference = menu.list(parent, name, {self.command}, helpText or "")
+
 	if searchOpt then
 		self:createSearchList(self.reference, translate("Misc", "Search"))
 	end
@@ -209,6 +210,7 @@ function ModelList.new(parent, name, command, helpText, tbl, onClick, changeName
 			self:addSection(section, value)
 		end
 	end
+
 	return self
 end
 
@@ -6845,7 +6847,7 @@ menu.action(languageSettings, translate("Settings", "Create New Translation"), {
 	notification:normal(msg, HudColour.black, "new translation.json")
 end)
 
-swap_values = function(a, b)
+local function swap_values(a, b)
 	local tbl = {}
 	for k, v in pairs(a) do
 		if type(v) == "table" and type(b[k]) == "table" then

@@ -267,12 +267,12 @@ function Ini.load(fileName)
 
 		local param, value = string.match(line, '^([%w_]+)%s*=%s*(.+)$')
 		if section ~= nil and param and value ~= nil then
-			if tonumber(value) then
-				value = tonumber(value)
-			elseif value == "true" then
+			if value == "true" then
 				value = true
 			elseif value == "false" then
 				value = false
+			elseif tonumber(value) then
+				value = tonumber(value)
 			end
 			data[section][tonumber(param) or param] = value
 		end
@@ -325,8 +325,10 @@ end
 Sound = {Id = -1, name = "", reference = ""}
 Sound.__index = Sound
 
----@param name string|0
----@param reference string|0
+---@alias nullptr 0
+
+---@param name string|nullptr
+---@param reference string|nullptr
 ---@return Sound
 function Sound.new(name, reference)
 	local inst = setmetatable({}, Sound)
@@ -779,7 +781,7 @@ end
 
 
 ---@param entity Entity
----@param showPoly boolean
+---@param showPoly? boolean
 ---@param colour? Colour	
 function draw_bounding_box(entity, showPoly, colour)
 	if not ENTITY.DOES_ENTITY_EXIST(entity) then
@@ -816,8 +818,7 @@ function draw_bounding_box(entity, showPoly, colour)
 	draw_line(lowerLeftRear, lowerLeftFront, colour)
 	draw_line(lowerRightRear, lowerRightFront, colour)
 
-	showPoly = type(showPoly) ~= "boolean" and true or showPoly
-	if showPoly then
+	if type(showPoly) ~= "boolean" or showPoly then
 		draw_rect(lowerLeftRear, upperLeftRear, lowerLeftFront, upperLeftFront, colour)
 		draw_rect(upperRightRear, lowerRightRear, upperRightFront, lowerRightFront, colour)
 
@@ -1124,10 +1125,10 @@ function get_raycast_result(dist, flag)
 	local endCoords = v3.new()
 	local normal = v3.new()
 	local hitEntity = memory.alloc_int()
-	local pos1 = CAM.GET_FINAL_RENDERED_CAM_COORD()
-	local pos2 = get_offset_from_cam(dist)
+	local camPos = CAM.GET_FINAL_RENDERED_CAM_COORD()
+	local offset = get_offset_from_cam(dist)
 
-	local handle = SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(pos1, pos2, flag, players.user_ped(), 7)
+	local handle = SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(camPos, offset, flag, players.user_ped(), 7)
 	SHAPETEST.GET_SHAPE_TEST_RESULT(handle, didHit, memory.addrof(endCoords), memory.addrof(normal), hitEntity)
 
 	result.didHit = memory.read_byte(didHit) ~= 0
