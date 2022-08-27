@@ -249,7 +249,7 @@ end
 
 
 ---@param heading number
-function drawMissileScaleformMovie(heading)
+local function drawMissileScaleformMovie(heading)
     if not GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(scaleform) then
         scaleform = request_scaleform_movie("SUBMARINE_MISSILES")
     else
@@ -316,11 +316,28 @@ local destroy = function ()
 end
 
 
+function disableControlActions()
+    for i = 1, 6 do
+        PAD.DISABLE_CONTROL_ACTION(0, i, true)
+    end
+    PAD.DISABLE_CONTROL_ACTION(0, 71, true)
+    PAD.DISABLE_CONTROL_ACTION(0, 72, true)
+    PAD.DISABLE_CONTROL_ACTION(0, 63, true)
+    PAD.DISABLE_CONTROL_ACTION(0, 64, true)
+	PAD.DISABLE_CONTROL_ACTION(0, 87, true)
+	PAD.DISABLE_CONTROL_ACTION(0, 88, true)
+	PAD.DISABLE_CONTROL_ACTION(0, 89, true)
+	PAD.DISABLE_CONTROL_ACTION(0, 90, true)
+	PAD.DISABLE_CONTROL_ACTION(0, 129, true)
+	PAD.DISABLE_CONTROL_ACTION(0, 130, true)
+	PAD.DISABLE_CONTROL_ACTION(0, 133, true)
+	PAD.DISABLE_CONTROL_ACTION(0, 134, true)
+    PAD.DISABLE_CONTROL_ACTION(0, 75, true)
+end
+
+
 self.mainLoop = function ()
     if state == MissileState.beingCreated then
-        if PED.IS_PED_IN_ANY_VEHICLE(PLAYER.PLAYER_PED_ID(), false) then
-            TASK.TASK_LEAVE_ANY_VEHICLE(PLAYER.PLAYER_PED_ID(), 0, 0)
-        end
         ENTITY.FREEZE_ENTITY_POSITION(PLAYER.PLAYER_PED_ID(), true)
         request_model(objHash)
         local coords = ENTITY.GET_ENTITY_COORDS(PLAYER.PLAYER_PED_ID(), false)
@@ -363,6 +380,7 @@ self.mainLoop = function ()
         HUD.SET_BLIP_SCALE(blip, 1.0)
         HUD.SET_BLIP_ROUTE(blip, false)
         HUD.SET_BLIP_SPRITE(blip, 548)
+        HUD.SET_BLIP_COLOUR(blip, get_player_org_blip_colour(players.user()))
         startPos = coords
 
         if not GRAPHICS.HAS_SCALEFORM_MOVIE_LOADED(scaleform) then
@@ -380,6 +398,7 @@ self.mainLoop = function ()
         local direction = rotation:toDir()
 
         DisablePhone()
+        disableControlActions()
         HUD.SET_BLIP_DISPLAY(blip, 2)
         HUD.SET_BLIP_COORDS(blip, coords)
         HUD.LOCK_MINIMAP_POSITION(coords.x, coords.y)

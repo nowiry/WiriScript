@@ -122,7 +122,7 @@ local DrawLockonSprite = function (position, scale, colour)
 		local txdSizeY = scale * 0.042 * GRAPHICS._GET_ASPECT_RATIO(false)
 		GRAPHICS.SET_DRAW_ORIGIN(position, 0)
 		GRAPHICS.DRAW_SPRITE(
-		"mpsubmarine_periscope", "target_default", 0.0, 0.0, txdSizeX, txdSizeY, 0.0, colour.r, colour.g, colour.b, colour.a, true, 0)
+			"mpsubmarine_periscope", "target_default", 0.0, 0.0, txdSizeX, txdSizeY, 0.0, colour.r, colour.g, colour.b, colour.a, true, 0)
 		GRAPHICS.CLEAR_DRAW_ORIGIN()
 	end
 end
@@ -413,6 +413,15 @@ local IsAnyHomingSoundActive = function()
 end
 
 
+local IsWebBrowserOpen = function ()
+	return read_global.int(75485) ~= 0
+end
+
+local IsCameraAppOpen = function ()
+	return SCRIPT._GET_NUMBER_OF_REFERENCES_OF_SCRIPT_WITH_NAME_HASH(util.joaat("appcamera")) > 0
+end
+
+
 ---@param entity Entity
 ---@param count integer
 local LockonEntity = function (entity, count)
@@ -422,7 +431,7 @@ local LockonEntity = function (entity, count)
 	local amberSound = amberHomingSounds[count]
 
 	if not ENTITY.DOES_ENTITY_EXIST(entity) or ENTITY.IS_ENTITY_DEAD(entity, false) or
-	not IsEntityInSafeScreenPos(entity) then
+	not IsEntityInSafeScreenPos(entity) or (IsWebBrowserOpen() or IsCameraAppOpen()) then
 		amberSound:stop()
 		lockOnBits:ClearBit(bitPlace)
 		redSound:stop()
@@ -478,8 +487,7 @@ end
 
 
 local LockonTargets = function()
-    if numTargets == 0 and ENTITY.DOES_ENTITY_EXIST(myVehicle) and not ENTITY.IS_ENTITY_DEAD(myVehicle, false) and
-	VEHICLE.IS_VEHICLE_DRIVEABLE(myVehicle, false) then
+    if numTargets == 0 and not (IsWebBrowserOpen() or IsCameraAppOpen()) then
 		local pos = GetCrosshairPosition()
 		local colour = get_hud_colour(HudColour.white)
 		colour.a = 160
@@ -642,7 +650,8 @@ local LockonManager = function ()
 		end
 	end
 
-	if not bits:IsBitSet(Bit_IsTargetShooting) and not bits:IsBitSet(Bit_IsRecharging) then
+	if not bits:IsBitSet(Bit_IsTargetShooting) and not bits:IsBitSet(Bit_IsRecharging) and
+	not (IsWebBrowserOpen() or IsCameraAppOpen()) then
 		if state == State.GettingNearbyEnts then
 			SetNearbyEntities()
 		elseif state == State.SettingTargets then
@@ -690,29 +699,31 @@ end
 
 
 local DrawChargingMeter = function ()
-	local maxWidth <const> = 0.119
-	local posY <const> = 0.63
+	if not is_phone_open() then
+		local maxWidth <const> = 0.119
+		local posY <const> = 0.63
 
-	local colour = {r = 0, g = 153, b = 51, a = 255}
-	if chargeLevel < 100 then
-		colour = {r = 153, g = 0, b = 0, a = 255}
+		local colour = {r = 0, g = 153, b = 51, a = 255}
+		if chargeLevel < 100 then
+			colour = {r = 153, g = 0, b = 0, a = 255}
+		end
+		local width = interpolate(0.0, maxWidth, chargeLevel / 100)
+		local height <const> = 0.035
+		local rectPosX = 0.85 + width/2
+		GRAPHICS.DRAW_RECT(rectPosX, posY, width, height, colour.r, colour.g, colour.b, colour.a, true)
+
+		local textColour = get_hud_colour(HudColour.white)
+		Print.setupdraw(4, {x = 0.55, y = 0.55}, true, false, false, textColour)
+		local textPosX = 0.85 + maxWidth/2
+		local text = (chargeLevel == 100) and "DRONE_READY" or "DRONE_CHARGING"
+		Print.drawstring(text, textPosX, posY - 0.019)
+
+		--Caption
+		local captionHeight <const> = 0.06
+		GRAPHICS.DRAW_RECT(0.85 + maxWidth/2, posY - captionHeight + 0.005, maxWidth, captionHeight, 156, 156, 156, 80, true)
+		Print.setupdraw(4, {x = 0.65, y = 0.65}, true, false, false, textColour)
+		Print.drawstring("DRONE_MISSILE", textPosX + 0.001, posY - captionHeight - 0.015)
 	end
-	local width = interpolate(0.0, maxWidth, chargeLevel / 100)
-	local height <const> = 0.035
-	local rectPosX = 0.85 + width/2
-	GRAPHICS.DRAW_RECT(rectPosX, posY, width, height, colour.r, colour.g, colour.b, colour.a, true)
-
-	local textColour = get_hud_colour(HudColour.white)
-	Print.setupdraw(4, {x = 0.55, y = 0.55}, true, false, false, textColour)
-	local textPosX = 0.85 + maxWidth/2
-	local text = (chargeLevel == 100) and "DRONE_READY" or "DRONE_CHARGING"
-	Print.drawstring(text, textPosX, posY - 0.019)
-
-	--Caption
-	local captionHeight <const> = 0.06
-	GRAPHICS.DRAW_RECT(0.85 + maxWidth/2, posY - captionHeight + 0.005, maxWidth, captionHeight, 156, 156, 156, 80, true)
-	Print.setupdraw(4, {x = 0.65, y = 0.65}, true, false, false, textColour)
-	Print.drawstring("DRONE_MISSILE", textPosX + 0.001, posY - captionHeight - 0.015)
 end
 
 
@@ -773,7 +784,7 @@ end
 
 
 self.mainLoop = function ()
-	if PLAYER.IS_PLAYER_PLAYING(players.user()) and
+	if PLAYER.IS_PLAYER_PLAYING(players.user()) and not util.is_session_transition_active() and
 	PED.IS_PED_IN_ANY_VEHICLE(players.user_ped(), false) then
 
 		local vehicle = PED.GET_VEHICLE_PED_IS_IN(players.user_ped(), false)
@@ -796,9 +807,10 @@ self.mainLoop = function ()
 				end
 
 				LockonManager()
-				ShootMissiles()
-				DrawChargingMeter()
-				DisablePhone()
+				if not (IsWebBrowserOpen() or IsCameraAppOpen()) then
+					ShootMissiles()
+					DrawChargingMeter()
+				end
 				DisableControlActions()
 
 			elseif not is_player_in_any_rc_vehicle(players.user()) then

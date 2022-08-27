@@ -2931,7 +2931,7 @@ end
 
 menu.toggle_loop(selfOpt, translate("Self", "Mod Max Health"), {"modhealth"}, "", function ()
 	SetEntityMaxHealth(players.user_ped(), moddedHealth)
-	if Config.general.displayhealth then
+	if Config.general.displayhealth and not is_phone_open() then
 		local health = ENTITY.GET_ENTITY_HEALTH(players.user_ped())
 		local strg = string.format("~b~HEALTH ~w~ %s", health)
 		draw_string(strg, Config.healthtxtpos.x, Config.healthtxtpos.y, 0.6, 4)
@@ -4354,7 +4354,9 @@ local toggle
 toggle = menu.toggle_loop(list_homingMissiles, trans.HomingMissiles, {"homingmissiles"}, "", function ()
 	if not UFO.exists() and not GuidedMissile.exists() then
 		HomingMissiles.mainLoop()
-	else menu.set_value(toggle, false) end
+	else
+		menu.set_value(toggle, false)
+	end
 end, HomingMissiles.reset)
 
 
@@ -6682,6 +6684,9 @@ local trans =
 local notificationBits = 0
 local nearbyNotificationBits = 0
 local blips = {}
+local help =
+translate("Protections", "Notifies when a player is flying a drone or launched a guided missile " ..
+"and shows it on the map when nearby")
 
 
 ---@param player Player
@@ -6691,6 +6696,7 @@ local function IsPlayerFlyingAnyDrone(player)
 	return BitTest(memory.read_int(address), 26)
 end
 
+
 ---@param player Player
 ---@return integer
 local function GetPlayerDroneType(player)
@@ -6698,12 +6704,14 @@ local function GetPlayerDroneType(player)
 	return memory.read_int(p_type)
 end
 
+
 ---@param player Player
 ---@return Object
 local function GetPlayerDroneObject(player)
 	local p_object = memory.script_global(1911933 + (players.user() * 260 + 1) + 60 + (player + 1))
 	return memory.read_int(p_object)
 end
+
 
 ---@param heading number
 ---@return number
@@ -6714,11 +6722,13 @@ local function InvertHeading(heading)
 	return heading + 180.0
 end
 
+
 ---@param droneType integer
 ---@return integer
 local function GetDroneBlipSprite(droneType)
 	return (droneType == 8 or droneType == 4) and 548 or 627
 end
+
 
 ---@param droneType integer
 ---@return string
@@ -6728,6 +6738,7 @@ local function GetNotificationMsg(droneType, nearby)
 	end
 	return nearby and trans.NearDrone or trans.FlyingDrone
 end
+
 
 ---@param index integer
 local function RemoveBlipIndex(index)
@@ -6757,6 +6768,7 @@ function AddBlipForPlayerDrone(player)
 				HUD.SHOW_HEIGHT_ON_BLIP(blips[player], false)
 				HUD.SET_BLIP_SCALE(blips[player], 0.8)
 				HUD.SET_BLIP_NAME_TO_PLAYER_NAME(blips[player], player)
+				HUD.SET_BLIP_COLOUR(blips[player], get_player_org_blip_colour(player))
 
 			else
 				HUD.SET_BLIP_DISPLAY(blips[player], 2)
@@ -6789,10 +6801,6 @@ function AddBlipForPlayerDrone(player)
 	end
 end
 
-
-local help =
-translate("Protections", "Notifies when a player is flying a drone or launched a guided missile " ..
-"and shows it on the map when nearby")
 
 menu.toggle_loop(protectionOpt, translate("Protections", "Drone/Missile Detection"), {}, help, function ()
 	if NETWORK.NETWORK_IS_SESSION_ACTIVE() then

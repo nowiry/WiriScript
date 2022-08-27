@@ -86,7 +86,7 @@ notification =
 ---@param msg string
 function notification.stand(msg)
 	assert(type(msg) == "string", "msg must be a string, got " .. type(msg))
-	msg = msg:gsub('~%w~', ""):gsub('<C>(.-)</C>', '%1')
+	msg = msg:gsub('~[%w_]-~', ""):gsub('<C>(.-)</C>', '%1')
 	util.toast("[WiriScript] " .. msg)
 end
 
@@ -389,7 +389,7 @@ end
 
 
 ---@param hudColour HudColour
----@return Colour
+---@return {r: integer, g: integer, b: integer, a: integer}
 function get_hud_colour(hudColour)
 	local r = memory.alloc(1)
 	local g = memory.alloc(1)
@@ -1070,10 +1070,71 @@ function is_player_in_any_rc_vehicle(player)
 end
 
 
+---@diagnostic disable: exp-in-action, unknown-symbol, action-after-return, undefined-global
+---@param colour integer
+---@return integer
+function get_hud_colour_from_org_colour(colour)
+	pluto_switch colour do
+		case 0:
+			return 192
+		case 1:
+			return 193
+		case 2:
+			return 194
+		case 3:
+			return 195
+		case 4:
+			return 196
+		case 5:
+			return 197
+		case 6:
+			return 198
+		case 7:
+			return 199
+		case 8:
+			return 200
+		case 9:
+			return 201
+		case 10:
+			return 202
+		case 11:
+			return 203
+		case 12:
+			return 204
+		case 13:
+			return 205
+		case 14:
+			return 206
+	end
+	return 1
+end
+
+
+---@diagnostic enable: exp-in-action, unknown-symbol, action-after-return, undefined-global
+---@param player Player
+---@return integer
+function get_player_org_blip_colour(player)
+	if players.get_boss(player) ~= -1 then
+		local hudColour = get_hud_colour_from_org_colour(players.get_org_colour(player))
+		local rgba = get_hud_colour(hudColour)
+		return (rgba.r << 24) + (rgba.g << 16) + (rgba.b << 8) + rgba.a
+	end
+	return 1
+end
+
+
 ---@param player Player
 ---@return string
 function get_condensed_player_name(player)
-	return "<C>" .. PLAYER.GET_PLAYER_NAME(player) .. "</C>"
+	local condensed = "<C>" .. PLAYER.GET_PLAYER_NAME(player) .. "</C>"
+
+	if players.get_boss(player) ~= -1  then
+		local colour = players.get_org_colour(player)
+		local hudColour = get_hud_colour_from_org_colour(colour)
+		return string.format("~HC_%d~%s~s~", hudColour, condensed)
+	end
+
+	return condensed
 end
 
 --------------------------
@@ -1221,15 +1282,15 @@ end
 write_global = {
 	byte = function(global, value)
 		local address = memory.script_global(global)
-		if address ~= NULL then memory.write_byte(address, value) end
+		memory.write_byte(address, value)
 	end,
 	int = function(global, value)
 		local address = memory.script_global(global)
-		if address ~= NULL then memory.write_int(address, value) end
+		memory.write_int(address, value)
 	end,
 	float = function(global, value)
 		local address = memory.script_global(global)
-		if address ~= NULL then memory.write_float(address, value) end
+		memory.write_float(address, value)
 	end
 }
 
@@ -1237,19 +1298,19 @@ write_global = {
 read_global = {
 	byte = function(global)
 		local address = memory.script_global(global)
-		return address ~= NULL and memory.read_byte(address) or nil
+		return memory.read_byte(address)
 	end,
 	int = function(global)
 		local address = memory.script_global(global)
-		return address ~= NULL and memory.read_int(address) or nil
+		return memory.read_int(address)
 	end,
 	float = function(global)
 		local address = memory.script_global(global)
-		return address ~= NULL and memory.read_float(address) or nil
+		return memory.read_float(address)
 	end,
 	string = function(global)
 		local address = memory.script_global(global)
-		return address ~= NULL and memory.read_string(address) or nil
+		return memory.read_string(address)
 	end
 }
 
@@ -1280,6 +1341,17 @@ end
 
 function DisablePhone()
     write_global.int(20249, 1)
+end
+
+
+function is_phone_open()
+	if read_global.int(20266 + 1) > 3 then
+		return true
+	end
+	if SCRIPT._GET_NUMBER_OF_REFERENCES_OF_SCRIPT_WITH_NAME_HASH(util.joaat("cellphone_flashhand")) > 0 then
+		return true
+	end
+	return false
 end
 
 --------------------------
