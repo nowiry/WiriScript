@@ -670,7 +670,7 @@ function request_control(entity, timeOut)
 	timeOut = timeOut or 500
 	local start = newTimer()
 	while not request_control_once(entity) and start.elapsed() < timeOut do
-		util.yield()
+		util.yield_once()
 	end
 	return start.elapsed() < timeOut
 end
@@ -1470,7 +1470,7 @@ function get_blip_coords(blip)
 	local tick = 0
 	local success, groundz = util.get_ground_z(pos.x, pos.y)
 	while not success and tick < 10 do
-		util.yield()
+		util.yield_once()
 		success, groundz = util.get_ground_z(pos.x, pos.y)
 		tick = tick + 1
 	end
@@ -1496,7 +1496,7 @@ end
 function get_input_from_screen_keyboard(windowName, maxInput, defaultText)
 	MISC.DISPLAY_ONSCREEN_KEYBOARD(0, windowName, "", defaultText, "", "", "", maxInput);
 	while MISC.UPDATE_ONSCREEN_KEYBOARD() == 0 do
-		util.yield()
+		util.yield_once()
 	end
 	if MISC.UPDATE_ONSCREEN_KEYBOARD() == 1 then
 		return MISC.GET_ONSCREEN_KEYBOARD_RESULT()

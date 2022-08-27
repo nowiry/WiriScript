@@ -1712,13 +1712,13 @@ generate_features = function(pId)
 			local target = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
 			STREAMING.REQUEST_ANIM_DICT("rcmpaparazzo_2")
 			while not STREAMING.HAS_ANIM_DICT_LOADED("rcmpaparazzo_2") do
-				util.yield()
+				util.yield_once()
 			end
 			TASK.TASK_PLAY_ANIM(players.user_ped(), "rcmpaparazzo_2", "shag_loop_a", 8.0, -8.0, -1, 1, 0.0, false, false, false)
 			ENTITY.ATTACH_ENTITY_TO_ENTITY(players.user_ped(), target, 0, v3(0, -0.3, 0), v3(), false, true, false, false, 0, true, 0)
 			while usingRape and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
 			not util.is_session_transition_active() do
-				util.yield()
+				util.yield_once()
 			end
 			usingRape = false
 			TASK.CLEAR_PED_TASKS_IMMEDIATELY(players.user_ped())
@@ -3088,7 +3088,7 @@ menu.toggle_loop(selfOpt, translate("Self", "Carpet Ride"), {"carpetride"}, "", 
 		request_model(objHash)
 		STREAMING.REQUEST_ANIM_DICT("rcmcollect_paperleadinout@")
 		while not STREAMING.HAS_ANIM_DICT_LOADED("rcmcollect_paperleadinout@") do
-			util.yield()
+			util.yield_once()
 		end
 		local localPed = players.user_ped()
 		local pos = ENTITY.GET_ENTITY_COORDS(localPed, false)
@@ -4010,7 +4010,7 @@ menu.toggle(weaponOpt, translate("Weapon", "Valkyire Rocket"), {"valkrocket"}, "
 		end
 
 		while gUsingValkRocket do
-			util.yield()
+			util.yield_once()
 			if PED.IS_PED_SHOOTING(players.user_ped()) and not init then
 				init = true
 				timer.reset()
@@ -5747,19 +5747,19 @@ function Member:createMember(modelHash)
 	local pos = get_random_offset_from_entity(players.user_ped(), 2.0, 3.0)
 	pos.z = pos.z - 1.0
 	local ped = NULL
-	modelHash = modelHash and int_to_uint(modelHash) or 0
+	modelHash = modelHash or 0
 	if modelHash ~= 0 then
-		ped = entities.create_ped(4, modelHash, pos, 0.0)
+		ped = entities.create_ped(28, modelHash, pos, 0.0)
 	else
-		modelHash = ENTITY.GET_ENTITY_MODEL(players.user_ped())
-		ped = entities.create_ped(4, modelHash, pos, 0)
+		local userModelHash = ENTITY.GET_ENTITY_MODEL(players.user_ped())
+		ped = entities.create_ped(28, userModelHash, pos, 0)
 	end
 	NETWORK.SET_NETWORK_ID_EXISTS_ON_ALL_MACHINES(NETWORK.PED_TO_NET(ped), true)
 	ENTITY.SET_ENTITY_AS_MISSION_ENTITY(ped, false, true)
 	NETWORK.SET_NETWORK_ID_ALWAYS_EXISTS_FOR_PLAYER(NETWORK.PED_TO_NET(ped), players.user(), true)
 	ENTITY.SET_ENTITY_LOAD_COLLISION_FLAG(ped, true, 1)
 
-	if modelHash ~= 0 then PED.CLONE_PED_TO_TARGET(players.user_ped(), ped) end
+	if modelHash == 0 then PED.CLONE_PED_TO_TARGET(players.user_ped(), ped) end
 	set_entity_face_entity(ped, players.user_ped(), false)
 	return Member.new(ped)
 end
