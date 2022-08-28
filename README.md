@@ -1,6 +1,6 @@
 # WiriScript
 
-This script includes all the features you need. Have fun with lots of trolling options, surprise your friends with weapon effects, use vehicle weapons, use an UFO tractor beam and much, much more. WiriScript, made for fun.
+This script includes all the features you need. Have fun with lots of trolling options, surprise your friends with weapon effects, use vehicle weapons, use an UFO tractor beam, create bodyguards and much, much more. WiriScript, made for fun.
 
 **Download and enjoy**. 
 
