@@ -8,7 +8,7 @@ THIS FILE IS PART OF WIRISCRIPT
 require "wiriscript.functions"
 
 local self = {}
-local version = 24
+local version = 25
 local MissileState <const> =
 {
     nonExistent = -1,
