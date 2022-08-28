@@ -266,7 +266,7 @@ local drawSpriteOnPlayers = function ()
     end
     for _, player in pairs(players.list(false)) do
         local playerPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(player)
-        if ENTITY.DOES_ENTITY_EXIST(playerPed) and not is_player_in_any_interior(player) and
+        if is_player_active(player, true, true) and not is_player_in_any_interior(player) and
         not ENTITY.IS_ENTITY_DEAD(playerPed, false) and get_distance_between_entities(playerPed, players.user_ped()) < 1000 then
             local playerPos = players.get_position(player)
             local myPos = players.get_position(players.user())

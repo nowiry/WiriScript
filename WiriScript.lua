@@ -5,6 +5,7 @@ THIS FILE IS PART OF WIRISCRIPT
 --------------------------------
 ]]
 
+---@diagnostic disable: local-limit
 local scriptStartTime = util.current_time_millis()
 gVersion = 24
 util.require_natives("1660775568-uno")
@@ -1302,7 +1303,7 @@ generate_features = function(pId)
 	local usingExplosionLoop = false
 	menu.toggle(customExplosion, translate("Trolling - Custom Explosion", "Explosion Loop"), {}, "", function(on)
 		usingExplosionLoop = on
-		while usingExplosionLoop and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		while usingExplosionLoop and is_player_active(pId, false, true) and
 		not util.is_session_transition_active() do
 			Explosion:explodePlayer(pId)
 			util.yield(Explosion.delay)
@@ -1313,7 +1314,7 @@ generate_features = function(pId)
 	local usingWaterLoop = false
 	menu.toggle(trollingOpt, translate("Trolling", "Water Loop"), {}, "", function(on)
 		usingWaterLoop = on
-		while usingWaterLoop and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		while usingWaterLoop and is_player_active(pId, false, true) and
 		not util.is_session_transition_active() do
 			local pos = players.get_position(pId)
 			pos.z = pos.z - 1.0
@@ -1325,7 +1326,7 @@ generate_features = function(pId)
 	local usingFlameLoop = false
 	menu.toggle(trollingOpt, translate("Trolling", "Flame Loop"), {}, "", function(on)
 		usingFlameLoop = on
-		while usingFlameLoop and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		while usingFlameLoop and is_player_active(pId, false, true) and
 		not util.is_session_transition_active() do
 			local pos = players.get_position(pId)
 			pos.z = pos.z - 1.0
@@ -1360,7 +1361,7 @@ generate_features = function(pId)
 	local usingShakeCam = false
 	menu.toggle(trollingOpt, translate("Trolling", "Shake Camera"), {"shakecam"}, "", function(on)
 		usingShakeCam = on
-		while usingShakeCam and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		while usingShakeCam and is_player_active(pId, false, true) and
 		not util.is_session_transition_active() do
 			local pos = players.get_position(pId)
 			FIRE.ADD_OWNED_EXPLOSION(players.user_ped(), pos, 0, 0.0, false, true, 80.0)
@@ -1410,7 +1411,7 @@ generate_features = function(pId)
 			local pedPos = ENTITY.GET_ENTITY_COORDS(ped, false)
 			if not ENTITY.DOES_ENTITY_EXIST(ped) or ENTITY.IS_ENTITY_DEAD(ped, false) then
 				return false
-			elseif not ENTITY.DOES_ENTITY_EXIST(target) or not NETWORK.NETWORK_IS_PLAYER_CONNECTED(targetId) or
+			elseif not is_player_active(targetId, false, true) or
 			players.get_position(targetId):distance(pedPos) > 250.0 and not PED.IS_PED_INJURED(ped) then
 				remove_decor(ped)
 				PED.SET_PED_COMBAT_ATTRIBUTES(ped, 46, false)
@@ -1631,10 +1632,10 @@ generate_features = function(pId)
 	local cagePos
 	local timer <const> = newTimer()
 	menu.toggle_loop(cageOptions, translate("Trolling - Cage", "Automatic"), {"autocage"}, "", function()
-		if not NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) then
+		if not is_player_active(pId, false, true) then
 			util.stop_thread()
-		end
-		if timer.elapsed() >= 1000 and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) then
+
+		elseif not timer.isEnabled() or timer.elapsed() > 1000 then
 			local targetPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
 			local playerPos = ENTITY.GET_ENTITY_COORDS(targetPed, false)
 			if not cagePos or cagePos:distance(playerPos) >= 4.0 then
@@ -1716,7 +1717,7 @@ generate_features = function(pId)
 			end
 			TASK.TASK_PLAY_ANIM(players.user_ped(), "rcmpaparazzo_2", "shag_loop_a", 8.0, -8.0, -1, 1, 0.0, false, false, false)
 			ENTITY.ATTACH_ENTITY_TO_ENTITY(players.user_ped(), target, 0, v3(0, -0.3, 0), v3(), false, true, false, false, 0, true, 0)
-			while usingRape and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+			while usingRape and is_player_active(pId, false, true) and
 			not util.is_session_transition_active() do
 				util.yield_once()
 			end
@@ -1793,8 +1794,8 @@ generate_features = function(pId)
 					TASK.TASK_COMBAT_PED(driver, target, 0, 16)
 					PED.SET_PED_KEEP_TASK(driver, true)
 
-				elseif not NETWORK.NETWORK_IS_PLAYER_CONNECTED(targetId) or
-				not ENTITY.DOES_ENTITY_EXIST(target) or players.get_position(targetId):distance(vehPos) > 1000.0 then
+				elseif not is_player_active(targetId, false, true) or
+				players.get_position(targetId):distance(vehPos) > 1000.0 then
 					TASK.CLEAR_PED_TASKS(driver)
 					PED.SET_PED_COMBAT_ATTRIBUTES(driver, 46, false)
 					TASK.TASK_VEHICLE_DRIVE_WANDER(driver, vehicle, 10.0, 786603)
@@ -2047,7 +2048,7 @@ generate_features = function(pId)
 
 	menu.toggle(damageOpt, translate("Trolling - Damage", "Taze"), {"taze "}, "", function(on)
 		usingTazer = on
-		while usingTazer and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		while usingTazer and is_player_active(pId, false, true) and
 		not util.is_session_transition_active() do
 			if not lastShot.isEnabled() or lastShot.elapsed() > 2500 then
 				local pos = players.get_position(pId)
@@ -2064,8 +2065,8 @@ generate_features = function(pId)
 	-------------------------------------
 
 	menu.toggle_loop(trollingOpt, translate("Trolling", "Hostile Peds"), {}, "", function()
-		if not NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) then
-			util.stop_thread()
+		if not is_player_active(pId, false, true) then
+			return util.stop_thread()
 		end
 		local target = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
 		local pSequence = memory.alloc_int()
@@ -2097,8 +2098,8 @@ generate_features = function(pId)
 	-------------------------------------
 
 	menu.toggle_loop(trollingOpt, translate("Trolling", "Hostile Traffic"), {}, "", function()
-		if not NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) then
-			util.stop_thread()
+		if not is_player_active(pId, false, true) then
+			return util.stop_thread()
 		end
 		local targetPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
 		for _, vehicle in ipairs(get_vehicles_in_player_range(pId, 70.0)) do
@@ -2239,7 +2240,7 @@ generate_features = function(pId)
 				set_entity_as_no_longer_needed(driver)
 				return false
 
-			elseif NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) then
+			elseif is_player_active(pId, false, true) then
 				local playerPos = players.get_position(pId)
 				local pos = ENTITY.GET_ENTITY_COORDS(bandito, true)
 
@@ -2358,7 +2359,7 @@ generate_features = function(pId)
 			ENTITY.ATTACH_ENTITY_TO_ENTITY(players.user_ped(), target, boneId, offset, rot, false, true, false, false, 0, true, 0)
 			TASK.TASK_PLAY_ANIM(players.user_ped(), "rcmjosh2", "josh_sitting_loop", 8.0, -8.0, -1, 1, 0.0, false, false, false)
 
-			while usingPiggyback and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+			while usingPiggyback and is_player_active(pId, false, true) and
 			not util.is_session_transition_active() do
 				util.yield_once()
 			end
@@ -2391,7 +2392,7 @@ generate_features = function(pId)
 	local usingRocketRain = false
 	menu.toggle(trollingOpt, translate("Trolling", "Rain Rockets"), {}, "", function(on)
 		usingRocketRain = on
-		while usingRocketRain and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		while usingRocketRain and is_player_active(pId, false, true) and
 		not util.is_session_transition_active() do
 			rain_rockets(pId, 0)
 			util.yield(600)
@@ -2402,7 +2403,7 @@ generate_features = function(pId)
 	local usingOwnedRocketRain = false
 	menu.toggle(trollingOpt, translate("Trolling", "Rain Rockets (owned)"), {}, "", function(on)
 		usingOwnedRocketRain = on
-		while usingOwnedRocketRain and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		while usingOwnedRocketRain and is_player_active(pId, false, true) and
 		not util.is_session_transition_active() do
 			rain_rockets(pId, players.user_ped())
 			util.yield(600)
@@ -2418,7 +2419,7 @@ generate_features = function(pId)
 
 	menu.toggle(trollingOpt, translate("Forcefield", "Forcefield"), {}, "", function(on)
 		usingForcefield = on
-		while usingForcefield and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		while usingForcefield and is_player_active(pId, false, true) and
 		not util.is_session_transition_active() do
 			if  selectedOpt == 1 then
 				local target = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
@@ -2526,8 +2527,8 @@ generate_features = function(pId)
 	local msg = translate("Trolling", "A mugger is already active")
 
 	menu.action(trollingOpt, translate("Trolling", "Send Mugger"), {}, "", function()
-		if NETWORK.NETWORK_IS_SESSION_STARTED() and NETWORK.NETWORK_IS_PLAYER_ACTIVE(pId) and
-		not PED.IS_PED_INJURED(PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)) and not is_player_in_interior(pId) then
+		if NETWORK.NETWORK_IS_SESSION_STARTED() and is_player_active(pId, true, true) and
+		not is_player_in_interior(pId) then
 
 			if not NETWORK.NETWORK_IS_SCRIPT_ACTIVE("am_gang_call", 0, true, 0) then
 				local bits_addr = memory.script_global(1853348 + (players.user() * 834 + 1) + 140)
@@ -2546,8 +2547,8 @@ generate_features = function(pId)
 	local msg = translate("Trolling", "Mercenaries are already active")
 
 	menu.action(trollingOpt, translate("Trolling", "Send Mercenaries"), {}, "", function()
-		if NETWORK.NETWORK_IS_SESSION_STARTED() and NETWORK.NETWORK_IS_PLAYER_ACTIVE(pId) and
-		not PED.IS_PED_INJURED(PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)) and not is_player_in_interior(pId) then
+		if NETWORK.NETWORK_IS_SESSION_STARTED() and is_player_active(pId, true, true) and
+		not is_player_in_interior(pId) then
 
 			if not NETWORK.NETWORK_IS_SCRIPT_ACTIVE("am_gang_call", 1, true, 0) then
 				local bits_addr = memory.script_global(1853348 + (players.user() * 834 + 1) + 140)
@@ -2796,7 +2797,7 @@ generate_features = function(pId)
 		usingVehInvisibility = on
 		if not usingVehInvisibility then return end
 
-		while usingVehInvisibility and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		while usingVehInvisibility and is_player_active(pId, false, true) and
 		not util.is_session_transition_active() do
 			local vehicle = get_vehicle_player_is_in(pId)
 			if  ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control_once(vehicle) then
@@ -2821,7 +2822,7 @@ generate_features = function(pId)
 		usingFreezeVehicle = on
 		if not usingFreezeVehicle then return end
 
-		while usingFreezeVehicle and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		while usingFreezeVehicle and is_player_active(pId, false, true) and
 		not util.is_session_transition_active() do
 			local vehicle = get_vehicle_player_is_in(pId)
 			if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control_once(vehicle) then
@@ -2846,7 +2847,7 @@ generate_features = function(pId)
 		usingChildLock = on
 		if not usingChildLock then return end
 
-		while usingChildLock and NETWORK.NETWORK_IS_PLAYER_CONNECTED(pId) and
+		while usingChildLock and is_player_active(pId, false, true) and
 		not util.is_session_transition_active() do
 			local vehicle = get_vehicle_player_is_in(pId)
 			if ENTITY.DOES_ENTITY_EXIST(vehicle) and request_control_once(vehicle) then
@@ -2880,8 +2881,8 @@ generate_features = function(pId)
 	}
 
 	menu.toggle_loop(friendlyOpt, translate("Friendly Options", "Kill Killers"), {"explokillers"}, trans.Help, function()
-		if not NETWORK.NETWORK_IS_PLAYER_ACTIVE(pId) then
-			util.stop_thread()
+		if not is_player_active(pId, false, true) then
+			return util.stop_thread()
 		end
 
 		local weaponHash = memory.alloc_int()
@@ -2892,7 +2893,7 @@ generate_features = function(pId)
 			killer = NETWORK.NETWORK_GET_PLAYER_INDEX_FROM_PED(entKiller)
 		end
 
-		if killer ~= -1 and NETWORK.NETWORK_IS_PLAYER_ACTIVE(killer) and not PLAYER.IS_PLAYER_DEAD(killer) then
+		if is_player_active(killer, true, true) then
 			local killerName = get_condensed_player_name(killer)
 			local name = get_condensed_player_name(pId)
 			notification:normal(trans.Notification, HudColour.purpleDark, killerName, name)
@@ -6519,7 +6520,7 @@ function CanSpawnNanoDrone()
 end
 
 function CanUseDrone()
-	if not NETWORK.NETWORK_IS_PLAYER_ACTIVE(players.user()) then
+	if not is_player_active(players.user(), true, true) then
 		return false
 	end
 	if util.is_session_transition_active() then
@@ -6659,7 +6660,7 @@ menu.toggle_loop(protectionOpt, translate("Protections", "Anticage"), {"anticage
 		end
 		local ownerId = get_entity_owner(obj)
 		local msg = string.format(format, get_condensed_player_name(ownerId))
-		if ownerId ~= players.user() and NETWORK.NETWORK_IS_PLAYER_CONNECTED(ownerId) and
+		if ownerId ~= players.user() and is_player_active(ownerId, false, false) and
 		(lastMsg ~= msg or lastNotification.elapsed() >= 15000) then
 			notification:normal(msg, HudColour.purpleDark)
 			lastMsg = msg
@@ -6754,8 +6755,7 @@ function AddBlipForPlayerDrone(player)
 		blips[player] = 0
 	end
 
-	if NETWORK.NETWORK_IS_PLAYER_ACTIVE(player) and PLAYER.IS_PLAYER_PLAYING(player) and
-	players.user() ~= player and IsPlayerFlyingAnyDrone(player) then
+	if is_player_active(player, true, true) and players.user() ~= player and IsPlayerFlyingAnyDrone(player) then
 		if ENTITY.DOES_ENTITY_EXIST(GetPlayerDroneObject(player)) then
 			local obj = GetPlayerDroneObject(player)
 			local pos = ENTITY.GET_ENTITY_COORDS(obj, true)
@@ -6816,19 +6816,30 @@ end)
 -- HIGHLIGHT MUGGERS
 -------------------------------------
 
-menu.toggle_loop(protectionOpt, translate("World", "Highlight Muggers"), {}, "", function ()
-	if not NETWORK.NETWORK_IS_SESSION_ACTIVE() or
-	not NETWORK.NETWORK_IS_SCRIPT_ACTIVE("am_gang_call", 0, true, 0) then
-		return
+local notified = false
+local msg = translate("Protections", "%s sent you a mugger")
+
+menu.toggle_loop(protectionOpt, translate("Protections", "Highlight Muggers"), {}, "", function ()
+	if NETWORK.NETWORK_IS_SESSION_ACTIVE() and NETWORK.NETWORK_IS_SCRIPT_ACTIVE("am_gang_call", 0, true, 0) then
+		util.spoof_script("am_gang_call", function()
+			local netId	= memory.read_int(memory.script_local("am_gang_call", 63 + 10 + (0 * 7 + 1)))
+			if NETWORK.NETWORK_DOES_NETWORK_ID_EXIST(netId) and
+			not ENTITY.IS_ENTITY_DEAD(NETWORK.NET_TO_PED(netId), false) then
+				local mugger = NETWORK.NET_TO_PED(netId)
+				draw_bounding_box(mugger, true, {r = 255, g = 0, b = 0, a = 80})
+			end
+
+			local p_sender = memory.script_local("am_gang_call", 287)
+			if not notified and p_sender ~= 0 and memory.read_int(p_sender) ~= players.user() and
+			is_player_active(memory.read_int(p_sender), false, false) then
+				local sender = memory.read_int(p_sender)
+				notification:normal(msg, HudColour.purpleDark, get_condensed_player_name(sender))
+				notified = true
+			end
+		end)
+	elseif notified then
+		notified = false
 	end
-	util.spoof_script("am_gang_call", function()
-		local netId	= memory.read_int(memory.script_local("am_gang_call", 63 + 10 + (0 * 7 + 1)))
-		if NETWORK.NETWORK_DOES_NETWORK_ID_EXIST(netId) and
-		not ENTITY.IS_ENTITY_DEAD(NETWORK.NET_TO_PED(netId), false) then
-			local mugger = NETWORK.NET_TO_PED(netId)
-			draw_bounding_box(mugger, true, {r = 255, g = 0, b = 0, a = 80})
-		end
-	end)
 end)
 
 ---------------------
@@ -7259,34 +7270,6 @@ util.on_stop(function()
 end)
 
 util.log("Script loaded in %d millis", util.current_time_millis() - scriptStartTime)
-
-
-
---[[menu.toggle_loop(menu.my_root(), "Test", {}, "", function()
-	local coords = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(players.user_ped(), 1.0, 0, 0)
-	if STREAMING.HAS_NAMED_PTFX_ASSET_LOADED("weap_xs_weapons") then
-		GRAPHICS.USE_PARTICLE_FX_ASSET("weap_xs_weapons")
-		GRAPHICS.START_NETWORKED_PARTICLE_FX_NON_LOOPED_AT_COORD(
-			"bullet_tracer_xs_sr",
-			coords.x,
-			coords.y,
-			coords.z,
-			0, 90, 0,
-			1.0,
-			false,
-			false,
-			false,
-			0
-		)
-	else
-		STREAMING.REQUEST_NAMED_PTFX_ASSET("weap_xs_weapons")
-	end
-
-end)]]
-
-
-
-
 
 
 while true do

@@ -223,7 +223,7 @@ end
 ---@param ped Ped
 local IsPedAnyTargetablePlayer = function (ped)
 	local player = NETWORK.NETWORK_GET_PLAYER_INDEX_FROM_PED(ped)
-	if player == -1 or not NETWORK.NETWORK_IS_PLAYER_CONNECTED(player) then
+	if not is_player_active(player, true, true) then
 		return false
 	end
 

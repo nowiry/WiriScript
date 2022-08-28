@@ -1137,6 +1137,31 @@ function get_condensed_player_name(player)
 	return condensed
 end
 
+
+---@param player Player
+---@param isPlaying boolean
+---@param gameState boolean
+---@return boolean
+function is_player_active(player, isPlaying, gameState)
+	if player == -1 or
+	not NETWORK.NETWORK_IS_PLAYER_ACTIVE(player) then
+		return false
+	end
+	if isPlaying and not PLAYER.IS_PLAYER_PLAYING(player) then
+		return false
+	end
+	if gameState then
+		if player == players.user() then
+			return read_global.int(2703735 + 2) ~= 0
+
+		elseif read_global.int(2689235 + (player * 453 + 1)) ~= 4 then
+			return false
+		end
+	end
+	return true
+end
+
+
 --------------------------
 -- CAM
 --------------------------

@@ -216,7 +216,7 @@ end
 ---@return boolean
 local IsPlayerTargetable = function (player)
     local ped = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(player)
-    if player ~= -1 and NETWORK.NETWORK_IS_PLAYER_CONNECTED(player) and not is_player_passive(player) and
+    if is_player_active(player, true, true) and not is_player_passive(player) and
     not is_player_in_any_interior(player) and (read_global.int(2689235 + (player * 453 + 1) + 416) & (1 << 2)) == 0 and
     not NETWORK._IS_ENTITY_GHOSTED_TO_LOCAL_PLAYER(ped) then
         return true
