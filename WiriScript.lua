@@ -522,7 +522,7 @@ end, function() util.log("Failed to get message.") end)
 async_http.dispatch()
 
 -------------------------------------
--- INTRO
+-- OPENING CREDITS
 -------------------------------------
 
 ---@class OpeningCredits
@@ -536,7 +536,7 @@ function OpeningCredits.new()
 end
 
 function OpeningCredits:REQUEST_SCALEFORM_MOVIE()
-	self.handle = GRAPHICS.REQUEST_SCALEFORM_MOVIE("OPENING_CREDITS")
+	self.handle = request_scaleform_movie("OPENING_CREDITS")
 end
 
 function OpeningCredits:HAS_LOADED()
@@ -558,10 +558,10 @@ function OpeningCredits:ADD_TEXT_TO_SINGLE_LINE(mcName, text, font, colour)
 end
 
 ---@param mcName string
-function OpeningCredits:HIDE(mcName)
+function OpeningCredits:HIDE(mcName, stepDuration)
 	GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(self.handle, "HIDE")
 	GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_TEXTURE_NAME_STRING(mcName)
-	GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(0.16)
+	GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(stepDuration)
 	GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
 end
 
@@ -598,66 +598,144 @@ function OpeningCredits:DRAW_FULLSCREEN(r, g, b, a)
 end
 
 function OpeningCredits:SET_AS_NO_LONGER_NEEDED()
-	local pHandle = memory.alloc_int()
-	memory.write_int(pHandle, self.handle)
-	GRAPHICS.SET_SCALEFORM_MOVIE_AS_NO_LONGER_NEEDED(pHandle)
+	set_scaleform_movie_as_no_longer_needed(self.handle)
 end
 
+---@param mcName string
+---@param x number
+---@param y number
+---@param align string
+---@param fadeInDuration number
+---@param fadeOutDuration number
+function OpeningCredits:SETUP_CREDIT_BLOCK(mcName, x, y, align, fadeInDuration, fadeOutDuration)
+	GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(self.handle, "SETUP_CREDIT_BLOCK")
+	GRAPHICS.BEGIN_TEXT_COMMAND_SCALEFORM_STRING("STRING")
+	HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(mcName)
+	GRAPHICS.END_TEXT_COMMAND_SCALEFORM_STRING()
+	GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(x)
+	GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(y)
+	GRAPHICS.BEGIN_TEXT_COMMAND_SCALEFORM_STRING("STRING")
+	HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(align)
+	GRAPHICS.END_TEXT_COMMAND_SCALEFORM_STRING()
+	GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(fadeInDuration)
+	GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(fadeOutDuration)
+	GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
+end
+
+---@param mcName string
+---@param role string
+---@param xOffset number
+---@param colour string
+---@param isRawText boolean
+function OpeningCredits:ADD_ROLE_TO_CREDIT_BLOCK(mcName, role, xOffset, colour, isRawText)
+	GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(self.handle, "ADD_ROLE_TO_CREDIT_BLOCK")
+	GRAPHICS.BEGIN_TEXT_COMMAND_SCALEFORM_STRING("STRING")
+	HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(mcName)
+	GRAPHICS.END_TEXT_COMMAND_SCALEFORM_STRING()
+	GRAPHICS.BEGIN_TEXT_COMMAND_SCALEFORM_STRING("STRING")
+	HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(role)
+	GRAPHICS.END_TEXT_COMMAND_SCALEFORM_STRING()
+	GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(xOffset)
+	GRAPHICS.BEGIN_TEXT_COMMAND_SCALEFORM_STRING("STRING")
+	HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(colour)
+	GRAPHICS.END_TEXT_COMMAND_SCALEFORM_STRING()
+	GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_BOOL(isRawText)
+	GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
+end
+
+---@param mcName string
+---@param names string
+---@param xOffset number
+---@param delimeter string
+---@param isRawText boolean
+function OpeningCredits:ADD_NAMES_TO_CREDIT_BLOCK(mcName, names, xOffset, delimeter, isRawText)
+	GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(self.handle, "ADD_NAMES_TO_CREDIT_BLOCK")
+	GRAPHICS.BEGIN_TEXT_COMMAND_SCALEFORM_STRING("STRING")
+	HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(mcName)
+	GRAPHICS.END_TEXT_COMMAND_SCALEFORM_STRING()
+	GRAPHICS.BEGIN_TEXT_COMMAND_SCALEFORM_STRING("STRING")
+	HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(names)
+	GRAPHICS.END_TEXT_COMMAND_SCALEFORM_STRING()
+	GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(xOffset)
+	GRAPHICS.BEGIN_TEXT_COMMAND_SCALEFORM_STRING("STRING")
+	HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(delimeter)
+	GRAPHICS.END_TEXT_COMMAND_SCALEFORM_STRING()
+	GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_BOOL(isRawText)
+	GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
+end
+
+---@param mcName string
+---@param stepDuration number
+function OpeningCredits:SHOW_CREDIT_BLOCK(mcName, stepDuration)
+	GRAPHICS.BEGIN_SCALEFORM_MOVIE_METHOD(self.handle, "SHOW_CREDIT_BLOCK")
+	GRAPHICS.BEGIN_TEXT_COMMAND_SCALEFORM_STRING("STRING")
+	HUD.ADD_TEXT_COMPONENT_SUBSTRING_PLAYER_NAME(mcName)
+	GRAPHICS.END_TEXT_COMMAND_SCALEFORM_STRING()
+	GRAPHICS.SCALEFORM_MOVIE_METHOD_ADD_PARAM_FLOAT(stepDuration)
+	GRAPHICS.END_SCALEFORM_MOVIE_METHOD()
+end
+
+
+local openingCredits <const> = OpeningCredits.new()
+
+-------------------------------------
+-- INTRO
+-------------------------------------
 
 if SCRIPT_MANUAL_START and not SCRIPT_SILENT_START and Config.general.showintro then
 	gShowingIntro = true
 	local state = 0
 	local timer <const> = newTimer()
-	local scaleform <const> = OpeningCredits.new()
 	local menuPosX = menu.get_position()
 	local posX = menuPosX > 0.5 and 0.0 or 100.0
 	local align = posX == 0.0 and "left" or "right"
 
 	util.create_tick_handler(function()
-		if (state == 0 and timer.elapsed() < 600) or
-		not scaleform:HAS_LOADED() then
-			return
-		end
+		if state == 0 and timer.elapsed() < 600 then
+			---wait
+		elseif openingCredits:HAS_LOADED() then
+			if state ==  0 then
+				openingCredits:SETUP_SINGLE_LINE("production", 0.5, 0.5, posX, 0.0, align)
+				openingCredits:ADD_TEXT_TO_SINGLE_LINE("production", 'a', "$font5", "HUD_COLOUR_WHITE")
+				openingCredits:ADD_TEXT_TO_SINGLE_LINE("production", "nowiry", "$font2", "HUD_COLOUR_FREEMODE")
+				openingCredits:ADD_TEXT_TO_SINGLE_LINE("production", "production", "$font5", "HUD_COLOUR_WHITE")
+				openingCredits:SHOW_SINGLE_LINE("production")
+				AUDIO.PLAY_SOUND_FROM_ENTITY(-1, "Pre_Screen_Stinger", players.user_ped(), "DLC_HEISTS_FINALE_SCREEN_SOUNDS", true, 20)
+				state = 1
+				timer.reset()
+			end
 
-		if state ==  0 then
-			scaleform:SETUP_SINGLE_LINE("production", 0.5, 0.5, posX, 0.0, align)
-			scaleform:ADD_TEXT_TO_SINGLE_LINE("production", 'a', "$font5", "HUD_COLOUR_WHITE")
-			scaleform:ADD_TEXT_TO_SINGLE_LINE("production", "nowiry", "$font2", "HUD_COLOUR_FREEMODE")
-			scaleform:ADD_TEXT_TO_SINGLE_LINE("production", "production", "$font5", "HUD_COLOUR_WHITE")
-			scaleform:SHOW_SINGLE_LINE("production")
-			AUDIO.PLAY_SOUND_FROM_ENTITY(-1, "Pre_Screen_Stinger", players.user_ped(), "DLC_HEISTS_FINALE_SCREEN_SOUNDS", true, 20)
-			state = 1
-			timer.reset()
-		end
+			if state == 1  and timer.elapsed() >= 4000 then
+				openingCredits:HIDE("production", 0.1667)
+				state = 2
+				timer.reset()
+			end
 
-		if timer.elapsed() >= 4000 and state == 1 then
-			scaleform:HIDE("production")
-			state = 2
-			timer.reset()
-		end
+			if state == 2 and timer.elapsed() >= 3000 then
+				openingCredits:SETUP_SINGLE_LINE("wiriscript", 0.5, 0.5, posX, 0.0, align)
+				openingCredits:ADD_TEXT_TO_SINGLE_LINE("wiriscript", "wiriscript", "$font2", "HUD_COLOUR_FREEMODE")
+				openingCredits:ADD_TEXT_TO_SINGLE_LINE("wiriscript", 'v' .. gVersion, "$font5", "HUD_COLOUR_WHITE")
+				openingCredits:SHOW_SINGLE_LINE("wiriscript")
+				AUDIO.PLAY_SOUND_FROM_ENTITY(-1, "SPAWN", players.user_ped(), "BARRY_01_SOUNDSET", true, 20)
+				state = 3
+				timer.reset()
+			end
 
-		if timer.elapsed() >= 3000 and state == 2 then
-			scaleform:SETUP_SINGLE_LINE("wiriscript", 0.5, 0.5, posX, 0.0, align)
-			scaleform:ADD_TEXT_TO_SINGLE_LINE("wiriscript", "wiriscript", "$font2", "HUD_COLOUR_FREEMODE")
-			scaleform:ADD_TEXT_TO_SINGLE_LINE("wiriscript", 'v' .. gVersion, "$font5", "HUD_COLOUR_WHITE")
-			scaleform:SHOW_SINGLE_LINE("wiriscript")
-			AUDIO.PLAY_SOUND_FROM_ENTITY(-1, "SPAWN", players.user_ped(), "BARRY_01_SOUNDSET", true, 20)
-			state = 3
-			timer.reset()
-		end
+			if state == 3 and timer.elapsed() >= 4000 then
+				openingCredits:HIDE("wiriscript", 0.1667)
+				state = 4
+				timer.reset()
+			end
 
-		if timer.elapsed() >= 4000 and state == 3 then
-			scaleform:HIDE("wiriscript")
-			state = 4
-			timer.reset()
+			if state == 4 and timer.elapsed() >= 3000 then
+				openingCredits:SET_AS_NO_LONGER_NEEDED()
+				gShowingIntro = false
+				return false
+			end
+			openingCredits:DRAW_FULLSCREEN(255, 255, 255, 255)
+		else
+			openingCredits:REQUEST_SCALEFORM_MOVIE()
 		end
-
-		if timer.elapsed() >= 3000 and state == 4 then
-			scaleform:SET_AS_NO_LONGER_NEEDED()
-			gShowingIntro = false
-			return false
-		end
-		scaleform:DRAW_FULLSCREEN(255, 255, 255, 255)
 	end)
 end
 
@@ -7025,100 +7103,146 @@ end, Config.vehiclegun.disablepreview)
 ---------------------
 
 local script <const> = menu.list(menu.my_root(), "WiriScript", {}, "")
-menu.action(script, translate("WiriScript", "Show Credits"), {}, "", function()
+
+
+
+
+local state = 0
+local timer <const> = newTimer()
+local i = 0
+local testers <const> =
+{
+	"EQZR",
+	"KillaBlade",
+	"komt",
+	"Murten",
+	"Stomp",
+	"Unnkai",
+	"Don Marktapia"
+}
+--- Thank you all <3
+local tbl <const> =
+{
+	{"Murten", "HUD_COLOUR_PINK"},
+	{"Hollywood Collins", "HUD_COLOUR_WHITE"},
+	{"vsus/Ren", "HUD_COLOUR_PINK"},
+	{"aaron", "HUD_COLOUR_WHITE"},
+	{"QuickNET", "HUD_COLOUR_WHITE"},
+	{"komt", "HUD_COLOUR_WHITE"},
+	{"ICYPhoenix", "HUD_COLOUR_PINK"},
+	{"DeF3c", "HUD_COLOUR_WHITE"},
+	{"Koda", "HUD_COLOUR_WHITE"},
+	{"jayphen", "HUD_COLOUR_WHITE"},
+	{"Fwishky", "HUD_COLOUR_WHITE"},
+	{"Polygon", "HUD_COLOUR_WHITE"},
+	{"Sainan", "HUD_COLOUR_PINK"},
+}
+local credits
+local posX
+local align
+
+
+credits = 
+menu.toggle_loop(script, translate("WiriScript", "Show Credit"), {}, "", function()
 	if gShowingIntro then
-		return
-	end
-	gIsShowingCredits = true
-	local state = 0
-	local timer <const> = newTimer()
-	local i = 1
-	local delay = 500
-	--- Thank you all <3
-	local ty <const> =
-	{
-		"Murten",
-		"Hollywood Collins",
-		"vsus/Ren",
-		"aaron",
-		"QuickNET",
-		"komt",
-		"ICYPhoenix",
-		"DeF3c",
-		"Koda",
-		"jayphen",
-		"Fwishky",
-		"Polygon",
-		"Sainan",
-		"NONECKED",
-		{"wiriscript", "HUD_COLOUR_BLUE"},
-	}
-	local scaleform <const> = OpeningCredits.new()
-	local menuPosX = menu.get_position()
-	local posX = menuPosX > 0.5 and 0.0 or 100.0
-	local align = posX == 0.0 and "left" or "right"
+		return menu.set_value(credits, false)
 
-	AUDIO.SET_MOBILE_RADIO_ENABLED_DURING_GAMEPLAY(true)
-	AUDIO.SET_MOBILE_PHONE_RADIO_STATE(true)
-	AUDIO.SET_RADIO_TO_STATION_NAME("RADIO_01_CLASS_ROCK")
-	AUDIO.SET_CUSTOM_RADIO_TRACK_LIST("RADIO_01_CLASS_ROCK", "END_CREDITS_SAVE_MICHAEL_TREVOR", true)
+	elseif openingCredits:HAS_LOADED() then
+		if state == 0 then
+			if not timer.isEnabled() then
+				posX = menu.get_position() > 0.5 and 0.0 or 100.0
+				align = (posX == 0.0) and "left" or "right"
+				AUDIO.SET_MOBILE_RADIO_ENABLED_DURING_GAMEPLAY(true)
+				AUDIO.SET_MOBILE_PHONE_RADIO_STATE(true)
+				AUDIO.SET_RADIO_TO_STATION_NAME("RADIO_01_CLASS_ROCK")
+				AUDIO.SET_CUSTOM_RADIO_TRACK_LIST("RADIO_01_CLASS_ROCK", "END_CREDITS_SAVE_MICHAEL_TREVOR", true)
+				timer.reset()
+			end
 
-	util.create_tick_handler(function()
-		if not scaleform:HAS_LOADED() then return end
-		if timer.elapsed() >= delay and state == 0 then
-			scaleform:SETUP_SINGLE_LINE("thankyou", 0.5, 0.5, posX, 0.0, align)
-			local kind = type(ty[i])
-			local text = (kind == "table") and ty[i][1] or ty[i]
-			local colour = "HUD_COLOUR_WHITE"
-			if kind == "table" then colour = ty[i][2] end
-			scaleform:ADD_TEXT_TO_SINGLE_LINE("thankyou", text, "$font2", colour)
-			scaleform:SHOW_SINGLE_LINE("thankyou")
-			state = 1
-			i = i + 1
-			delay = 4000 -- `millis`
+			if timer.elapsed() > 3000 then
+				openingCredits:SETUP_SINGLE_LINE("thankyou", 0.5, 0.5, posX, 0.0, align)
+				openingCredits:ADD_TEXT_TO_SINGLE_LINE("thankyou", tbl[i+1][1], "$font2", tbl[i+1][2])
+				openingCredits:SHOW_SINGLE_LINE("thankyou")
+				state = state + 1
+				i = i + 1
+				timer.reset()
+			end
+		end
+
+		if state == 1 and timer.elapsed() > 4000 then
+			openingCredits:HIDE("thankyou", 0.1667)
+			state = (i ~= #tbl) and 0 or 2
 			timer.reset()
 		end
 
-		if timer.elapsed() >= 4000 and state == 1 then
-			scaleform:HIDE("thankyou")
-			state = 0
+		if state == 2 and timer.elapsed() > 3000 then
+			openingCredits:SETUP_CREDIT_BLOCK("testers", 215.0, 50.0, "right", 0.333, 0.333)
+			openingCredits:ADD_ROLE_TO_CREDIT_BLOCK("testers", "Testers", 0.0, "HUD_COLOUR_YELLOW", true)
+			openingCredits:ADD_NAMES_TO_CREDIT_BLOCK("testers", table.concat(testers, ','), 95.0, ',', true)
+			openingCredits:SHOW_CREDIT_BLOCK("testers", 0.1667)
+			state = state + 1
 			timer.reset()
 		end
 
-		if state == 1 and i == #ty + 1 then
-			state = 2
+		if state == 3 and timer.elapsed() > 4000 then
+			openingCredits:HIDE("testers", 0.1667)
+			state = state + 1
 			timer.reset()
 		end
 
-		if timer.elapsed() >= 3000 and state == 2 then
+		if state == 4 and timer.elapsed() > 3000 then
+			openingCredits:SETUP_SINGLE_LINE("wiriscript", 0.5, 0.5, posX, 0.0, align)
+			openingCredits:ADD_TEXT_TO_SINGLE_LINE("wiriscript", "wiriscript", "$font2", "HUD_COLOUR_BLUE")
+			openingCredits:SHOW_SINGLE_LINE("wiriscript")
+			state = state + 1
+			timer.reset()
+		end
+
+		if state == 5 and timer.elapsed() > 8000 then
+			openingCredits:HIDE("wiriscript", 0.1667)
+			state = state + 1
+			timer.reset()
+		end
+
+		if state == 6 and timer.elapsed() > 3000 then
 			AUDIO.START_AUDIO_SCENE("CAR_MOD_RADIO_MUTE_SCENE")
-			util.yield(5000)
+			state = state + 1
+		end
+
+		if state == 7 and timer.elapsed() > 5000 then
 			AUDIO.SET_MOBILE_RADIO_ENABLED_DURING_GAMEPLAY(false)
 			AUDIO.SET_MOBILE_PHONE_RADIO_STATE(false)
 			AUDIO.CLEAR_CUSTOM_RADIO_TRACK_LIST("RADIO_01_CLASS_ROCK")
 			AUDIO.SKIP_RADIO_FORWARD()
 			AUDIO.STOP_AUDIO_SCENE("CAR_MOD_RADIO_MUTE_SCENE")
-			scaleform:SET_AS_NO_LONGER_NEEDED()
-			gIsShowingCredits = false
-			return false
-		end
-
-		if PAD.IS_DISABLED_CONTROL_JUST_PRESSED(2, 194)  then
-			state = 2
-			timer.reset()
-		elseif state ~= 2 then
-			if Instructional:begin() then
-				Instructional.add_control(194, "REPLAY_SKIP_S")
-				Instructional:set_background_colour(0, 0, 0, 80)
-				Instructional:draw()
-			end
+			openingCredits:SET_AS_NO_LONGER_NEEDED()
+			state = 0
+			i = 0
+			timer.disable()
+			menu.set_value(credits, false)
+			return
 		end
 
 		HUD.HIDE_HUD_AND_RADAR_THIS_FRAME()
+		DisablePhone()
 		HUD._HUD_WEAPON_WHEEL_IGNORE_SELECTION()
-		scaleform:DRAW_FULLSCREEN(255, 255, 255, 255)
-	end)
+		openingCredits:DRAW_FULLSCREEN(255, 255, 255, 255)
+		draw_debug_text(state, i)
+	else
+		openingCredits:REQUEST_SCALEFORM_MOVIE()
+	end
+end, function ()
+	AUDIO.SET_MOBILE_RADIO_ENABLED_DURING_GAMEPLAY(false)
+	AUDIO.SET_MOBILE_PHONE_RADIO_STATE(false)
+	AUDIO.CLEAR_CUSTOM_RADIO_TRACK_LIST("RADIO_01_CLASS_ROCK")
+	AUDIO.SKIP_RADIO_FORWARD()
+	AUDIO.STOP_AUDIO_SCENE("CAR_MOD_RADIO_MUTE_SCENE")
+	openingCredits:SET_AS_NO_LONGER_NEEDED()
+	state = 0
+	i = 0
+	timer.disable()
 end)
+
 
 local helpText = translate("WiriScript", "If you like WiriScirpt's features consider buying me a coffee or becoming a Sponsor")
 menu.hyperlink(script, "Buy Me a Coffee", "https://www.buymeacoffee.com/nowiry", helpText)
@@ -7258,11 +7382,8 @@ util.on_stop(function()
 		GuidedMissile.destroy()
 	end
 
-	if gIsShowingCredits then
-		AUDIO.SET_MOBILE_RADIO_ENABLED_DURING_GAMEPLAY(false)
-		AUDIO.SET_MOBILE_PHONE_RADIO_STATE(false)
-		AUDIO.CLEAR_CUSTOM_RADIO_TRACK_LIST("RADIO_01_CLASS_ROCK")
-		AUDIO.SKIP_RADIO_FORWARD()
+	if gShowingIntro then
+		openingCredits:SET_AS_NO_LONGER_NEEDED()
 	end
 
 	set_streamed_texture_dict_as_no_longer_needed("WiriTextures")
