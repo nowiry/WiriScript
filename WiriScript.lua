@@ -7105,8 +7105,6 @@ end, Config.vehiclegun.disablepreview)
 local script <const> = menu.list(menu.my_root(), "WiriScript", {}, "")
 
 
-
-
 local state = 0
 local timer <const> = newTimer()
 local i = 0
@@ -7118,7 +7116,7 @@ local testers <const> =
 	"Murten",
 	"Stomp",
 	"Unnkai",
-	"Don Marktapia"
+	"Marktapia"
 }
 --- Thank you all <3
 local tbl <const> =
@@ -7227,20 +7225,21 @@ menu.toggle_loop(script, translate("WiriScript", "Show Credit"), {}, "", functio
 		DisablePhone()
 		HUD._HUD_WEAPON_WHEEL_IGNORE_SELECTION()
 		openingCredits:DRAW_FULLSCREEN(255, 255, 255, 255)
-		draw_debug_text(state, i)
 	else
 		openingCredits:REQUEST_SCALEFORM_MOVIE()
 	end
 end, function ()
-	AUDIO.SET_MOBILE_RADIO_ENABLED_DURING_GAMEPLAY(false)
-	AUDIO.SET_MOBILE_PHONE_RADIO_STATE(false)
-	AUDIO.CLEAR_CUSTOM_RADIO_TRACK_LIST("RADIO_01_CLASS_ROCK")
-	AUDIO.SKIP_RADIO_FORWARD()
-	AUDIO.STOP_AUDIO_SCENE("CAR_MOD_RADIO_MUTE_SCENE")
-	openingCredits:SET_AS_NO_LONGER_NEEDED()
-	state = 0
-	i = 0
-	timer.disable()
+	if not gShowingIntro then
+		AUDIO.SET_MOBILE_RADIO_ENABLED_DURING_GAMEPLAY(false)
+		AUDIO.SET_MOBILE_PHONE_RADIO_STATE(false)
+		AUDIO.CLEAR_CUSTOM_RADIO_TRACK_LIST("RADIO_01_CLASS_ROCK")
+		AUDIO.SKIP_RADIO_FORWARD()
+		AUDIO.STOP_AUDIO_SCENE("CAR_MOD_RADIO_MUTE_SCENE")
+		openingCredits:SET_AS_NO_LONGER_NEEDED()
+		state = 0
+		i = 0
+		timer.disable()
+	end
 end)
 
 
