@@ -1,17 +1,8 @@
 # WiriScript
-WiriScript is one of the top lua scripts for Stand and the first BIG script ever created for this mod menu,  Wiri has a huge amount of funny features you didn't know you needed, including
 
-- RC Bandito trolling, 
-- Attackers & Enemy Vehicles, 
-- Force & Forcefield, 
-- Vehicle Weapons,
-- Combustion Man,
-- Bodyguards,
-- Advanced Homing Missiles,
-- Carpet Ride and
-- UFO
+This script includes all the features you need. Have fun with lots of trolling options, surprise your friends with weapon effects, use vehicle weapons, use an UFO tractor beam, create bodyguards and much, much more. WiriScript, made for fun.
 
-Download and enjoy. 
+**Download and enjoy**. 
 
 **Fan Club** 
 <br />
