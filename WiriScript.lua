@@ -11,7 +11,7 @@ gVersion = 25
 util.require_natives("1660775568-uno")
 
 local required <const> = {
-	"lib/natives-1651208000.lua",
+	"lib/natives-1660775568-uno.lua",
 	"lib/wiriscript/functions.lua",
 	"lib/wiriscript/ufo.lua",
 	"lib/wiriscript/guided_missile.lua",
@@ -4753,13 +4753,14 @@ local function get_vehicle_sub_handling(pVehicle)
 	local subHandlingArray = memory.read_long(CHandlingData + 0x158)
 	local numSubHandling = memory.read_ushort(CHandlingData + 0x160)
 	local tbl = {}
+
 	for i = 0, numSubHandling -1 do
 		local subHandlingData = memory.read_long(subHandlingArray + i*8)
 		if subHandlingData ~= NULL then
 			local GetSubhandlingType_addr = get_vtable_entry_pointer(subHandlingData, 2)
 			local type = util.call_foreign_function(GetSubhandlingType_addr, subHandlingData)
-			local doesTableInclude = table.find(HandlingType, type)
-			if doesTableInclude then tbl[#tbl+1] = {type = type, address = subHandlingData} end
+			local subTbl = {type = type, address = subHandlingData}
+			if table.find(HandlingType, type) then tbl[#tbl+1] = subTbl end
 		end
 	end
 	return tbl
@@ -4836,6 +4837,7 @@ function HandlingData.new(parent, name, baseAddress, offsets)
 	return self
 end
 
+
 ---@param parent integer
 ---@param name string
 ---@param offset integer
@@ -4844,6 +4846,7 @@ function HandlingData:createOpt(parent, name, offset)
 		self:writeValueFromUser(offset)
 	end)
 end
+
 
 ---@param offset integer
 function HandlingData:writeValueFromUser(offset)
@@ -4864,12 +4867,14 @@ function HandlingData:writeValueFromUser(offset)
 	end
 end
 
+
 ---@param visible boolean
 function HandlingData:setVisible(visible)
 	if self.isVisible == visible then return end
 	menu.set_visible(self.reference, visible)
 	self.isVisible = visible
 end
+
 
 ---@return table<string, number>
 function HandlingData:get()
@@ -4882,6 +4887,7 @@ function HandlingData:get()
 	end
 	return result
 end
+
 
 ---@param values {[1]: string, [2]: number}[] #Each table must have the param name (string) and value (number).
 function HandlingData:set(values)
@@ -4928,13 +4934,17 @@ function FilesList.new(parent, name, directory, ext)
 	self.dir = directory
 	self.ext = ext
 	self.subOpts, self.fileOpts = {}, {}
+
 	self.reference = menu.list(parent, name, {}, "", function ()
-		self.isOpen = true; self:reload()
+		self.isOpen = true
+		self:reload()
 	end, function ()
-		self.isOpen = false; self:clear()
+		self.isOpen = false
+		self:clear()
 	end)
 	return self
 end
+
 
 function FilesList:load()
 	if not self.dir or not filesystem.exists(self.dir) or
@@ -4947,6 +4957,7 @@ function FilesList:load()
 	end
 end
 
+
 ---@param filename string
 ---@param ext string
 ---@param path string
@@ -4958,6 +4969,7 @@ function FilesList:createOpt(filename, ext, path)
 	self.fileOpts[#self.fileOpts+1] = list
 end
 
+
 ---@param filename string #Must include file extension.
 ---@param content string
 function FilesList:add(filename, content)
@@ -4965,6 +4977,7 @@ function FilesList:add(filename, content)
 	if not filesystem.exists(self.dir) then
 		filesystem.mkdir(self.dir)
 	end
+
 	local name, ext = string.match(filename, '^(.+)%.(.+)$')
 	assert(name and ext, "couldn't match file name or extension")
 	if filesystem.exists(self.dir .. filename) then
@@ -4974,9 +4987,11 @@ function FilesList:add(filename, content)
 			count = count + 1
 		until not filesystem.exists(self.dir .. filename)
 	end
+
 	local file <close> = assert(io.open(self.dir .. filename, "w"))
 	file:write(content)
 end
+
 
 function FilesList:clear()
 	if #self.fileOpts == 0 then return end
@@ -4985,9 +5000,11 @@ function FilesList:clear()
 	end
 end
 
+
 function FilesList:reload()
 	self:clear(); self:load()
 end
+
 
 ---@param name string
 ---@param onClick fun(name:string, ext: string, path: string)
@@ -5042,27 +5059,28 @@ function HandlingEditor.new(parent, menuname, commands, helpTxt)
 
 	self.ref_vehicleName = menu.readonly(self.reference, translate("Handling Editor", "Vehicle"), "???")
 
-	local name <const> = translate("Handling Editor", "Save")
-	self.ref_save = menu.action(self.reference, name, {"savehandling"}, "", function ()
+	local name_save <const> = translate("Handling Editor", "Save")
+	self.ref_save = menu.action(self.reference, name_save, {"savehandling"}, "", function ()
 		local ok, msg = self:save()
 		if not ok then return notification:help(capitalize(msg), HudColour.red) end
 		notification:normal(msgs.SuccessfullySaved, HudColour.purpleDark)
 	end)
 
-	local name <const> = translate("Handling Editor", "Saved Files")
-	self.savedFiles = FilesList.new(self.reference, name, "", "json")
+	local name_savedFiles <const> = translate("Handling Editor", "Saved Files")
+	self.savedFiles = FilesList.new(self.reference, name_savedFiles, "", "json")
+	do
+		self.savedFiles:addSubOpt(translate("Handling Editor", "Load"), function (name, ext, path)
+			local ok, msg = self:load(path)
+			if not ok then return notification:help(capitalize(msg), HudColour.red) end
+			notification:normal(msgs.SuccessfullyLoaded, HudColour.purpleDark)
+		end)
 
-	self.savedFiles:addSubOpt(translate("Handling Editor", "Load"), function (name, ext, path)
-		local ok, msg = self:load(path)
-		if not ok then return notification:help(capitalize(msg), HudColour.red) end
-		notification:normal(msgs.SuccessfullyLoaded, HudColour.purpleDark)
-	end)
-
-	self.savedFiles:addSubOpt(translate("Handling Editor", "Delete"), function (name, ext, path)
-		local ok, msg = os.remove(path)
-		if not ok then return notification:help(msg, HudColour.red) end
-		self.savedFiles:reload()
-	end)
+		self.savedFiles:addSubOpt(translate("Handling Editor", "Delete"), function (name, ext, path)
+			local ok, msg = os.remove(path)
+			if not ok then return notification:help(msg, HudColour.red) end
+			self.savedFiles:reload()
+		end)
+	end
 
 	menu.hyperlink(self.reference, translate("Handling Editor", "Tutorial"), "https://gtamods.com/wiki/Handling.meta", "")
 	return self
@@ -5086,7 +5104,8 @@ end
 
 function HandlingEditor:onTick()
 	local vehicle = entities.get_user_vehicle_as_handle()
-	if self.isOpen and ENTITY.DOES_ENTITY_EXIST(vehicle) and not ENTITY.IS_ENTITY_DEAD(vehicle, false) then
+	if self.isOpen and ENTITY.DOES_ENTITY_EXIST(vehicle) and not ENTITY.IS_ENTITY_DEAD(vehicle, false) and
+	VEHICLE.IS_VEHICLE_DRIVEABLE(vehicle, false) then
 		if menu.is_open() then
 			draw_bounding_box(vehicle, true, self.boxColour)
 		end
@@ -5126,6 +5145,7 @@ function HandlingEditor:onTick()
 		menu.delete(self.handlingData.reference)
 		self.handlingData = nil
 		self.savedFiles:clear()
+		self.savedFiles.dir = nil
 	end
 end
 
@@ -5178,7 +5198,7 @@ function HandlingEditor:load(path)
 	end
 	local ok, result = json.parse(path, false)
 	if not ok then return false, result end
-	local handlingData = result["CHandlingData"]
+	local handlingData = result.CHandlingData
 	if type(handlingData) ~= "table" then
 		return false, "field: CHandlingData was not found in the parsed file"
 	end
@@ -7144,8 +7164,7 @@ local align
 credits = 
 menu.toggle_loop(script, translate("WiriScript", "Show Credit"), {}, "", function()
 	if gShowingIntro then
-		return menu.set_value(credits, false)
-
+		-- nothing
 	elseif openingCredits:HAS_LOADED() then
 		if state == 0 then
 			if not timer.isEnabled() then
