@@ -205,12 +205,13 @@ end
 ---@return boolean
 local ArePlayersInTheSameCrew = function (player, target)
 	if NETWORK.NETWORK_CLAN_SERVICE_IS_VALID() then
-		local handle = GetHandleFromPlayer(player)
 		local targetHandle = GetHandleFromPlayer(target)
+		local handle = GetHandleFromPlayer(player)
 
-		if NETWORK.NETWORK_CLAN_PLAYER_IS_ACTIVE(handle) and
-		NETWORK.NETWORK_CLAN_PLAYER_IS_ACTIVE(targetHandle) then
-			local clanDesc, targetClanDesc = memory.alloc(280), memory.alloc(280)
+		if NETWORK.NETWORK_CLAN_PLAYER_IS_ACTIVE(handle) and NETWORK.NETWORK_CLAN_PLAYER_IS_ACTIVE(targetHandle) then
+			local targetClanDesc = memory.alloc(280)
+			local clanDesc = memory.alloc(280)
+
 			NETWORK.NETWORK_CLAN_PLAYER_GET_DESC(clanDesc, 35, handle)
 			NETWORK.NETWORK_CLAN_PLAYER_GET_DESC(targetClanDesc, 35, targetHandle)
 			return memory.read_int(clanDesc + 0x0) == memory.read_int(targetClanDesc + 0x0)

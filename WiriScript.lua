@@ -6449,9 +6449,10 @@ local planes <const> = {
 	"rogue",
 }
 local numPlanes = 0
+local lastSpawn = newTimer()
 
 menu.toggle_loop(worldOptions, translate("World", "Angry Planes"), {}, "", function ()
-	if numPlanes < 15 then
+	if numPlanes < 15 and lastSpawn.elapsed() > 300 then
 		local pedHash <const> = util.joaat("s_m_y_blackops_01")
 		local planeModel <const> = planes[math.random(#planes)]
 		local planeHash <const> = util.joaat(planeModel)
@@ -6475,8 +6476,8 @@ menu.toggle_loop(worldOptions, translate("World", "Angry Planes"), {}, "", funct
 			VEHICLE.SET_VEHICLE_FORCE_AFTERBURNER(plane, true)
 			TASK.TASK_PLANE_MISSION(pilot, plane, 0, players.user_ped(), v3(), 6, 100.0, 0.0, 0.0, 80.0, 50.0, 0)
 			numPlanes = numPlanes + 1
+			lastSpawn.reset()
 		end
-		util.yield(200)
 	end
 end, function ()
 	for _, vehicle in ipairs(entities.get_all_vehicles_as_handles()) do
