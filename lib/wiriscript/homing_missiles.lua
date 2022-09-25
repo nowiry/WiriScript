@@ -60,7 +60,7 @@ end
 --------------------------
 
 local self = {}
-local version = 26
+local version = 27
 local State <const> =
 {
 	GettingNearbyEnts = 0,
@@ -119,8 +119,8 @@ local Bit_IgnoreCrewMembers <const> = 5
 local DrawLockonSprite = function (position, scale, colour)
 	if GRAPHICS.HAS_STREAMED_TEXTURE_DICT_LOADED("mpsubmarine_periscope") then
 		local txdSizeX = scale * 0.042
-		local txdSizeY = scale * 0.042 * GRAPHICS._GET_ASPECT_RATIO(false)
-		GRAPHICS.SET_DRAW_ORIGIN(position, 0)
+		local txdSizeY = scale * 0.042 * GRAPHICS.GET_ASPECT_RATIO(false)
+		GRAPHICS.SET_DRAW_ORIGIN(position.x, position.y, position.z, 0)
 		GRAPHICS.DRAW_SPRITE(
 			"mpsubmarine_periscope", "target_default", 0.0, 0.0, txdSizeX, txdSizeY, 0.0, colour.r, colour.g, colour.b, colour.a, true, 0)
 		GRAPHICS.CLEAR_DRAW_ORIGIN()
@@ -159,7 +159,7 @@ local IsEntityInSafeScreenPos = function (entity)
 	local pScreenX = memory.alloc(4)
 	local pScreenY = memory.alloc(4)
 	local pos = ENTITY.GET_ENTITY_COORDS(entity, true)
-	if not GRAPHICS.GET_SCREEN_COORD_FROM_WORLD_COORD(pos, pScreenX, pScreenY) then
+	if not GRAPHICS.GET_SCREEN_COORD_FROM_WORLD_COORD(pos.x, pos.y, pos.z, pScreenX, pScreenY) then
 		return false
 	end
 	local screenX = memory.read_float(pScreenX)
@@ -229,7 +229,7 @@ local IsPedAnyTargetablePlayer = function (ped)
 	end
 
 	if is_player_in_interior(player) or is_player_passive(player) or
-	NETWORK._IS_ENTITY_GHOSTED_TO_LOCAL_PLAYER(ped) then
+	NETWORK.IS_ENTITY_A_GHOST(ped) then
 		return false
 	elseif bits:IsBitSet(Bit_IgnoreFriends) and is_player_friend(player) then
 		return false
@@ -419,7 +419,7 @@ local IsWebBrowserOpen = function ()
 end
 
 local IsCameraAppOpen = function ()
-	return SCRIPT._GET_NUMBER_OF_REFERENCES_OF_SCRIPT_WITH_NAME_HASH(util.joaat("appcamera")) > 0
+	return SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(util.joaat("appcamera")) > 0
 end
 
 
@@ -438,6 +438,14 @@ local LockonEntity = function (entity, count)
 		redSound:stop()
 		lockOnBits:ClearBit(bitPlace + 6)
 		return
+	end
+
+	if ENTITY.IS_ENTITY_A_VEHICLE(entity) and VEHICLE.IS_VEHICLE_DRIVEABLE(vehicle, false) then
+		local driver = VEHICLE.GET_PED_IN_VEHICLE_SEAT(entity, -1, false)
+		if ENTITY.DOES_ENTITY_EXIST(driver) and PED.IS_PED_A_PLAYER(driver) and
+		is_player_active(NETWORK.NETWORK_GET_PLAYER_INDEX_FROM_PED(driver), true, true) then
+			VEHICLE.SET_VEHICLE_HOMING_LOCKEDONTO_STATE(vehicle, 2)
+		end
 	end
 
 	if not lockOnBits:IsBitSet(bitPlace) then
@@ -476,13 +484,17 @@ local GetCrosshairPosition = function ()
 	frontPos:add(vehPos)
 
 	local handle =
-	SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(vehPos, frontPos, 511, myVehicle, 7)
+	SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(
+		vehPos.x, vehPos.y, vehPos.z,
+		frontPos.x, frontPos.y, frontPos.z, 511,
+		myVehicle, 7
+	)
 
 	local pHit = memory.alloc(1)
 	local endCoords = v3.new()
 	local normal = v3.new()
 	local pHitEntity = memory.alloc_int()
-	SHAPETEST.GET_SHAPE_TEST_RESULT(handle, pHit, memory.addrof(endCoords), memory.addrof(normal), pHitEntity)
+	SHAPETEST.GET_SHAPE_TEST_RESULT(handle, pHit, endCoords, normal, pHitEntity)
 	return memory.read_int(pHit) == 1 and endCoords or frontPos
 end
 
@@ -551,24 +563,36 @@ end
 local ShootFromVehicle = function (vehicle, damage, weaponHash, ownerPed, isAudible, isVisible, speed, target, position)
 	local pos = ENTITY.GET_ENTITY_COORDS(vehicle, true)
 	local min, max = v3.new(), v3.new()
-	MISC.GET_MODEL_DIMENSIONS(ENTITY.GET_ENTITY_MODEL(vehicle), memory.addrof(min), memory.addrof(max))
+	MISC.GET_MODEL_DIMENSIONS(ENTITY.GET_ENTITY_MODEL(vehicle), min, max)
 	local direction = ENTITY.GET_ENTITY_ROTATION(vehicle, 2):toDir()
 	local a
 
 	if position == 0 then
 		local offset = v3.new(min.x + 0.3, max.y - 0.15, 0.3)
-		a = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(vehicle, offset)
+		a = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(vehicle, offset.x, offset.y, offset.z)
 	elseif position == 1 then
 		local offset = v3.new(max.x - 0.3, max.y - 0.15, 0.3)
-		a = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(vehicle, offset)
+		a = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(vehicle, offset.x, offset.y, offset.z)
 	else
 		error("got unexpected position")
 	end
 
 	local b = v3.new(direction)
 	b:mul(5.0); b:add(a)
-	MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS_IGNORE_ENTITY_NEW(a, b, damage, true, weaponHash, ownerPed, isAudible, not isVisible, speed, vehicle, false, false, target, false, 0, 0, 0)
-	AUDIO.PLAY_SOUND_FROM_COORD(-1, "Fire", pos, "DLC_BTL_Terrobyte_Turret_Sounds", true, 200, true)
+	MISC.SHOOT_SINGLE_BULLET_BETWEEN_COORDS_IGNORE_ENTITY_NEW(
+		a.x, a.y, a.z,
+		b.x, b.y, b.z,
+		damage,
+		true,
+		weaponHash,
+		ownerPed,
+		isAudible,
+		not isVisible,
+		speed,
+		vehicle,
+		false, false, target, false, 0, 0, 0
+	)
+	AUDIO.PLAY_SOUND_FROM_COORD(-1, "Fire", pos.x, pos.y, pos.z, "DLC_BTL_Terrobyte_Turret_Sounds", true, 200, true)
 end
 
 
@@ -745,6 +769,7 @@ end
 self.reset = function()
 	set_streamed_texture_dict_as_no_longer_needed("mpsubmarine_periscope")
 	lockOnBits:reset()
+	bits:reset()
 	targetEnts = {-1, -1, -1, -1, -1, -1}
 	entCount = 0
 	numTargets = 0
@@ -785,9 +810,7 @@ end
 
 
 self.mainLoop = function ()
-	if PLAYER.IS_PLAYER_PLAYING(players.user()) and not util.is_session_transition_active() and
-	PED.IS_PED_IN_ANY_VEHICLE(players.user_ped(), false) then
-
+	if is_player_active(players.user(), true, true) and PED.IS_PED_IN_ANY_VEHICLE(players.user_ped(), false) then
 		local vehicle = PED.GET_VEHICLE_PED_IS_IN(players.user_ped(), false)
 		if ENTITY.DOES_ENTITY_EXIST(vehicle) and not ENTITY.IS_ENTITY_DEAD(vehicle, false) and
 		VEHICLE.IS_VEHICLE_DRIVEABLE(vehicle, false) and

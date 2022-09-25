@@ -7,7 +7,7 @@ THIS FILE IS PART OF WIRISCRIPT
 
 json = require "pretty.json"
 local self = {}
-self.version = 26
+self.version = 27
 
 Config = {
 	controls = {
@@ -101,7 +101,7 @@ function notification:help(format, colour, ...)
 		return self.stand(msg)
 	end
 
-	HUD._THEFEED_SET_NEXT_POST_BACKGROUND_COLOR(colour or self.defaultColour)
+	HUD.THEFEED_SET_BACKGROUND_COLOR_FOR_NEXT_POST(colour or self.defaultColour)
 	util.BEGIN_TEXT_COMMAND_THEFEED_POST("~BLIP_INFO_ICON~ " .. msg)
 	HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER_WITH_TOKENS(true, true)
 end
@@ -117,7 +117,7 @@ function notification:normal(format, colour, ...)
 		return self.stand(msg)
 	end
 
-	HUD._THEFEED_SET_NEXT_POST_BACKGROUND_COLOR(colour or self.defaultColour)
+	HUD.THEFEED_SET_BACKGROUND_COLOR_FOR_NEXT_POST(colour or self.defaultColour)
 	util.BEGIN_TEXT_COMMAND_THEFEED_POST(msg)
 	HUD.END_TEXT_COMMAND_THEFEED_POST_MESSAGETEXT(self.txdDict, self.txdName, true, 4, self.title, self.subtitle)
 	HUD.END_TEXT_COMMAND_THEFEED_POST_TICKER(false, false)
@@ -490,7 +490,7 @@ end
 ---@param index integer
 ---@param name string
 function Instructional.add_control(index, name)
-	local button = PAD.GET_CONTROL_INSTRUCTIONAL_BUTTON(2, index, true)
+	local button = PAD.GET_CONTROL_INSTRUCTIONAL_BUTTONS_STRING(2, index, true)
     Instructional:add_data_slot(index, name, button)
 end
 
@@ -498,7 +498,7 @@ end
 ---@param index integer
 ---@param name string
 function Instructional.add_control_group (index, name)
-	local button = PAD.GET_CONTROL_GROUP_INSTRUCTIONAL_BUTTON(2, index, true)
+	local button = PAD.GET_CONTROL_GROUP_INSTRUCTIONAL_BUTTONS_STRING(2, index, true)
     Instructional:add_data_slot(index, name, button)
 end
 
@@ -765,7 +765,7 @@ end
 ---@param to v3
 ---@param colour Colour
 local draw_line = function (start, to, colour)
-	GRAPHICS.DRAW_LINE(start, to, colour.r, colour.g, colour.b, colour.a)
+	GRAPHICS.DRAW_LINE(start.x, start.y, start.z, to.x, to.y, to.z, colour.r, colour.g, colour.b, colour.a)
 end
 
 
@@ -775,8 +775,8 @@ end
 ---@param pos3 v3
 ---@param colour Colour
 local draw_rect = function (pos0, pos1, pos2, pos3, colour)
-	GRAPHICS.DRAW_POLY(pos0, pos1, pos3, colour.r, colour.g, colour.b, colour.a)
-	GRAPHICS.DRAW_POLY(pos3, pos2, pos0, colour.r, colour.g, colour.b, colour.a)
+	GRAPHICS.DRAW_POLY(pos0.x, pos0.y, pos0.z, pos1.x, pos1.y, pos1.z, pos3.x, pos3.y, pos3.z, colour.r, colour.g, colour.b, colour.a)
+	GRAPHICS.DRAW_POLY(pos3.x, pos3.y, pos3.z, pos2.x, pos2.y, pos2.z, pos0.x, pos0.y, pos0.z, colour.r, colour.g, colour.b, colour.a)
 end
 
 
@@ -790,23 +790,23 @@ function draw_bounding_box(entity, showPoly, colour)
 	colour = colour or {r = 255, g = 0, b = 0, a = 255}
 	local min = v3.new()
 	local max = v3.new()
-	MISC.GET_MODEL_DIMENSIONS(ENTITY.GET_ENTITY_MODEL(entity), memory.addrof(min), memory.addrof(max))
+	MISC.GET_MODEL_DIMENSIONS(ENTITY.GET_ENTITY_MODEL(entity), min, max)
 	min:abs(); max:abs()
 
-	local upperLeftRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, v3(-max.x, -max.y, max.z))
-	local upperRightRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, v3(min.x, -max.y, max.z))
-	local lowerLeftRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, v3(-max.x, -max.y, -min.z))
-	local lowerRightRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, v3(min.x, -max.y, -min.z))
+	local upperLeftRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -max.x, -max.y, max.z)
+	local upperRightRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, min.x, -max.y, max.z)
+	local lowerLeftRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -max.x, -max.y, -min.z)
+	local lowerRightRear = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, min.x, -max.y, -min.z)
 
 	draw_line(upperLeftRear, upperRightRear, colour)
 	draw_line(lowerLeftRear, lowerRightRear, colour)
 	draw_line(upperLeftRear, lowerLeftRear, colour)
 	draw_line(upperRightRear, lowerRightRear, colour)
 
-	local upperLeftFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, v3(-max.x, min.y, max.z))
-	local upperRightFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity,v3(min.x, min.y, max.z))
-	local lowerLeftFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, v3(-max.x, min.y, -min.z))
-	local lowerRightFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity,v3(min.x, min.y, -min.z))
+	local upperLeftFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -max.x, min.y, max.z)
+	local upperRightFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, min.x, min.y, max.z)
+	local lowerLeftFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, -max.x, min.y, -min.z)
+	local lowerRightFront = ENTITY.GET_OFFSET_FROM_ENTITY_IN_WORLD_COORDS(entity, min.x, min.y, -min.z)
 
 	draw_line(upperLeftFront, upperRightFront, colour)
 	draw_line(lowerLeftFront, lowerRightFront, colour)
@@ -867,10 +867,10 @@ function add_ai_blip_for_ped(ped, forcedOn, hasCone, noticeRange, colour, sprite
 	if colour == -1 then
 		HUD.SET_PED_HAS_AI_BLIP(ped, true)
 	else
-		HUD._SET_PED_HAS_AI_BLIP_WITH_COLOR(ped, true, colour)
+		HUD.SET_PED_HAS_AI_BLIP_WITH_COLOUR(ped, true, colour)
 	end
 	HUD.SET_PED_AI_BLIP_NOTICE_RANGE(ped, noticeRange)
-	if sprite ~= -1 then HUD._SET_PED_AI_BLIP_SPRITE(ped, sprite) end
+	if sprite ~= -1 then HUD.SET_PED_AI_BLIP_SPRITE(ped, sprite) end
 	HUD.SET_PED_AI_BLIP_HAS_CONE(ped, hasCone)
 	HUD.SET_PED_AI_BLIP_FORCED_ON(ped, forcedOn)
 end
@@ -1119,7 +1119,7 @@ function get_player_org_blip_colour(player)
 		local rgba = get_hud_colour(hudColour)
 		return (rgba.r << 24) + (rgba.g << 16) + (rgba.b << 8) + rgba.a
 	end
-	return 1
+	return 0
 end
 
 
@@ -1210,8 +1210,13 @@ function get_raycast_result(dist, flag)
 	local camPos = CAM.GET_FINAL_RENDERED_CAM_COORD()
 	local offset = get_offset_from_cam(dist)
 
-	local handle = SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(camPos, offset, flag, players.user_ped(), 7)
-	SHAPETEST.GET_SHAPE_TEST_RESULT(handle, didHit, memory.addrof(endCoords), memory.addrof(normal), hitEntity)
+	local handle = SHAPETEST.START_EXPENSIVE_SYNCHRONOUS_SHAPE_TEST_LOS_PROBE(
+		camPos.x, camPos.y, camPos.z,
+		offset.x, offset.y, offset.z,
+		flag,
+		players.user_ped(), 7
+	)
+	SHAPETEST.GET_SHAPE_TEST_RESULT(handle, didHit, endCoords, normal, hitEntity)
 
 	result.didHit = memory.read_byte(didHit) ~= 0
 	result.endCoords = endCoords
@@ -1369,7 +1374,7 @@ function is_phone_open()
 	if read_global.int(20266 + 1) > 3 then
 		return true
 	end
-	if SCRIPT._GET_NUMBER_OF_REFERENCES_OF_SCRIPT_WITH_NAME_HASH(util.joaat("cellphone_flashhand")) > 0 then
+	if SCRIPT.GET_NUMBER_OF_THREADS_RUNNING_THE_SCRIPT_WITH_THIS_HASH(util.joaat("cellphone_flashhand")) > 0 then
 		return true
 	end
 	return false
@@ -1504,7 +1509,7 @@ end
 ---@return number?
 function get_ground_z(pos)
 	local pGroundZ = memory.alloc(4)
-	MISC.GET_GROUND_Z_FOR_3D_COORD(pos, pGroundZ, false, true)
+	MISC.GET_GROUND_Z_FOR_3D_COORD(pos.x, pos.y, pos.z, pGroundZ, false, true)
 	local groundz = memory.read_float(pGroundZ)
 	return groundz
 end
@@ -1567,7 +1572,15 @@ end
 function draw_marker(type, pos, scale, colour, textureDict, textureName)
 	textureDict = textureDict or 0
 	textureName = textureName or 0
-	GRAPHICS.DRAW_MARKER(type, pos, v3(), v3(), v3(scale, scale, scale), colour.r, colour.g, colour.b, colour.a, false, false, 0, true, textureDict, textureName, false)
+	GRAPHICS.DRAW_MARKER(
+		type,
+		pos.x, pos.y, pos.z,
+		0.0, 0.0, 0.0,
+		0.0, 0.0, 0.0,
+		scale, scale, scale,
+		colour.r, colour.g, colour.b, colour.a,
+		false, false, 0, true, textureDict, textureName, false
+	)
 end
 
 
