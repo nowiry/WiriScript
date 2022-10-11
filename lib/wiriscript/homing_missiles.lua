@@ -78,7 +78,7 @@ local lastShot <const> = newTimer()
 local rechargeTimer <const> = newTimer()
 local entCount = 0
 local shotCount = 0
-local numShotTargets = 0
+local numShotTargets = 0 -- the number of targets we've shot
 local chargeLevel = 100.0
 local vehicleWeaponSide = 0
 local myVehicle = 0
@@ -609,7 +609,6 @@ local ShootMissiles = function()
 			shotCount = 0
 		end
 
-		local vehicle = PED.GET_VEHICLE_PED_IS_IN(players.user_ped(), false)
 		vehicleWeaponSide = vehicleWeaponSide == 0 and 1 or 0
 		local ownerPed = players.user_ped()
 
@@ -618,7 +617,7 @@ local ShootMissiles = function()
 			not ENTITY.IS_ENTITY_DEAD(targetEnts[numShotTargets + 1], false) then
 				target = targetEnts[numShotTargets + 1]
 				bits:SetBit(Bit_IsTargetShooting)
-				ShootFromVehicle(vehicle, 200, weapon, ownerPed, true, true, 1000.0, target, vehicleWeaponSide)
+				ShootFromVehicle(myVehicle, 200, weapon, ownerPed, true, true, 1000.0, target, vehicleWeaponSide)
 				shotCount = shotCount + 1
 				numShotTargets = numShotTargets + 1
 				lastShot.reset()
@@ -634,7 +633,7 @@ local ShootMissiles = function()
 			end
 
 		else
-			ShootFromVehicle(vehicle, 200, weapon, ownerPed, true, true, 1000.0, 0, vehicleWeaponSide)
+			ShootFromVehicle(myVehicle, 200, weapon, ownerPed, true, true, 1000.0, 0, vehicleWeaponSide)
 			shotCount = shotCount + 1
 			lastShot.reset()
 			if shotCount == 6 then

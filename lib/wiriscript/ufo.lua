@@ -30,7 +30,9 @@ local sound <const> = {
     zoomOut = Sound.new("zoom_out_loop", "dlc_xm_orbital_cannon_sounds"),
     fireLoop = Sound.new("cannon_charge_fire_loop", "dlc_xm_orbital_cannon_sounds"),
     backgroundLoop = Sound.new("background_loop", "dlc_xm_orbital_cannon_sounds"),
-    panLoop = Sound.new("pan_loop", "dlc_xm_orbital_cannon_sounds")
+    panLoop = Sound.new("pan_loop", "dlc_xm_orbital_cannon_sounds"),
+    ufoAmbience = Sound.new("UFO_Ambience", "Sight_Seeing_Sounds"),
+    abducted = Sound.new("Abducted", "Sight_Seeing_Sounds")
 }
 local sphereColour = {r = 0, g = 255, b = 255, a = 255}
 local backholePos
@@ -467,11 +469,7 @@ end
 
 
 local destroy = function()
-    sound.zoomOut:stop()
-    sound.backgroundLoop:stop()
-    sound.fireLoop:stop()
-    sound.panLoop:stop()
-
+    for _, s in pairs(sound) do s:stop() end
     STREAMING.CLEAR_FOCUS()
     AUDIO.STOP_AUDIO_SCENE("DLC_BTL_Hacker_Drone_HUD_Scene")
     AUDIO.RELEASE_NAMED_SCRIPT_AUDIO_BANK("DLC_CHRISTMAS2017/XM_ION_CANNON")
@@ -587,6 +585,10 @@ self.mainLoop = function ()
             STREAMING.CLEAR_FOCUS()
             HUD.UNLOCK_MINIMAP_ANGLE()
 		end
+
+        if sound.ufoAmbience:hasFinished() then
+            sound.ufoAmbience:play()
+        end
 
         tractorBeam()
         drawSpriteOnPlayers()
