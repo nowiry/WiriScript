@@ -925,8 +925,8 @@ end
 function Profile:enableRId()
 	local rIdSpoofing = menu.ref_by_path("Online>Spoofing>RID Spoofing", 33)
 	local spoofRId = menu.ref_by_rel_path(rIdSpoofing, "RID Spoofing")
-	if menu.get_value(spoofRId) ~= 1 then
-		menu.trigger_command(spoofRId, "on")
+	if menu.get_value(spoofRId) ~= 2 then
+		menu.trigger_command(spoofRId, "2")
 	end
 	local spoofedRId = menu.ref_by_rel_path(rIdSpoofing, "Spoofed RID")
 	menu.trigger_command(spoofedRId, tostring(self.rid))
@@ -1996,20 +1996,20 @@ generate_features = function(pId)
 	end)
 
 
-	local  minitankModIds <const> =
+	local minitankModIds <const> =
 	{
 		stockWeapon = -1,
 		plasmaCannon = 1,
 		rocket = 2,
 	}
-	local options <const> = {
+	local gunnerWeaponNames <const> = {
 		util.get_label_text("WT_V_PLRBUL"),
 		util.get_label_text("MINITANK_WEAP2"),
 		util.get_label_text("MINITANK_WEAP3"),
 	}
-	local name = translate("Trolling - Enemy Vehicles", "Minitank Weapon")
+	local name_minitankWeapon = translate("Trolling - Enemy Vehicles", "Minitank Weapon")
 
-	menu.slider_text(enemyVehiclesOpt, name, {}, "", options, function(index)
+	menu.slider_text(enemyVehiclesOpt, name_minitankWeapon, {}, "", gunnerWeaponNames, function(index)
 		if index == 1 then
 			weaponModId = minitankModIds.stockWeapon
 		elseif index == 2 then
@@ -2021,8 +2021,8 @@ generate_features = function(pId)
 
 	-- Gunners weapon
 	local gunnerWeapons <const> = {"weapon_mg", "weapon_rpg"}
-	local options <const> =	{util.get_label_text("WT_MG"), util.get_label_text("WT_RPG")}
-	menu.slider_text(enemyVehiclesOpt, translate("Trolling - Enemy Vehicles", "Gunners Weapon"), {}, "", options, function(index)
+	local enemVehOptions <const> =	{util.get_label_text("WT_MG"), util.get_label_text("WT_RPG")}
+	menu.slider_text(enemyVehiclesOpt, translate("Trolling - Enemy Vehicles", "Gunners Weapon"), {}, "", enemVehOptions, function(index)
 		gunnerWeapon = util.joaat(gunnerWeapons[index])
 	end)
 
@@ -3627,7 +3627,7 @@ local timer <const> = newTimer()
 ---@return number
 local function get_time_between_shots()
 	local CPed = entities.handle_to_pointer(players.user_ped())
-	local addr = addr_from_pointer_chain(CPed, {0x10D8, 0x20, 0x013C})
+	local addr = addr_from_pointer_chain(CPed, {0x10B8, 0x20, 0x013C})
 	return addr ~= 0 and memory.read_float(addr) * 1000 or -1.0
 end
 
@@ -4000,10 +4000,10 @@ end)
 util.create_tick_handler(function()
 	local CPed = entities.handle_to_pointer(players.user_ped())
 	if CPed == 0 or not multiplier then return end
-	local ammoSpeedAddress = addr_from_pointer_chain(CPed, {0x10D8, 0x20, 0x60, 0x58})
+	local ammoSpeedAddress = addr_from_pointer_chain(CPed, {0x10B8, 0x20, 0x60, 0x58})
 	if ammoSpeedAddress == 0 then
 		if entities.get_user_vehicle_as_pointer() == 0 then return end
-		ammoSpeedAddress = addr_from_pointer_chain(CPed, {0x10D8, 0x70, 0x60, 0x58})
+		ammoSpeedAddress = addr_from_pointer_chain(CPed, {0x10B8, 0x70, 0x60, 0x58})
 		if ammoSpeedAddress == 0 then return end
 	end
 	local ammoSpeed = AmmoSpeed.new(ammoSpeedAddress)
@@ -4799,7 +4799,7 @@ end
 ---@param pVehicle integer #pointer to CAutomobile
 ---@return SubHandling[]
 local function get_vehicle_sub_handling(pVehicle)
-	local CHandlingData = memory.read_long(pVehicle + 0x938)
+	local CHandlingData = memory.read_long(pVehicle + 0x918) -- b2699
 	local subHandlingArray = memory.read_long(CHandlingData + 0x158)
 	local numSubHandling = memory.read_ushort(CHandlingData + 0x160)
 	local tbl = {}
@@ -5169,7 +5169,7 @@ function HandlingEditor:onTick()
 
 			local pVehicle = entities.handle_to_pointer(vehicle)
 			if pVehicle == NULL then return end
-			local CHandlingData_addr = memory.read_long(pVehicle + 0x938)
+			local CHandlingData_addr = memory.read_long(pVehicle + 0x918)
 			self.handlingData = HandlingData.new(self.reference, "CHandlingData", CHandlingData_addr, CHandlingData)
 
 			local model = ENTITY.GET_ENTITY_MODEL(vehicle)
@@ -5332,7 +5332,7 @@ local modifiedLockOn
 menu.toggle_loop(vehicleOptions, translate("Vehicle", "Vehicle Instant Lock-On"), {}, "", function ()
 	local CPed = entities.handle_to_pointer(players.user_ped())
 	if CPed == NULL then return end
-	local address = addr_from_pointer_chain(CPed, {0x10D8, 0x70, 0x60, 0x178})
+	local address = addr_from_pointer_chain(CPed, {0x10B8, 0x70, 0x60, 0x178})
 	if address == NULL then return end
 	local lockOn = VehicleLockOn.new(address)
 	modifiedLockOn = modifiedLockOn or lockOn
@@ -6617,8 +6617,7 @@ function draw_health_bar(ped, maxDistance)
 	draw_rect(screenX - maxLength/2 + barLength/2, screenY + 1.5 * height, barLength, height, colour)
 end
 
-local selectedOpt = 1
-local aimedPed = 0
+local PedHealthBar = {selectedOpt = 1, aimedPed = 0}
 local options <const> = {
 	{translate("Draw Health Bar", "Disable")},
 	{translate("Draw Health Bar", "Players")},
@@ -6627,38 +6626,38 @@ local options <const> = {
 	{translate("Draw Health Bar", "Aimed Ped")},
 }
 menu.list_select(worldOptions, translate("World", "Draw Health Bar"), {}, "", options, 1, function (opt)
-	selectedOpt = opt
+	PedHealthBar.selectedOpt = opt
 end)
 
-util.create_tick_handler(function()
-	if selectedOpt == 1 then
+
+function PedHealthBar:mainLoop()
+	if self.selectedOpt == 1 then
 		return
-	elseif selectedOpt == 5 then
+	elseif self.selectedOpt == 5 then
 		if not PLAYER.IS_PLAYER_FREE_AIMING(players.user()) then
-			aimedPed = 0 return
+			self.aimedPed = 0 return
 		end
 		local pEntity <const> = memory.alloc_int()
 		if PLAYER.GET_ENTITY_PLAYER_IS_FREE_AIMING_AT(players.user(), pEntity) then
 			local entity = memory.read_int(pEntity)
-			if ENTITY.IS_ENTITY_A_PED(entity) then aimedPed = entity end
+			if ENTITY.IS_ENTITY_A_PED(entity) then self.aimedPed = entity end
 		end
-		draw_health_bar(aimedPed, 1000.0)
+		draw_health_bar(self.aimedPed, 1000.0)
 	else
 		for _, ped in ipairs(get_peds_in_player_range(players.user(), 500.0)) do
 			if not ENTITY.IS_ENTITY_ON_SCREEN(ped) or
 			not ENTITY.HAS_ENTITY_CLEAR_LOS_TO_ENTITY(players.user_ped(), ped, TraceFlag.world) then
 				goto LABEL_CONTINUE
 			end
-			if (selectedOpt == 2 and not PED.IS_PED_A_PLAYER(ped)) or
-			(PED.IS_PED_A_PLAYER(ped) and selectedOpt == 3) then
+			if (self.selectedOpt == 2 and not PED.IS_PED_A_PLAYER(ped)) or
+			(PED.IS_PED_A_PLAYER(ped) and self.selectedOpt == 3) then
 				goto LABEL_CONTINUE
 			end
 			draw_health_bar(ped, 350.0)
-
 		::LABEL_CONTINUE::
 		end
 	end
-end)
+end
 
 ---------------------
 ---------------------
@@ -7430,5 +7429,6 @@ while true do
 	UFO.mainLoop()
 	OrbitalCannon.mainLoop()
 	handlingEditor:onTick()
+	PedHealthBar:mainLoop()
 	util.yield_once()
 end

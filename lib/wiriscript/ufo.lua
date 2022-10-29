@@ -111,14 +111,14 @@ end
 ---@return integer CPed*
 local getVehicleDriver = function (address)
     if address == 0 then return 0 end
-    return  memory.read_long(address + 0x0C68)
+    return  memory.read_long(address + 0x0C48)
 end
 
 
 ---@param address integer
 ---@return boolean
 local isPedPlayer = function (address)
-    return address ~= 0 and memory.read_long(address + 0x10C8) ~= 0
+    return address ~= 0 and memory.read_long(address + 0x10A8) ~= 0
 end
 
 

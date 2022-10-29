@@ -440,11 +440,11 @@ local LockonEntity = function (entity, count)
 		return
 	end
 
-	if ENTITY.IS_ENTITY_A_VEHICLE(entity) and VEHICLE.IS_VEHICLE_DRIVEABLE(vehicle, false) then
+	if ENTITY.IS_ENTITY_A_VEHICLE(entity) and VEHICLE.IS_VEHICLE_DRIVEABLE(entity, false) then
 		local driver = VEHICLE.GET_PED_IN_VEHICLE_SEAT(entity, -1, false)
 		if ENTITY.DOES_ENTITY_EXIST(driver) and PED.IS_PED_A_PLAYER(driver) and
 		is_player_active(NETWORK.NETWORK_GET_PLAYER_INDEX_FROM_PED(driver), true, true) then
-			VEHICLE.SET_VEHICLE_HOMING_LOCKEDONTO_STATE(vehicle, 2)
+			VEHICLE.SET_VEHICLE_HOMING_LOCKEDONTO_STATE(entity, 2)
 		end
 	end
 
