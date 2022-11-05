@@ -5135,13 +5135,14 @@ end
 function AutoloadList:push(vehLabel, file)
 	local vehName = util.get_label_text(vehLabel)
 
-	if self.options[vehName] then
+	if self.options[vehName] and menu.is_ref_valid(self.options[vehName]) then
 		menu.delete(self.options[vehName])
 	end
 
 	self.options[vehName] = menu.action(self.reference, string.format("%s: %s", vehName, file), {}, handlingTrans.ClickToDelete, function()
 		Config.handlingAutoload[vehLabel] = nil
 		menu.delete(self.options[vehName])
+		self.options[vehName] = nil
 	end)
 end
 
