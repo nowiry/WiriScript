@@ -85,6 +85,7 @@ local myVehicle = 0
 local weapon <const> = util.joaat("VEHICLE_WEAPON_SPACE_ROCKET")
 local lockOnBits <const> = Bitfield.new()
 local bits <const> = Bitfield.new()
+local whiteList <const> = Bitfield.new()
 local trans = {
 	DisablingPassive = translate("Misc", "Disabling passive mode")
 }
@@ -108,9 +109,10 @@ end
 local Bit_IsTargetShooting <const> = 0
 local Bit_IsRecharging <const> = 1
 local Bit_IsCamPointingInFront <const> = 2
-local Bit_IgnoreFriends <const> = 3
-local Bit_IgnoreOrgMembers <const> = 4
-local Bit_IgnoreCrewMembers <const> = 5
+
+local Bit_IgnoreFriends <const> = 0
+local Bit_IgnoreOrgMembers <const> = 1
+local Bit_IgnoreCrewMembers <const> = 2
 
 
 ---@param position v3
@@ -231,12 +233,12 @@ local IsPedAnyTargetablePlayer = function (ped)
 	if is_player_in_interior(player) or is_player_passive(player) or
 	NETWORK.IS_ENTITY_A_GHOST(ped) then
 		return false
-	elseif bits:IsBitSet(Bit_IgnoreFriends) and is_player_friend(player) then
+	elseif whiteList:IsBitSet(Bit_IgnoreFriends) and is_player_friend(player) then
 		return false
-	elseif bits:IsBitSet(Bit_IgnoreOrgMembers) and
+	elseif whiteList:IsBitSet(Bit_IgnoreOrgMembers) and
 	ArePlayersInTheSameOrg(players.user(), player) then
 		return false
-	elseif bits:IsBitSet(Bit_IgnoreCrewMembers) and
+	elseif whiteList:IsBitSet(Bit_IgnoreCrewMembers) and
 	ArePlayersInTheSameCrew(players.user(), player) then
 		return false
 	end
@@ -785,17 +787,17 @@ end
 
 ---@param ignore boolean
 self.SetIgnoreFriends = function(ignore)
-	bits:ToggleBit(Bit_IgnoreFriends, ignore)
+	whiteList:ToggleBit(Bit_IgnoreFriends, ignore)
 end
 
 ---@param ignore boolean
 self.SetIgnoreOrgMembers = function (ignore)
-	bits:ToggleBit(Bit_IgnoreOrgMembers, ignore)
+	whiteList:ToggleBit(Bit_IgnoreOrgMembers, ignore)
 end
 
 ---@param ignore boolean
 self.SetIgnoreCrewMembers = function (ignore)
-	bits:ToggleBit(Bit_IgnoreCrewMembers, ignore)
+	whiteList:ToggleBit(Bit_IgnoreCrewMembers, ignore)
 end
 
 ---@param value integer
