@@ -5380,7 +5380,7 @@ local objModels <const> = {
 	"sum_prop_dufocore_01a"
 }
 
-modelIndex = 0
+modelIndex = 1
 
 local options <const> = {translate("UFO", "Alien UFO"), translate("UFO", "Military UFO")}
 local helpText = translate("UFO", "Drive an UFO, use its tractor beam and cannon")
