@@ -217,7 +217,7 @@ end
 local IsPlayerTargetable = function (player)
     local ped = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(player)
     if is_player_active(player, false, true) and not is_player_passive(player) and
-    not is_player_in_any_interior(player) and (read_global.int(2689235 + (player * 453 + 1) + 416) & (1 << 2)) == 0 and
+    not is_player_in_any_interior(player) and (read_global.int(2657589 + (player * 466 + 1) + 427) & (1 << 2)) == 0 and
     not NETWORK.IS_ENTITY_A_GHOST(ped) then
         return true
     end
@@ -370,7 +370,7 @@ self.mainLoop  = function ()
 
         elseif state == State.LoadingScene then
             local pos = players.get_position(targetId)
-            STREAMING.NEW_LOAD_SCENE_START_SPHERE(pos.x, pos.y, pos.z, 300.0, false)
+            STREAMING.NEW_LOAD_SCENE_START_SPHERE(pos.x, pos.y, pos.z, 300.0, 0)
             STREAMING.SET_FOCUS_POS_AND_VEL(pos.x, pos.y, pos.z, 5.0, 0.0, 0.0)
             NETWORK.NETWORK_SET_IN_FREE_CAM_MODE(true)
             timer.disable()

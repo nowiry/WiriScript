@@ -177,7 +177,7 @@ end
 ---@return integer
 local GetPlayerOrgBoss = function (player)
 	if player ~= -1 then
-		local address = memory.script_global(1892703 + (player * 599 + 1) + 10)
+		local address = memory.script_global(1894573 + (player * 608 + 1) + 10)
 		if address ~= 0 then return memory.read_int(address) end
 	end
 	return -1
@@ -417,7 +417,7 @@ end
 
 
 local IsWebBrowserOpen = function ()
-	return read_global.int(75485) ~= 0
+	return read_global.int(75693) ~= 0
 end
 
 local IsCameraAppOpen = function ()
@@ -842,8 +842,8 @@ self.mainLoop = function ()
 				if state ~= State.Reseted then
 					self.reset()
 				end
-				local timerStart = memory.script_global(2815059 + 4463)
-				local timerState = memory.script_global(2815059 + 4463 + 1)
+				local timerStart = memory.script_global(2793044 + 4463)
+				local timerState = memory.script_global(2793044 + 4463 + 1)
 				if timerStart ~= NULL and timerState ~= NULL and
 				memory.read_int(timerState) == 0 then
 					notification:normal(trans.DisablingPassive)

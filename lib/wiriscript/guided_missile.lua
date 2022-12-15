@@ -316,7 +316,7 @@ local destroy = function ()
 end
 
 
-function disableControlActions()
+local function disableControlActions()
     for i = 1, 6 do
         PAD.DISABLE_CONTROL_ACTION(0, i, true)
     end

@@ -436,6 +436,7 @@ WeaponList =
 }
 WeaponList.__index = WeaponList
 
+
 ---@param parent integer
 ---@param name string
 ---@param command? string
@@ -450,9 +451,14 @@ function WeaponList.new(parent, name, command, helpText, onClick, changeName)
 	self.changeName = changeName
 	self.onClick = onClick
 	self.reference = menu.list(parent, name, {self.command}, helpText or "")
-	for section, tbl in pairs_by_keys(Weapons) do self:addSection(section, tbl) end
+
+	for section, tbl in pairs_by_keys(Weapons) do
+		self:addSection(section, tbl)
+	end
+
 	return self
 end
+
 
 ---@param parent integer
 ---@param label string
@@ -470,6 +476,7 @@ function WeaponList:addOpt(parent, label, model)
 		if self.onClick then self.onClick(name, model) end
 	end)
 end
+
 
 ---@param section string
 ---@param weapons table<string, string>
@@ -684,7 +691,7 @@ local openingCredits <const> = OpeningCredits.new()
 -------------------------------------
 
 if SCRIPT_MANUAL_START and not SCRIPT_SILENT_START and Config.general.showintro then
-	gShowingIntro = true
+	g_ShowingIntro = true
 	local state = 0
 	local timer <const> = newTimer()
 	local menuPosX = menu.get_position()
@@ -730,7 +737,7 @@ if SCRIPT_MANUAL_START and not SCRIPT_SILENT_START and Config.general.showintro 
 
 			if state == 4 and timer.elapsed() >= 3000 then
 				openingCredits:SET_AS_NO_LONGER_NEEDED()
-				gShowingIntro = false
+				g_ShowingIntro = false
 				return false
 			end
 			openingCredits:DRAW_FULLSCREEN(255, 255, 255, 255)
@@ -748,7 +755,7 @@ end
 
 ---@param value any
 ---@param e string
-function type_match(value, e)
+local function type_match(value, e)
 	local t = type(value)
 	for w in e:gmatch('[^|]+') do
 		if t == w then return true end
@@ -1304,7 +1311,7 @@ util.log("Spoofing Profiles initialized")
 ---------------------
 
 ---@param pId Player
-generate_features = function(pId)
+NetworkPlayerOpts = function(pId)
 	menu.divider(menu.player_root(pId), "WiriScript")
 
 	-------------------------------------
@@ -1601,6 +1608,7 @@ generate_features = function(pId)
 		local offset = get_random_offset_from_entity(targetPed, 50.0, 60.0)
 		local outCoords = v3.new()
 		local outHeading = memory.alloc(4)
+
 		if PATHFIND.GET_CLOSEST_VEHICLE_NODE_WITH_HEADING(offset.x, offset.y, offset.z, outCoords, outHeading, 1, 3.0, 0) then
 			local vehicleHash <const> = util.joaat("police3")
 			local pedHash <const> = util.joaat("s_m_y_cop_01")
@@ -1775,7 +1783,7 @@ generate_features = function(pId)
 	-- RAPE
 	-------------------------------------
 
-	local usingPiggyback = false
+	--[[local usingPiggyback = false
 	local usingRape = false
 
 	local helpText = translate("Trolling", "The player won't see you attached to them")
@@ -1804,7 +1812,7 @@ generate_features = function(pId)
 			ENTITY.DETACH_ENTITY(players.user_ped(), true, false)
 		end
 	end)
-
+]]
 	-------------------------------------
 	-- ENEMY VEHICLES
 	-------------------------------------
@@ -1973,7 +1981,7 @@ generate_features = function(pId)
 			local pilot = entities.create_ped(5, pedHash, pos, CAM.GET_GAMEPLAY_CAM_ROT(0).z)
 			ENTITY.SET_ENTITY_AS_MISSION_ENTITY(pilot, false, true)
 			PED.SET_PED_INTO_VEHICLE(pilot, jet, -1)
-			TASK.TASK_PLANE_MISSION(pilot, jet, 0, target, 0.0, 0.0, 0.0, 6, 100.0, 0.0, 0.0, 80.0, 50.0, 0)
+			TASK.TASK_PLANE_MISSION(pilot, jet, 0, target, 0.0, 0.0, 0.0, 6, 100.0, 0.0, 0.0, 80.0, 50.0, false)
 			PED.SET_PED_COMBAT_ATTRIBUTES(pilot, 1, true)
 			VEHICLE.SET_VEHICLE_FORWARD_SPEED(jet, 60.0)
 		end
@@ -2411,7 +2419,7 @@ generate_features = function(pId)
 	-- PIGGY BACK
 	-------------------------------------
 
-	local helpText = translate("Trolling", "The player won't see you attached to them")
+	--[[local helpText = translate("Trolling", "The player won't see you attached to them")
 	menu.toggle(trollingOpt, translate("Trolling", "Piggy Back"), {}, helpText, function (on)
 		if players.user() == pId then return end
 		usingPiggyback = on
@@ -2440,7 +2448,7 @@ generate_features = function(pId)
 			TASK.CLEAR_PED_TASKS_IMMEDIATELY(players.user_ped())
 			ENTITY.DETACH_ENTITY(players.user_ped(), true, false)
 		end
-	end)
+	end)]]
 
 	-------------------------------------
 	-- RAIN ROCKETS
@@ -2608,9 +2616,9 @@ generate_features = function(pId)
 		not is_player_in_interior(pId) then
 
 			if not NETWORK.NETWORK_IS_SCRIPT_ACTIVE("am_gang_call", 0, true, 0) then
-				local bits_addr = memory.script_global(1853348 + (players.user() * 834 + 1) + 140)
+				local bits_addr = memory.script_global(1853910 + (players.user() * 862 + 1) + 140)
 				memory.write_int(bits_addr, SetBit(memory.read_int(bits_addr), 0))
-				write_global.int(1853348 + (players.user() * 834 + 1) + 141, pId)
+				write_global.int(1853910 + (players.user() * 862 + 1) + 141, pId)
 			else
 				notification:help(msg, HudColour.red)
 			end
@@ -2628,9 +2636,9 @@ generate_features = function(pId)
 		not is_player_in_interior(pId) then
 
 			if not NETWORK.NETWORK_IS_SCRIPT_ACTIVE("am_gang_call", 1, true, 0) then
-				local bits_addr = memory.script_global(1853348 + (players.user() * 834 + 1) + 140)
+				local bits_addr = memory.script_global(1853910 + (players.user() * 862 + 1) + 140)
 				memory.write_int(bits_addr, SetBit(memory.read_int(bits_addr), 1))
-				write_global.int(1853348 + (players.user() * 834 + 1) + 141, pId)
+				write_global.int(1853910 + (players.user() * 862 + 1) + 141, pId)
 			else
 				notification:help(msg, HudColour.red)
 			end
@@ -3063,7 +3071,7 @@ end)
 -------------------------------------
 
 menu.action(selfOpt, translate("Self", "Instant Bullshark"), {}, "", function()
-	write_global.int(2703735 + 3576, 1 << 0)
+	write_global.int(2672505 + 3689, 1 << 0)
 end)
 
 -------------------------------------
@@ -3173,7 +3181,7 @@ menu.toggle_loop(selfOpt, translate("Self", "Carpet Ride"), {"carpetride"}, "", 
 		TASK.CLEAR_PED_TASKS_IMMEDIATELY(localPed)
 		object = entities.create_object(objHash, pos)
 		ENTITY.ATTACH_ENTITY_TO_ENTITY(
-			localPed, object, 0, 0, -0.2, 1.0, 0.0, 0.0, 0.0, false, true, false, false, 0, true, false
+			localPed, object, 0, 0, -0.2, 1.0, 0.0, 0.0, 0.0, false, true, false, false, 0, true, 0
 		)
 		ENTITY.SET_ENTITY_COMPLETELY_DISABLE_COLLISION(object, false, false)
 
@@ -3379,7 +3387,7 @@ end)
 -------------------------------------
 
 local is_player_pointing = function ()
-	return read_global.int(4521801 + 930) == 3
+	return read_global.int(4521801 + 930) == 3 -- didn't change
 end
 
 local targetEntity = NULL
@@ -3524,7 +3532,7 @@ menu.toggle_loop(weaponOpt, translate("Weapon - Shooting Effect", "Shooting Effe
 		STREAMING.REQUEST_NAMED_PTFX_ASSET(effect.asset)
 
 	elseif PED.IS_PED_SHOOTING(players.user_ped()) then
-		local weapon = WEAPON.GET_CURRENT_PED_WEAPON_ENTITY_INDEX(players.user_ped(), false)
+		local weapon = WEAPON.GET_CURRENT_PED_WEAPON_ENTITY_INDEX(players.user_ped(), 0)
 		local boneId = ENTITY.GET_ENTITY_BONE_INDEX_BY_NAME(weapon, "gun_muzzle")
 		GRAPHICS.USE_PARTICLE_FX_ASSET(effect.asset)
 		GRAPHICS.START_PARTICLE_FX_NON_LOOPED_ON_ENTITY_BONE(
@@ -4788,7 +4796,7 @@ local subHandlingClasses =
 
 ---@param subHandling integer
 ---@return integer
-local function get_sub_handling_type(subHandling)
+local function getSubHandlingType(subHandling)
 	local funAddress = memory.read_long(memory.read_long(subHandling) + 16)
 	return util.call_foreign_function(funAddress, subHandling)
 end
@@ -4796,7 +4804,7 @@ end
 
 ---@param handlingData integer
 ---@return {type: integer, address: integer}[]
-local function get_sub_handling_array(handlingData)
+local function getSubHandlingArray(handlingData)
 	local subHandlingArray = memory.read_long(handlingData + 0x158)
 	local numSubHandling = memory.read_ushort(handlingData + 0x160)
 	local arr = {}
@@ -4809,7 +4817,7 @@ local function get_sub_handling_array(handlingData)
 			goto NotFound
 		end
 
-		t = get_sub_handling_type(subHandling)
+		t = getSubHandlingType(subHandling)
 		if t >= 0 and t <= 10 then
 			table.insert(arr, {type = t, address = subHandling})
 		end
@@ -4823,9 +4831,9 @@ local function get_sub_handling_array(handlingData)
 end
 
 
-local GetVehicleModelInfo = 0
+local p_getModelInfo = 0
 memory_scan("GVMI", "48 89 5C 24 ? 57 48 83 EC 20 8B 8A ? ? ? ? 48 8B DA", function (address)
-	GetVehicleModelInfo = memory.rip(address + 0x2A)
+	p_getModelInfo = memory.rip(address + 0x2A)
 end)
 
 
@@ -4837,14 +4845,14 @@ end)
 
 ---@param modelHash Hash
 ---@return integer CVehicleModelInfo*
-local function get_vehicle_model_info(modelHash)
-	return util.call_foreign_function(GetVehicleModelInfo, modelHash, NULL)
+local function getModelInfo(modelHash)
+	return util.call_foreign_function(p_getModelInfo, modelHash, NULL)
 end
 
 
 ---@param modelInfo integer CVehicleModelInfo*
 ---@return integer CHandlingData*
-local function get_vehicle_model_handling_data(modelInfo)
+local function getVehicleModelHandlingData(modelInfo)
 	return util.call_foreign_function(GetHandlingDataFromIndex, memory.read_uint(modelInfo + 0x4B8))
 end
 
@@ -5244,18 +5252,18 @@ function HandlingEditor:SetCurrentVehicle(hash)
 	if self.handlingData then self:clear() end
 	self.currentVehicle = hash
 	local root = self.references.root
-	local modelInfo = get_vehicle_model_info(hash)
+	local modelInfo = getModelInfo(hash)
 	if modelInfo == NULL then
 		return
 	end
 
-	local handlingAddress = get_vehicle_model_handling_data(modelInfo)
+	local handlingAddress = getVehicleModelHandlingData(modelInfo)
 	if handlingAddress == NULL then
 		return
 	end
 
 	self.handlingData = HandlingData.new(root, "CHandlingData", handlingAddress, CHandlingData)
-	local subHandlings = get_sub_handling_array(handlingAddress)
+	local subHandlings = getSubHandlingArray(handlingAddress)
 
 	for _, subHandling in ipairs(subHandlings) do
 		if subHandling.address == NULL then
@@ -5918,30 +5926,6 @@ local IsPedAnyAnimal  = function(ped)
 	return false
 end
 
----@param ped Ped
-local IsPedFromAnyArmedForce = function (ped)
-	local modelHash = ENTITY.GET_ENTITY_MODEL(ped)
-	switch int_to_uint(modelHash) do
-		case 0x15F8700D:
-		case 0x625D6958:
-		case 0xEDBC7546:
-		case 0xB353629E:
-		case 0x5E3DA4A4:
-		case 0xB6B1EDA8:
-		case 0x8D8F1B10:
-		case 0xF2DAA2ED:
-		case 0x65793043:
-		case 0x58D696FE:
-		case 0x72C0CAD2:
-		case 0xF0259D83:
-		case 0xB3F3EE34:
-		case 0x7A05FA59:
-		case 0x62CC28E2:
-		case 0xCA0050E9:
-			return true
-	end
-	return false
-end
 
 ---@diagnostic enable: exp-in-action, unknown-symbol, break-outside, code-after-break, miss-symbol
 ---@class Member
@@ -5971,32 +5955,31 @@ function Member.new(ped)
 	TASK.CLEAR_PED_TASKS(ped)
 	PED.SET_PED_HIGHLY_PERCEPTIVE(ped, true)
 	PED.SET_PED_SEEING_RANGE(ped, 100.0)
+
 	PED.SET_PED_CAN_PLAY_AMBIENT_ANIMS(ped, false)
 	PED.SET_PED_CAN_PLAY_AMBIENT_BASE_ANIMS(ped, false)
-	PED.SET_PED_CONFIG_FLAG(ped, 208, true)
+
+	PED.SET_PED_CONFIG_FLAG(ped, 208, true) 		-- PCF_DisableExplosionReactions
+	PED.SET_PED_CONFIG_FLAG(ped, 400, true)			-- PCF_IgnorePedTypeForIsFriendlyWith
+
 	PED.SET_COMBAT_FLOAT(ped, 12, 1.0)
-	PED.SET_RAGDOLL_BLOCKING_FLAGS(ped, 1)
-	PED.SET_RAGDOLL_BLOCKING_FLAGS(ped, 4)
-	PED.SET_PED_COMBAT_ATTRIBUTES(ped, 5, true)
-	PED.SET_PED_COMBAT_ATTRIBUTES(ped, 1, true)
-	PED.SET_PED_COMBAT_ATTRIBUTES(ped, 0, false)
-	PED.SET_PED_COMBAT_ATTRIBUTES(ped, 46, true)
+
+	PED.SET_RAGDOLL_BLOCKING_FLAGS(ped, 1)			-- RBF_BULLET_IMPACT
+	PED.SET_RAGDOLL_BLOCKING_FLAGS(ped, 4)			-- RBF_FIRE
+
+	PED.SET_PED_COMBAT_ATTRIBUTES(ped, 5, true) 	-- CA_ALWAYS_FIGHT
+	PED.SET_PED_COMBAT_ATTRIBUTES(ped, 1, true) 	-- CA_USE_VEHICLE
+	PED.SET_PED_COMBAT_ATTRIBUTES(ped, 0, false) 	-- CA_USE_COVER
+	PED.SET_PED_COMBAT_ATTRIBUTES(ped, 46, true)	-- CA_CAN_FIGHT_ARMED_PEDS_WHEN_NOT_ARMED
+	PED.SET_PED_COMBAT_ATTRIBUTES(ped, 58, true)	-- CA_DISABLE_FLEE_FROM_COMBAT
+
+	PED.SET_PED_FLEE_ATTRIBUTES(ped, 512, true) 	-- FA_NEVER_FLEE
+
 	PED.SET_PED_ALLOW_VEHICLES_OVERRIDE(ped, true)
-	PED.FORCE_PED_AI_AND_ANIMATION_UPDATE(ped, false, false)
-	--PED.SET_PED_CONFIG_FLAG(ped, 220, true)
 	add_ai_blip_for_ped(ped, true, false, 100.0, 2, -1)
-
-	if IsPedFromAnyArmedForce(ped) then
-		PED.SET_PED_CONFIG_FLAG(ped, 400, true)
-	elseif IsPedAnyAnimal(ped) then
-		WEAPON.SET_PED_DROPS_WEAPONS_WHEN_DEAD(ped, false)
-		PED.SET_PED_FLEE_ATTRIBUTES(ped, 16384, true)
-		PED.SET_PED_COMBAT_ATTRIBUTES(ped, 58, true)
-		PED.SET_PED_FLEE_ATTRIBUTES(ped, 1024, true)
-	end
-
 	return self
 end
+
 
 ---@diagnostic enable:undefined-global
 ---@param modelHash? Hash
@@ -6009,7 +5992,7 @@ function Member:createMember(modelHash)
 		ped = entities.create_ped(28, modelHash, pos, 0.0)
 	else
 		local userModelHash = ENTITY.GET_ENTITY_MODEL(players.user_ped())
-		ped = entities.create_ped(28, userModelHash, pos, 0)
+		ped = entities.create_ped(28, userModelHash, pos, 0.0)
 	end
 	NETWORK.SET_NETWORK_ID_EXISTS_ON_ALL_MACHINES(NETWORK.PED_TO_NET(ped), true)
 	ENTITY.SET_ENTITY_AS_MISSION_ENTITY(ped, false, true)
@@ -6027,9 +6010,12 @@ function Member:removeMgr()
 	menu.delete(self.mgr); self.mgr = 0
 end
 
+
 function Member:delete()
-	if ENTITY.DOES_ENTITY_EXIST(self.handle) and request_control(self.handle, 1000) then
-		entities.delete_by_handle(self.handle); self.handle = 0
+	if ENTITY.DOES_ENTITY_EXIST(self.handle)
+	and request_control(self.handle, 1000) then
+		entities.delete_by_handle(self.handle);
+		self.handle = 0
 	end
 end
 
@@ -6101,12 +6087,14 @@ function Member:setInvincible(value)
 	menu.set_value(self.references.invincible, value)
 end
 
+
 ---@param weaponHash Hash
 function Member:giveWeapon(weaponHash)
 	WEAPON.REMOVE_ALL_PED_WEAPONS(self.handle, true)
 	WEAPON.GIVE_WEAPON_TO_PED(self.handle, weaponHash, 9999, true, true)
 	WEAPON.SET_CURRENT_PED_WEAPON(self.handle, weaponHash, false)
 end
+
 
 ---@param vehicle Vehicle
 function Member:tpToVehicle(vehicle)
@@ -6121,6 +6109,7 @@ function Member:tpToVehicle(vehicle)
 	PED.SET_PED_INTO_VEHICLE(self.handle, vehicle, seat)
 end
 
+
 function Member:tpToLeader()
 	local pos = get_random_offset_from_entity(players.user_ped(), 2.0, 3.0)
 	pos.z = pos.z - 1.0
@@ -6128,10 +6117,12 @@ function Member:tpToLeader()
 	set_entity_face_entity(self.handle, players.user_ped(), false)
 end
 
+
 function Member:tp()
 	assert(self.references.teleport ~= 0, "bodyguard manager not found")
 	menu.trigger_command(self.references.teleport, "")
 end
+
 
 function Member:getInfo()
 	local pWeaponHash = memory.alloc_int()
@@ -6143,6 +6134,7 @@ function Member:getInfo()
 	}
 	return tbl
 end
+
 
 ---@return boolean
 ---@return string? errmsg
@@ -6168,6 +6160,7 @@ function Member:save()
 	file:close()
 	return true
 end
+
 
 ---@param obj Outfit
 ---@return boolean
@@ -6260,7 +6253,7 @@ function Group:pushMember(member)
 	end
 	PED.SET_PED_RELATIONSHIP_GROUP_HASH(member.handle, self.rg)
 	PED.SET_GROUP_SEPARATION_RANGE(self.getID(), 9999.0)
-	PED.SET_GROUP_FORMATION_SPACING(self.getID(), 1.0, 0.9, 3.0)
+	PED.SET_GROUP_FORMATION_SPACING(self.getID(), 1.0, -1.0, -1.0)
 	PED.SET_GROUP_FORMATION(self.getID(), self.formation)
 	table.insert(self.members, member)
 	self.numMembers = self.numMembers + 1
@@ -6774,7 +6767,7 @@ local services <const> = menu.list(menu.my_root(), translate("Services", "Servic
 -------------------------------------
 
 function CanSpawnNanoDrone()
-	return BitTest(read_global.int(1958711), 23)
+	return BitTest(read_global.int(1962996), 23)
 end
 
 function CanUseDrone()
@@ -6810,7 +6803,7 @@ function CanUseDrone()
 end
 
 menu.action(services, translate("Services", "Instant Nano Drone"), {}, "", function()
-	local p_bits = memory.script_global(1958711)
+	local p_bits = memory.script_global(1962996)
 	local bits = memory.read_int(p_bits)
 	if CanUseDrone() and not BitTest(bits, 24) then
 		TASK.CLEAR_PED_TASKS(players.user_ped())
@@ -6826,8 +6819,8 @@ end)
 menu.action(services, translate("Services", "Request Luxury Helicopter"), {}, "", function()
 	if NETWORK.NETWORK_IS_SESSION_ACTIVE() and
 	not NETWORK.NETWORK_IS_SCRIPT_ACTIVE("am_heli_taxi", -1, true, 0) then
-		write_global.int(2815059 + 876, 1)
-		write_global.int(2815059 + 883, 1)
+		write_global.int(2793044 + 888, 1)
+		write_global.int(2793044 + 895, 1)
 	end
 end)
 
@@ -6839,16 +6832,16 @@ end)
 ---@return boolean
 function DoesPlayerOwnBandito(player)
 	if player ~= -1 then
-		local address = memory.script_global(1853348 + (player * 834 + 1) + 267 + 284)
+		local address = memory.script_global(1853910 + (player * 862 + 1) + 267 + 299)
 		return BitTest(memory.read_int(address), 4)
 	end
 	return false
 end
 
 menu.action(services, translate("Services", "Instant RC Bandito"), {}, "", function()
-	write_global.int(2815059 + 6751, 1)
+	write_global.int(2793044 + 6874, 1)
 	if not DoesPlayerOwnBandito(players.user()) then
-		local address = memory.script_global(1853348 + (players.user() * 834 + 1) + 267 + 284)
+		local address = memory.script_global(1853910 + (players.user() * 862 + 1) + 267 + 299)
 		memory.write_int(address, SetBit(memory.read_int(address), 4))
 	end
 end)
@@ -6861,16 +6854,16 @@ end)
 ---@return boolean
 function DoesPlayerOwnMinitank(player)
 	if player ~= -1 then
-		local address = memory.script_global(1853348 + (player * 834 + 1) + 267 + 408 + 2)
+		local address = memory.script_global(1853910 + (player * 862 + 1) + 267 + 428 + 2)
 		return BitTest(memory.read_int(address), 15)
 	end
 	return false
 end
 
 menu.action(services, translate("Services", "Instant RC Tank"), {}, "", function ()
-	write_global.int(2815059 + 6752, 1)
+	write_global.int(2793044 + 6875, 1)
 	if not DoesPlayerOwnMinitank(players.user()) then
-		local address = memory.script_global(1853348 + (players.user() * 834 + 1) + 267 + 408 + 2)
+		local address = memory.script_global(1853910 + (players.user() * 862 + 1) + 267 + 428 + 2)
 		memory.write_int(address, SetBit(memory.read_int(address), 15))
 	end
 end)
@@ -6904,31 +6897,31 @@ translate("Protections", "Notifies when a player is flying a drone or launched a
 
 ---@param player Player
 ---@return boolean
-local function IsPlayerFlyingAnyDrone(player)
-	local address = memory.script_global(1853348 + (player * 834 + 1) + 267 + 348)
+local function isPlayerFlyingAnyDrone(player)
+	local address = memory.script_global(1853910 + (player * 862 + 1) + 267 + 365)
 	return BitTest(memory.read_int(address), 26)
 end
 
 
 ---@param player Player
 ---@return integer
-local function GetPlayerDroneType(player)
-	local p_type = memory.script_global(1911933 + (player * 260 + 1) + 93)
+local function getDroneType(player)
+	local p_type = memory.script_global(1914091 + (player * 297 + 1) + 97)
 	return memory.read_int(p_type)
 end
 
 
 ---@param player Player
 ---@return Object
-local function GetPlayerDroneObject(player)
-	local p_object = memory.script_global(1911933 + (players.user() * 260 + 1) + 60 + (player + 1))
+local function getPlayerDroneObject(player)
+	local p_object = memory.script_global(1914091 + (players.user() * 297 + 1) + 64 + (player + 1))
 	return memory.read_int(p_object)
 end
 
 
 ---@param heading number
 ---@return number
-local function InvertHeading(heading)
+local function invertHeading(heading)
 	if heading > 180.0 then
 		return heading - 180.0
 	end
@@ -6938,14 +6931,14 @@ end
 
 ---@param droneType integer
 ---@return integer
-local function GetDroneBlipSprite(droneType)
+local function getDroneBlipSprite(droneType)
 	return (droneType == 8 or droneType == 4) and 548 or 627
 end
 
 
 ---@param droneType integer
 ---@return string
-local function GetNotificationMsg(droneType, nearby)
+local function getNotificationMsg(droneType, nearby)
 	if droneType == 8 or droneType == 4 then
 		return nearby and trans.NearMissile or trans.LaunchedMissile
 	end
@@ -6954,7 +6947,7 @@ end
 
 
 ---@param index integer
-local function RemoveBlipIndex(index)
+local function removeBlipIndex(index)
 	if HUD.DOES_BLIP_EXIST(blips[index]) then
 		util.remove_blip(blips[index]); blips[index] = 0
 	end
@@ -6962,20 +6955,20 @@ end
 
 
 ---@param player Player
-function AddBlipForPlayerDrone(player)
+function addBlipForPlayerDrone(player)
 	if not blips[player] then
 		blips[player] = 0
 	end
 
-	if is_player_active(player, true, true) and players.user() ~= player and IsPlayerFlyingAnyDrone(player) then
-		if ENTITY.DOES_ENTITY_EXIST(GetPlayerDroneObject(player)) then
-			local obj = GetPlayerDroneObject(player)
+	if is_player_active(player, true, true) and players.user() ~= player and isPlayerFlyingAnyDrone(player) then
+		if ENTITY.DOES_ENTITY_EXIST(getPlayerDroneObject(player)) then
+			local obj = getPlayerDroneObject(player)
 			local pos = ENTITY.GET_ENTITY_COORDS(obj, true)
-			local heading = InvertHeading(ENTITY.GET_ENTITY_HEADING(obj))
+			local heading = invertHeading(ENTITY.GET_ENTITY_HEADING(obj))
 
 			if not HUD.DOES_BLIP_EXIST(blips[player]) then
 				blips[player] = HUD.ADD_BLIP_FOR_ENTITY(obj)
-				local sprite = GetDroneBlipSprite(GetPlayerDroneType(player))
+				local sprite = getDroneBlipSprite(getDroneType(player))
 				HUD.SET_BLIP_SPRITE(blips[player], sprite)
 				HUD.SHOW_HEIGHT_ON_BLIP(blips[player], false)
 				HUD.SET_BLIP_SCALE(blips[player], 0.8)
@@ -6990,24 +6983,24 @@ function AddBlipForPlayerDrone(player)
 			end
 
 			if not BitTest(nearbyNotificationBits, player) and HUD.DOES_BLIP_EXIST(blips[player]) then
-				local msg = GetNotificationMsg(GetPlayerDroneType(player), true)
+				local msg = getNotificationMsg(getDroneType(player), true)
 				notification:normal(msg, HudColour.purpleDark, get_condensed_player_name(player))
 				nearbyNotificationBits = SetBit(nearbyNotificationBits, player)
 			end
 
 		else
-			RemoveBlipIndex(player)
+			removeBlipIndex(player)
 			nearbyNotificationBits = ClearBit(nearbyNotificationBits, player)
 		end
 
 		if not BitTest(notificationBits, player) then
-			local msg = GetNotificationMsg(GetPlayerDroneType(player), false)
+			local msg = getNotificationMsg(getDroneType(player), false)
 			notification:normal(msg, HudColour.purpleDark, get_condensed_player_name(player))
 			notificationBits = SetBit(notificationBits, player)
 		end
 
 	else
-		RemoveBlipIndex(player)
+		removeBlipIndex(player)
 		notificationBits = ClearBit(notificationBits, player)
 		nearbyNotificationBits = ClearBit(nearbyNotificationBits, player)
 	end
@@ -7016,10 +7009,10 @@ end
 
 menu.toggle_loop(protectionOpt, translate("Protections", "Drone/Missile Detection"), {}, help, function ()
 	if NETWORK.NETWORK_IS_SESSION_ACTIVE() then
-		for player = 0, 32 do AddBlipForPlayerDrone(player) end
+		for player = 0, 32 do addBlipForPlayerDrone(player) end
 	end
 end, function()
-	for i in pairs(blips) do RemoveBlipIndex(i) end
+	for i in pairs(blips) do removeBlipIndex(i) end
 	notificationBits = 0
 	nearbyNotificationBits = 0
 end)
@@ -7276,7 +7269,7 @@ local align
 
 credits = 
 menu.toggle_loop(script, translate("WiriScript", "Show Credits"), {}, "", function()
-	if gShowingIntro then
+	if g_ShowingIntro then
 		-- nothing
 	elseif openingCredits:HAS_LOADED() then
 		if state == 0 then
@@ -7362,7 +7355,7 @@ menu.toggle_loop(script, translate("WiriScript", "Show Credits"), {}, "", functi
 		openingCredits:REQUEST_SCALEFORM_MOVIE()
 	end
 end, function ()
-	if not gShowingIntro then
+	if not g_ShowingIntro then
 		AUDIO.SET_MOBILE_RADIO_ENABLED_DURING_GAMEPLAY(false)
 		AUDIO.SET_MOBILE_PHONE_RADIO_STATE(false)
 		AUDIO.CLEAR_CUSTOM_RADIO_TRACK_LIST("RADIO_01_CLASS_ROCK")
@@ -7386,7 +7379,7 @@ menu.hyperlink(menu.my_root(), menuName:format("WiriScript FanClub"), "https://c
 
 
 
-players.on_join(generate_features)
+players.on_join(NetworkPlayerOpts)
 players.dispatch_on_join()
 util.log("On join dispatched")
 
@@ -7503,7 +7496,7 @@ util.on_stop(function()
 		GuidedMissile.destroy()
 	end
 
-	if gShowingIntro then
+	if g_ShowingIntro then
 		openingCredits:SET_AS_NO_LONGER_NEEDED()
 	end
 
