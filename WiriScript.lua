@@ -5387,11 +5387,18 @@ local objModels <const> = {
 	"imp_prop_ship_01a",
 	"sum_prop_dufocore_01a"
 }
+
+modelIndex = 1
+
 local options <const> = {translate("UFO", "Alien UFO"), translate("UFO", "Military UFO")}
 local helpText = translate("UFO", "Drive an UFO, use its tractor beam and cannon")
 
-menu.action_slider(vehicleOptions, translate("UFO", "UFO"), {"ufo"}, helpText, options, function (index)
-	local obj = objModels[index]
+menu.list_select(vehicleOptions, translate("UFO Type", "UFO Type"), {"ufotype"}, "", options, 1, function(index)
+	modelIndex = index
+end)
+
+menu.action(vehicleOptions, translate("Spawn UFO", "Spawn UFO"), {"ufo", "spawnufo"}, "", function ()
+	local obj = objModels[modelIndex]
 	UFO.setObjModel(obj)
 	if not (GuidedMissile.exists() or UFO.exists()) then UFO.create() end
 end)
