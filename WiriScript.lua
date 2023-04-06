@@ -7,7 +7,7 @@ THIS FILE IS PART OF WIRISCRIPT
 
 ---@diagnostic disable: local-limit
 local scriptStartTime = util.current_time_millis()
-gVersion = 29
+gVersion = 27
 util.require_natives(1663599433)
 
 local required <const> = {
@@ -1990,7 +1990,7 @@ NetworkPlayerOpts = function(pId)
 	end
 
 
-	menu.action_slider(enemyVehiclesOpt, translate("Trolling - Enemy Vehicles", "Send Enemy Vehicle"), {}, "", options, function(index, option)
+	menu.textslider(enemyVehiclesOpt, translate("Trolling - Enemy Vehicles", "Send Enemy Vehicle"), {}, "", options, function(index, option)
 		local i = 0
 		while i < count and players.exists(pId) do
 			if option == "Minitank" then
@@ -2017,7 +2017,7 @@ NetworkPlayerOpts = function(pId)
 	}
 	local name_minitankWeapon = translate("Trolling - Enemy Vehicles", "Minitank Weapon")
 
-	menu.slider_text(enemyVehiclesOpt, name_minitankWeapon, {}, "", gunnerWeaponNames, function(index)
+	menu.textslider_stateful(enemyVehiclesOpt, name_minitankWeapon, {}, "", gunnerWeaponNames, function(index)
 		if index == 1 then
 			weaponModId = minitankModIds.stockWeapon
 		elseif index == 2 then
@@ -2030,7 +2030,7 @@ NetworkPlayerOpts = function(pId)
 	-- Gunners weapon
 	local gunnerWeapons <const> = {"weapon_mg", "weapon_rpg"}
 	local enemVehOptions <const> =	{util.get_label_text("WT_MG"), util.get_label_text("WT_RPG")}
-	menu.slider_text(enemyVehiclesOpt, translate("Trolling - Enemy Vehicles", "Gunners Weapon"), {}, "", enemVehOptions, function(index)
+	menu.textslider_stateful(enemyVehiclesOpt, translate("Trolling - Enemy Vehicles", "Gunners Weapon"), {}, "", enemVehOptions, function(index)
 		gunnerWeapon = util.joaat(gunnerWeapons[index])
 	end)
 
@@ -2070,7 +2070,7 @@ NetworkPlayerOpts = function(pId)
 	local damageOpt <const> = menu.list(trollingOpt, translate("Trolling", "Damage"), {}, helpText)
 
 	menu.toggle(damageOpt, translate("Trolling - Damage", "Spectate"), {}, "", function(toggle)
-		local reference = menu.ref_by_path("Players>" .. players.get_name_with_tags(pId) .. ">Spectate>Ninja Method", 33)
+		local reference = menu.ref_by_path("Players>" .. players.get_name_with_tags(pId) .. ">Spectate>Nuts Method", 33)
 		menu.trigger_command(reference, toggle and "on" or "off")
 	end)
 
@@ -2251,7 +2251,7 @@ NetworkPlayerOpts = function(pId)
 	local selectedMine = 1
 	local mineSlider
 
-	menu.action_slider(trollyVehicles, translate("Trolling", "Send Trolly Vehicle"), {}, "", options, function (index, opt)
+	menu.textslider(trollyVehicles, translate("Trolling", "Send Trolly Vehicle"), {}, "", options, function (index, opt)
 		local pedHash <const> = util.joaat("mp_m_freemode_01")
 		local i = 0
 		repeat
@@ -2366,7 +2366,7 @@ NetworkPlayerOpts = function(pId)
 
 	local options = {util.get_label_text("BAND_BOMB"), util.get_label_text("TOP_MINE")}
 	local menuName = translate("Trolling - Trolly Vehicles", "Bandito Weapon")
-	menu.slider_text(trollyVehicles, menuName, {}, "", options, function (index, value)
+	menu.textslider_stateful(trollyVehicles, menuName, {}, "", options, function (index, value)
 		if index == 1 then
 			attacktype = AttackType.explode
 			menu.set_visible(mineSlider, false)
@@ -2378,7 +2378,7 @@ NetworkPlayerOpts = function(pId)
 
 	local mines = {util.get_label_text("KINET_MINE"), util.get_label_text("EMP_MINE")}
 	local menuName = translate("Trolling - Trolly Vehicles", "Mine")
-	mineSlider = menu.slider_text(trollyVehicles, menuName, {}, "", mines, function (index, value)
+	mineSlider = menu.textslider_stateful(trollyVehicles, menuName, {}, "", mines, function (index, value)
 		selectedMine = index
 	end)
 
@@ -2402,7 +2402,7 @@ NetworkPlayerOpts = function(pId)
 	-------------------------------------
 
 	local options <const> = {"Insurgent", "Phantom Wedge",  "Adder"}
-	menu.action_slider(trollingOpt, translate("Trolling", "Ram Player"), {"ram"}, "", options, function (index)
+	menu.textslider(trollingOpt, translate("Trolling", "Ram Player"), {"ram"}, "", options, function (index)
 		local vehicles <const> = {"insurgent2", "phantom2", "adder"}
 		local vehicleName = vehicles[index]
 		local vehicleHash <const> = util.joaat(vehicleName)
@@ -2522,7 +2522,7 @@ NetworkPlayerOpts = function(pId)
 
 
 	local options <const> = {translate("Forcefield", "Push Out"), translate("Forcefield", "Destroy")}
-	menu.slider_text(trollingOpt, translate("Forcefield", "Set Forcefield"), {}, "", options, function(index)
+	menu.textslider_stateful(trollingOpt, translate("Forcefield", "Set Forcefield"), {}, "", options, function(index)
 		selectedOpt = index
 	end)
 
@@ -2531,7 +2531,7 @@ NetworkPlayerOpts = function(pId)
 	-------------------------------------
 
 	local options <const> = {"Lazer", "Mammatus",  "Cuban800"}
-	menu.action_slider(trollingOpt, translate("Trolling", "Kamikaze"), {}, "", options, function (index, plane)
+	menu.textslider(trollingOpt, translate("Trolling", "Kamikaze"), {}, "", options, function (index, plane)
 		local hash <const> = util.joaat(plane)
 		request_model(hash)
 		local targetPed = PLAYER.GET_PLAYER_PED_SCRIPT_INDEX(pId)
@@ -3108,7 +3108,7 @@ end, function()
 end)
 
 
-menu.slider_text(selfOpt, translate("Forcefield", "Set Forcefield"), {}, "", options, function(index)
+menu.textslider_stateful(selfOpt, translate("Forcefield", "Set Forcefield"), {}, "", options, function(index)
 	selectedOpt = index
 end)
 
@@ -3551,7 +3551,7 @@ local options <const> = {
 	translate("Weapon - Shooting Effect", "Clown Muzzle"),
 	translate("Weapon - Shooting Effect", "Clown Flowers")
 }
-menu.slider_text(weaponOpt, translate("Weapon - Shooting Effect", "Set Shooting Effect"), {}, "", options, function (index)
+menu.textslider_stateful(weaponOpt, translate("Weapon - Shooting Effect", "Set Shooting Effect"), {}, "", options, function (index)
 	selectedOpt = index
 end)
 
@@ -3589,7 +3589,7 @@ menu.toggle_loop(weaponOpt, translate("Weapon", "Magnet Gun"), {"magnetgun"}, ""
 end)
 
 local options <const> = {translate("Weapon - Magnet Gun", "Smooth"), translate("Weapon - Magnet Gun", "Chaos Mode")}
-menu.slider_text(weaponOpt, translate("Weapon", "Set Magnet Gun"), {}, "", options, function(index)
+menu.textslider_stateful(weaponOpt, translate("Weapon", "Set Magnet Gun"), {}, "", options, function(index)
 	selectedOpt = index
 end)
 
@@ -3825,6 +3825,32 @@ local vehicles <const> =
 	"insurgent2",
 	"phantom2",
 }
+function newTimer()
+	local self = {
+		start = util.current_time_millis(),
+		m_enabled = false,
+	}
+
+	local function reset()
+		self.start = util.current_time_millis()
+		self.m_enabled = true
+	end
+
+	local function elapsed()
+		return util.current_time_millis() - self.start
+	end
+
+	local function disable() self.m_enabled = false end
+	local function isEnabled() return self.m_enabled end
+
+	return
+	{
+		isEnabled = isEnabled,
+		reset = reset,
+		elapsed = elapsed,
+		disable = disable,
+	}
+end
 local modelHash = util.joaat("adder")
 local preview <const> = Preview.new(modelHash)
 local setIntoVehicle = false
@@ -4575,10 +4601,10 @@ CHandlingData =
 	{"fSeatOffsetDistY", 0x0110},
 	{"fSeatOffsetDistZ", 0x0114},
 	--{"nMonetaryValue", 0x0118},
-	--{"strModelFlags", 0x0124},
-	--{"strHandlingFlags", 0x0128},
+	--{"strModelFlags", 0x0128},
 	--{"strDamageFlags", 0x012C},
 	--{"AIHandling", 0x013C},
+	--{"strHandleFlags", 0x0128},
 }
 
 CFlyingHandlingData =
@@ -5390,7 +5416,7 @@ local objModels <const> = {
 local options <const> = {translate("UFO", "Alien UFO"), translate("UFO", "Military UFO")}
 local helpText = translate("UFO", "Drive an UFO, use its tractor beam and cannon")
 
-menu.action_slider(vehicleOptions, translate("UFO", "UFO"), {"ufo"}, helpText, options, function (index)
+menu.textslider(vehicleOptions, translate("UFO", "UFO"), {"ufo"}, helpText, options, function (index)
 	local obj = objModels[index]
 	UFO.setObjModel(obj)
 	if not (GuidedMissile.exists() or UFO.exists()) then UFO.create() end
@@ -5502,7 +5528,7 @@ local options <const> = {
 	translate("Vehicle Effects", "Alien Disintegration"),
 	translate("Vehicle Effects", "Firey Particles"),
 }
-menu.slider_text(vehicleOptions, translate("Vehicle Effects", "Set Vehicle Effect"), {}, "",
+menu.textslider_stateful(vehicleOptions, translate("Vehicle Effects", "Set Vehicle Effect"), {}, "",
 	options, function (index) selectedOpt = index end)
 
 -------------------------------------
@@ -6448,7 +6474,7 @@ function BodyguardMenu:createCommands(parent)
 		translate("Bg Menu", "Freedom"), translate("Bg Menu", "Circle"),
 		translate("Bg Menu", "Line"), translate("Bg Menu", "Arrow")
 	}
-	menu.slider_text(list, translate("Bg Menu", "Group Formation"), {"groupformation"}, "", formations, function (index)
+	menu.textslider_stateful(list, translate("Bg Menu", "Group Formation"), {"groupformation"}, "", formations, function (index)
 		local formation
 		if index == 1 then
 			formation = Formation.freedomToMove
@@ -6819,8 +6845,8 @@ end)
 menu.action(services, translate("Services", "Request Luxury Helicopter"), {}, "", function()
 	if NETWORK.NETWORK_IS_SESSION_ACTIVE() and
 	not NETWORK.NETWORK_IS_SCRIPT_ACTIVE("am_heli_taxi", -1, true, 0) then
-		write_global.int(2793044 + 888, 1)
-		write_global.int(2793044 + 895, 1)
+		write_global.int(2793046 + 888, 1)
+		write_global.int(2793046 + 895, 1)
 	end
 end)
 
@@ -6839,7 +6865,7 @@ function DoesPlayerOwnBandito(player)
 end
 
 menu.action(services, translate("Services", "Instant RC Bandito"), {}, "", function()
-	write_global.int(2793044 + 6874, 1)
+	write_global.int(2793046 + 6874, 1)
 	if not DoesPlayerOwnBandito(players.user()) then
 		local address = memory.script_global(1853910 + (players.user() * 862 + 1) + 267 + 299)
 		memory.write_int(address, SetBit(memory.read_int(address), 4))
@@ -6861,7 +6887,7 @@ function DoesPlayerOwnMinitank(player)
 end
 
 menu.action(services, translate("Services", "Instant RC Tank"), {}, "", function ()
-	write_global.int(2793044 + 6875, 1)
+	write_global.int(2793046 + 6875, 1)
 	if not DoesPlayerOwnMinitank(players.user()) then
 		local address = memory.script_global(1853910 + (players.user() * 862 + 1) + 267 + 428 + 2)
 		memory.write_int(address, SetBit(memory.read_int(address), 15))
